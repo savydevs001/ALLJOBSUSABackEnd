@@ -1,0 +1,96 @@
+// models/Order.js
+import mongoose from "mongoose";
+const { Schema, model, Types } = mongoose;
+
+// Milestone Sub-schema
+const milestoneSchema = new Schema(
+  {
+    name: { type: String, required: true },
+    dueDate: { type: Date, required: true },
+    amount: { type: Number, required: true },
+    status: {
+      type: String,
+      enum: ["completed", "pending"],
+      default: "pending",
+    },
+  },
+  { _id: false }
+);
+
+// Dispute Details Sub-schema
+const disputeSchema = new Schema(
+  {
+    raisedBy: { type: Types.ObjectId, ref: "User", required: true },
+    reason: { type: String, required: true },
+    raisedAt: { type: Date, default: Date.now },
+    resolutionStatus: {
+      type: String,
+      enum: [
+        "pending",
+        "resolved_in_favor_employer",
+        "resolved_in_favor_freelancer",
+      ],
+      default: "pending",
+    },
+  },
+  { _id: false }
+);
+
+// Order Schema
+const orderSchema = new Schema(
+  {
+    offerId: { type: Types.ObjectId, ref: "Offer", required: true },
+    jobId: { type: Types.ObjectId, ref: "Job" }, // optional
+    employerId: { type: Types.ObjectId, ref: "User", required: true },
+    freelancerId: { type: Types.ObjectId, ref: "User", required: true },
+    intentId: String,
+
+    title: { type: String, required: true },
+    description: { type: String, required: true },
+
+    totalAmount: { type: Number, required: true },
+
+    status: {
+      type: String,
+      enum: [
+        "payment_pending",
+        "in_progress",
+        "delivered",
+        "completed",
+        "disputed",
+        "cancelled",
+      ],
+      default: "payment_pending",
+    },
+
+    // startDate: { type: Date, required: true },
+    // endDate: { type: Date },
+    // deliveryDate: { type: Date },
+
+    paymentStatus: {
+      type: String,
+      enum: [
+        "payment_pending",
+        "escrow_held",
+        "released_to_freelancer",
+        "refunded",
+      ],
+      default: "payment_pending",
+    },
+
+    milestones: [milestoneSchema],
+
+    disputeDetails: {
+      type: disputeSchema,
+      required: function () {
+        return this.status === "disputed";
+      },
+    },
+  },
+  {
+    timestamps: true, // adds createdAt and updatedAt
+  }
+);
+
+const Order = model("Order", orderSchema);
+export default Order;

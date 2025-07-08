@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Socket Chat Test</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    #messages { border: 1px solid #ccc; padding: 10px; height: 200px; overflow-y: auto; margin-top: 10px; }
+    input, button { padding: 6px; margin-top: 5px; display: block; width: 300px; }
+    label { margin-top: 10px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h2>🔐 Socket Chat Test with JWT</h2>
+
+  <label for="jwt">JWT Token:</label>
+  <input type="text" id="jwt" placeholder="Paste your JWT token" />
+
+  <label for="userId">User ID:</label>
+  <input type="text" id="userId" placeholder="Your user ID" />
+
+  <label for="receiverId">Receiver ID:</label>
+  <input type="text" id="receiverId" placeholder="Receiver user ID" />
+
+  <label for="messageInput">Message:</label>
+  <input type="text" id="messageInput" placeholder="Type your message..." />
+  <button onclick="sendMessage()">Send</button>
+
+  <h3>📨 Messages</h3>
+  <div id="messages"></div>
+
+  <script>
+    let socket;
+
+    const connectSocket = () => {
+      const userId = document.getElementById("userId").value.trim();
+      const token = document.getElementById("jwt").value.trim();
+
+      if (!userId || !token) {
+        return alert("Please provide both User ID and JWT token.");
+      }
+
+      if (socket) socket.disconnect();
+
+      socket = io("http://localhost:8000", {
+        auth: {  token },
+        query: { userId },
+      });
+
+      socket.on("connect", () => {
+        appendMessage("✅ Connected as " + userId);
+      });
+
+      socket.on("receive-message", (data) => {
+        appendMessage(`📥 ${data.senderId}: ${data.message}`);
+      });
+
+      socket.on("disconnect", () => {
+        appendMessage("❌ Disconnected from server");
+      });
+
+      socket.on("connect_error", (err) => {
+        appendMessage("❗ Connection Error: " + err.message);
+      });
+    };
+
+    document.getElementById("userId").addEventListener("change", connectSocket);
+    document.getElementById("jwt").addEventListener("change", connectSocket);
+
+    function sendMessage() {
+      const message = document.getElementById("messageInput").value.trim();
+      const receiverId = document.getElementById("receiverId").value.trim();
+
+      if (!message || !receiverId || !socket) {
+        return alert("Missing data or socket not connected.");
+      }
+
+      socket.emit("send-message", {
+        to: receiverId,
+        content: message,
+      });
+
+      appendMessage(`🧑‍💬 You: ${message}`);
+      document.getElementById("messageInput").value = "";
+    }
+
+    function appendMessage(text) {
+      const messagesDiv = document.getElementById("messages");
+      const div = document.createElement("div");
+      div.textContent = text;
+      messagesDiv.appendChild(div);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+  </script>
+</body>
+</html>
