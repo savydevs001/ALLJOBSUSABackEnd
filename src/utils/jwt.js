@@ -10,20 +10,22 @@ const verifyToken = (token) => {
   }
 };
 
-const jwtToken = (user) => {
+const jwtToken = (user, role, rememberMe = false) => {
   try {
     if (!user) {
       return null;
     }
+
+    const expiresIn = rememberMe ? "30d" : "1d";
     const token = jwt.sign(
       {
         _id: user._id,
-        role: user.role,
-        email: user.email,
-        profile: user.profile,
+        role: role,
+        fullName: user.fullName,
+        profilePictureUrl: user.profilePictureUrl,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "30d" }
+      { expiresIn: expiresIn }
     );
     return token;
   } catch (err) {

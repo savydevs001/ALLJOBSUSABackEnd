@@ -62,11 +62,11 @@ try {
       credentials: true,
     })
   );
-  app.use(express.static("src/public"));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
   // Routes
+    app.use(express.static("src/public"));
   app.get(
     "/",
     verifyTokenMiddleware("weak"),

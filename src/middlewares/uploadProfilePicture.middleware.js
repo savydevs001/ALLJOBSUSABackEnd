@@ -1,26 +1,22 @@
 import multer from "multer";
 import path from "path";
 
-const folder = "src/public/images/"
+const folder = "src/public/images/";
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    req.folder = folder;
+    req.folder = "images/";
     cb(null, folder);
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
     const uniqueSuffix =
       Date.now() + "-" + Math.round(Math.random() * 1e9) + ext;
-    req.newName = req.folder + uniqueSuffix;
+    req.newName =  + uniqueSuffix;
     cb(null, uniqueSuffix);
   },
 });
 
-const allowedTypes = [
-  "image/jpeg",
-  "image/jpg",
-  "image/png",
-];
+const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
 
 const fileFilter = (req, file, cb) => {
   if (allowedTypes.includes(file.mimetype)) {
@@ -30,5 +26,9 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-const uploadProfilePictureMiddleware = multer({ storage, fileFilter });
+const uploadProfilePictureMiddleware = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: 2 * 1024 * 1024 },
+});
 export default uploadProfilePictureMiddleware;

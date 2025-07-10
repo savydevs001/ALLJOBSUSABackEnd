@@ -1,5 +1,4 @@
 import { z } from "zod";
-import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import crypto from "crypto";
 
@@ -9,24 +8,53 @@ import sendEmail from "../utils/emailSender.js";
 import { notifyUser } from "./notification.controller.js";
 import { createStripeExpressAcount } from "../services/stripe.service.js";
 import { jwtToken } from "../utils/jwt.js";
+import EMPLOYER from "../database/models/employers.model.js";
+import FREELANCER from "../database/models/freelancer.model.js";
 
 dotenv.config();
 
+const PASSWORD_REGEX =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d])[A-Za-z\d\S]{8,}$/;
+
 // ZOD Schemas
-const signupSchema = z.object({
+const signupSchema = z
+  .object({
+    email: z.string().email("Invalid email format"),
+    fullName: z.string().min(1, "Full name is required"),
+    profilePictureUrl: z.string().optional(),
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters long")
+      .regex(
+        PASSWORD_REGEX,
+        "Password must contain uppercase, lowercase, number, and special character"
+      ),
+    confirmPassword: z.string(),
+    role: z.enum(["employer", "freelancer"], {
+      errorMap: () => ({
+        message: "Role must be either 'employer' or 'freelancer'",
+      }),
+    }),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "Passwords do not match",
+    role: z.enum(["employer", "freelancer"], {
+      errorMap: () => ({
+        message: "Role must be either 'employer' or 'freelancer'",
+      }),
+    }),
+  });
+
+const signinSchema = z.object({
   email: z.string().email("Invalid email format"),
-  fullName: z.string().min(1, "Full name is required"),
-  profilePictureUrl: z.string().optional(),
-  password: z.string().min(8, "Password must be at least 8 characters long"),
+  password: z.string("Password is required"),
+  rememberMe: z.boolean(),
   role: z.enum(["employer", "freelancer"], {
     errorMap: () => ({
       message: "Role must be either 'employer' or 'freelancer'",
     }),
   }),
-});
-const signinSchema = z.object({
-  email: z.string().email("Invalid email format"),
-  password: z.string("Password is required"),
 });
 const forgotSchema = z.object({
   email: z.string().email("Invalid email format"),
@@ -40,58 +68,112 @@ const resetPasswordSchema = z.object({
 const signUp = async (req, res) => {
   const { email, fullName, password, role, profilePictureUrl } =
     signupSchema.parse(req.body);
-  const existingUser = await User.findOne({
-    email: email,
-  });
-  if (existingUser) {
-    return res.status(409).json({ message: "Email already registered" });
-  }
 
-  const { salt, hash } = hashPassword(password);
-  const user = new User({
-    email: email,
-    passwordHash: hash,
-    passwordSalt: salt,
-    role: [role],
-    profile: {
+  try {
+    const { salt, hash } = hashPassword(password);
+    const userDetails = {
+      email: email,
       fullName: fullName,
-      profilePictureUrl: profilePictureUrl,
-    },
-  });
-
-  if (user.role.includes("freelancer")) {
-    try {
-      const account = await createStripeExpressAcount(email);
-      user.stripeAccountId = account.id;
-    } catch (err) {
-      console.log("❌ Error creating stripe account: " + err);
-      return res.status(400).json({ message: "Error creating user account" });
+      profilePictureUrl: profilePictureUrl ?? "",
+      password: {
+        salt: salt,
+        hash: hash,
+      },
+      lastLogin: Date.now(),
+    };
+    if (req.file) {
+      userDetails.profilePictureUrl = `${req.newName.replace(/\\/g, "/")}`;
     }
-  }
+    let token = null;
 
-  await user.save();
-  return res.status(201).json({
-    message: "User registered successfully",
-  });
+    if (role === "employer") {
+      // Employer Signup
+      const existing = await EMPLOYER.findOne({
+        email: email,
+      });
+      if (existing)
+        return res
+          .status(409)
+          .json({ message: "Email already registered as a employer" });
+
+      const user = new EMPLOYER(userDetails);
+      await user.save();
+
+      token = jwtToken(user, "employer");
+    } else if (role === "freelancer") {
+      // Freelancer Signup
+      const existing = await FREELANCER.findOne({
+        email: email,
+      });
+      if (existing)
+        return res
+          .status(409)
+          .json({ message: "Email already registered as a freelancer" });
+
+      const user = new FREELANCER(userDetails);
+      try {
+        const account = await createStripeExpressAcount(email);
+        user.stripeAccountId = account.id;
+      } catch (err) {
+        console.log("❌ Error creating stripe account: " + err);
+        return res.status(400).json({ message: "Error creating user account" });
+      }
+      await user.save();
+      token = jwtToken(user, "freelancer");
+    }
+
+    if (token === null) {
+      console.log("❌ Error creating jwt token");
+      return res.status(500).json({ message: "Server Error" });
+    }
+
+    // res.cookie(process.env.JWT_COOKIE_NAME, token, {
+    //   httpOnly: true,
+    //   secure: process.env.NODE_ENV === "production",
+    //   sameSite: "Strict",
+    //   maxAge: 30 * 24 * 60 * 60 * 1000,
+    // });
+
+    return res.status(201).json({
+      message: "Signup successful",
+      token,
+    });
+  } catch (err) {
+    console.error("❌ Sign-up error:", err);
+    return res.status(500).json({ message: "Server Error" });
+  }
 };
 
 const signIn = async (req, res) => {
-  try {
-    const { email, password } = signinSchema.parse(req.body);
+  const { email, password, role, rememberMe } = signinSchema.parse(req.body);
 
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(401).json({ message: "Invalid credentials" });
+  try {
+    let user = null;
+
+    if (role === "employer") {
+      // Employer Signin
+      user = await EMPLOYER.findOne({
+        email: email,
+      });
+    } else if (role === "freelancer") {
+      // Freelancer Signin
+      user = await FREELANCER.findOne({
+        email: email,
+      });
     }
 
-    if (user.status === "suspended" || user.status === "deleted") {
+    if (!user) {
+      return res.status(401).json({ message: "No User found!" });
+    }
+
+    if (["suspended", "deleted"].includes(user.status)) {
       return res.status(403).json({ message: "Account is not active" });
     }
 
     const isMatch = verifyPassword(
       password,
-      user.passwordSalt,
-      user.passwordHash
+      user.password.salt,
+      user.password.hash
     );
 
     if (!isMatch) {
@@ -101,30 +183,26 @@ const signIn = async (req, res) => {
     user.lastLogin = Date.now();
     await user.save();
 
-    const token = jwtToken(user);
+    const token = jwtToken(user, role, rememberMe);
     if (!token) {
       return res.status(500).json({ message: "Server Error" });
     }
 
-    res.cookie(process.env.JWT_COOKIE_NAME, token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "Strict",
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-    });
+    // res.cookie(process.env.JWT_COOKIE_NAME, token, {
+    //   httpOnly: true,
+    //   secure: process.env.NODE_ENV === "production",
+    //   sameSite: "Strict",
+    //   maxAge:
+    //     rememberMe == true ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000,
+    // });
 
     return res.status(200).json({
       message: "Login successful",
       token,
-      user: {
-        id: user._id,
-        role: user.role,
-        email: user.email,
-      },
     });
   } catch (err) {
     console.error("❌ Sign-in error:", err);
-    return res.status(500).json({ message: "Something went wrong" });
+    return res.status(500).json({ message: "Server Error" });
   }
 };
 
