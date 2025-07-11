@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 const freelancerSchema = mongoose.Schema({
   fullName: { type: String, required: true },
   email: { type: String, required: true },
+  phoneNumber: String,
   profilePictureUrl: String,
   password: {
     hash: { type: String, required: true },
@@ -62,11 +63,10 @@ const freelancerSchema = mongoose.Schema({
         jobLoaction: String,
         jobDescription: String,
       },
+      {
+        _id: false
+      }
     ],
-    contact: {
-      email: String,
-      phoneNumber: String,
-    },
     jobActivity: {
       profileViews: Number,
       applicationsSent: Number,

@@ -6,9 +6,9 @@ import roleBasedAuthMiddleware from "../middlewares/roleBasedAuth.middleware.js"
 import {
   getFreelancerProfile,
   creatFreelancerProfile,
+  editFreelanceProfile,
   // addFreelanceProfile,
   // bookmarkFreelancer,
-  // editFreelanceProfile,
   // enableFreelancerProfile,
   // getAllFreelancers,
   // getFreelancerProfileById,
@@ -48,14 +48,29 @@ const FreelancerRouter = Router();
 //   a(editFreelanceProfile)
 // );
 
-FreelancerRouter.get("/", verifyTokenMiddleware(), a(getFreelancerProfile));
+FreelancerRouter.get(
+  "/profile",
+  verifyTokenMiddleware(),
+  a(getFreelancerProfile)
+);
 
 FreelancerRouter.post(
-  "/create-profile",
+  "/profile",
   verifyTokenMiddleware(),
   roleBasedAuthMiddleware(["freelancer"]),
   uploadProfilePictureMiddleware.single("file"),
   a(creatFreelancerProfile)
+);
+
+FreelancerRouter.put(
+  "/profile",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["freelancer"]),
+  uploadProfilePictureMiddleware.fields([
+    { name: "banner", maxCount: 1 },
+    { name: "profile", maxCount: 1 },
+  ]),
+  a(editFreelanceProfile)
 );
 
 export default FreelancerRouter;

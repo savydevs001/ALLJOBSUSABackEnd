@@ -44,9 +44,8 @@ try {
   const app = express();
 
   const server = http.createServer(app);
-  // if (withSocket) {
-  initSocket(server);
-  // }
+  // initSocket(server);
+
 
   app.post(
     "/webhook",

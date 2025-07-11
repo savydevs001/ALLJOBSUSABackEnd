@@ -8,7 +8,6 @@ import uploadProfile from "../utils/files/uploadProfile.js";
 
 dotenv.config();
 
-// ZOD Schemas
 const createProfileZODSchema = z.object({
   professionalTitle: z
     .string()
@@ -74,6 +73,7 @@ const getFreelancerProfile = async (req, res) => {
       { _id: userId, status: { $nin: ["deleted"] } },
       {
         fullName: 1,
+        phoneNumber: 1,
         email: 1,
         profilePictureUrl: 1,
         profile: 1,
@@ -91,6 +91,7 @@ const getFreelancerProfile = async (req, res) => {
     const data = {
       fullName: user.fullName,
       email: user.email,
+      phoneNumber: user.phoneNumber,
       ...user.profile,
       profilePictureUrl: user.profilePictureUrl,
     };
@@ -105,42 +106,81 @@ const getFreelancerProfile = async (req, res) => {
 };
 
 // Edit Profile
-// const editFreelanceProfile = async (req, res, next) => {
-//   const updates = updateFreelancerDetailsZodSchema.parse(req.body);
+const updateProfileZODSchema = z.object({
+  fullName: z.string().min(1, "Full name is reuired min 1 chracter"),
+  professionalTitle: z
+    .string()
+    .min(5, "Min 5 chracter required")
+    .max(200, "Max 200 chracters allowed"),
+  loaction: z.string().min(2, "Location reuired with min 2 chracters"),
+  website: z.string().optional(),
+  bio: z
+    .string()
+    .min(10, "At least 10 chracters required")
+    .max(2000, "Max 2000 chracters allowed"),
+  email: z.string().email("Invalid email format"),
+  phone: z
+    .string()
+    .min(11, "Min 11 chracters allowed")
+    .max(15, "Max 15 chracters allowed"),
+  skills: z.array(z.string()).min(1, "At lease 1 skill required"),
+  experiences: z.array(z.string()).optional(),
+});
+const editFreelanceProfile = async (req, res, next) => {
+  const data = updateProfileZODSchema.parse(req.body);
 
-//   const userId = req.user?._id;
+  try {
+    const userId = req.user?._id;
 
-//   if (!userId) {
-//     return res.status(404).json({ message: "User invalid" });
-//   }
-//   const user = await User.findOne({
-//     _id: userId,
-//     status: { $nin: ["suspended", "deleted"] },
-//   });
+    if (!userId) {
+      return res.status(401).json({ message: "User invalid" });
+    }
+    const user = await FREELANCER.findOne({
+      _id: userId,
+      status: { $nin: ["deleted"] },
+    });
 
-//   if (!user) {
-//     return res.status(404).json({ message: "User not found" });
-//   }
+    if (user.status == "suspended") {
+      return res.status(403).json({ message: "Account cannot be modified" });
+    }
 
-//   if (!user.role.includes("freelancer")) {
-//     return res.status(403).json({
-//       message: "Only freelancers can update freelancer details",
-//     });
-//   }
+    const existing = await FREELANCER.findOne({
+      email: data.email,
+    });
+    if (existing && userId != existing._id) {
+      return res.status(403).json({ message: "Email not availble" });
+    }
 
-//   const existingDetails = user.freelancerDetails?.toObject() || {};
-//   user.freelancerDetails = {
-//     ...existingDetails,
-//     ...updates,
-//   };
+    const banner = req.files["banner"]?.[0];
+    const profilePic = req.files["profile"]?.[0];
 
-//   await user.save();
+    if (banner) {
+      user.profile.bannerUrl = "images/" + banner.filename;
+    }
+    if (profilePic) {
+      user.profilePictureUrl = "images/" + profilePic.filename;
+    }
+    let parsedExps = [];
+    if (data.experiences) {
+      parsedExps = data.experiences.map((exp) => JSON.parse(exp));
+    }
 
-//   return res.status(200).json({
-//     message: "Freelancer profile updated successfully",
-//     freelancerDetails: user.freelancerDetails,
-//   });
-// };
+    user.email = data.email;
+    user.phoneNumber = data.phone;
+    user.profile.professionalTitle = data.professionalTitle;
+    user.profile.loaction = data.loaction;
+    user.profile.website = data.website;
+    user.profile.bio = data.bio;
+    user.profile.skills = data.skills;
+    user.profile.experiences = parsedExps;
+
+    await user.save();
+    return res.status(200).json({ message: "Profile updated successfully" });
+  } catch (err) {
+    console.log("❌ Error getting freelance profile: ", err);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
 
 // const featureEnum = z.enum(["pro", "top_rated", "new_talent", "rising star"]);
 // const freelancerDetailsZodSchema = z.object({
@@ -503,9 +543,9 @@ const getFreelancerProfile = async (req, res) => {
 export {
   creatFreelancerProfile,
   getFreelancerProfile,
+  editFreelanceProfile,
   // enableFreelancerProfile,
   // addFreelanceProfile,
-  // editFreelanceProfile,
   // getFreelancerProfileById,
   // getAllFreelancers,
   // bookmarkFreelancer,
