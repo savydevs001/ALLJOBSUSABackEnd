@@ -1,8 +1,8 @@
 import mongoose from "mongoose";
 
 const freelancerSchema = mongoose.Schema({
-  email: { type: String, required: true },
   fullName: { type: String, required: true },
+  email: { type: String, required: true },
   profilePictureUrl: String,
   password: {
     hash: { type: String, required: true },
@@ -22,6 +22,58 @@ const freelancerSchema = mongoose.Schema({
   //   Stripe
   stripeAccountId: { type: String, required: true },
   onboarded: { type: Boolean, default: false, required: true },
+
+  //   freelance profile
+  profile: {
+    professionalTitle: { type: String, required: true },
+    resumeUrl: String,
+    bannerUrl: String,
+    bio: { type: String, required: true },
+    hourlyRate: { type: Number, required: true },
+    skills: { type: [String], required: true },
+    projects: { type: [String], default: [] },
+    samples: { type: [String], default: [] },
+    freelancerWork: { type: Boolean, required: true },
+    openToWork: Boolean,
+    website: String,
+    loaction: String,
+    badge: {
+      type: [String],
+      enum: ["Top-rated", "New-talent", "Fast-response"],
+      default: ["New-talent"],
+    },
+    experiences: [
+      {
+        jobTitle: String,
+        companyName: String,
+        jobType: {
+          type: String,
+          enum: [
+            "Part-time",
+            "Full-time",
+            "Internship",
+            "Freelance",
+            "Contract",
+          ],
+        },
+        startDate: Date,
+        endDate: Date,
+        isCurrentJob: Boolean,
+        jobLoaction: String,
+        jobDescription: String,
+      },
+    ],
+    contact: {
+      email: String,
+      phoneNumber: String,
+    },
+    jobActivity: {
+      profileViews: Number,
+      applicationsSent: Number,
+      interviewRequest: Number,
+    },
+    achievements: [String],
+  },
 });
 
 const FREELANCER = mongoose.model("freelancer", freelancerSchema);

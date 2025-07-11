@@ -1,15 +1,23 @@
 import { Server } from "socket.io";
+import dotenv from "dotenv";
 
 import { verifyToken } from "../utils/jwt.js";
 import Message from "../database/models/messages.model.js";
 import { createOrUpdateConversation } from "../controllers/conversation.controller.js";
+import {
+  checkOnlineUser,
+  deleteOnlineUser,
+  getOnlineUser,
+  refreshOnlineUser,
+} from "./onlineUsers.js";
 
-const onlineUsers = new Map();
+dotenv.config();
 
 const initSocket = (httpServer) => {
+  console.log("✅ Socket Server started");
   const io = new Server(httpServer, {
     cors: {
-      origin: "*", // or specific origin(s)
+      origin: [process.env.FRONTEND_URL],
       methods: ["GET", "POST"],
       credentials: true,
     },
@@ -18,8 +26,6 @@ const initSocket = (httpServer) => {
   io.use((socket, next) => {
     const token = socket.handshake.auth.token;
     const user = verifyToken(token);
-    console.log("token: ", token)
-    console.log("user: ", user)
     if (user) {
       socket.user = user;
       return next();
@@ -30,7 +36,8 @@ const initSocket = (httpServer) => {
 
   io.on("connection", (socket) => {
     const userId = socket.user._id;
-    onlineUsers.set(userId, socket.id);
+    console.log(`✅ ${userId} connected`);
+    refreshOnlineUser(userId, socket.id); // First registration
 
     socket.on("send-message", async ({ to, content, fileName, fileUrl }) => {
       const details = {
@@ -45,7 +52,7 @@ const initSocket = (httpServer) => {
         };
       }
       const message = new Message(details);
-      const reciverSocketId = onlineUsers.get(to);
+      const reciverSocketId = getOnlineUser.get(to);
       if (reciverSocketId) {
         io.to(reciverSocketId).emit("receive-message", message);
       }
@@ -57,8 +64,22 @@ const initSocket = (httpServer) => {
       await message.save();
     });
 
+    socket.on("check-online", (userIds) => {
+      let onlineUsers = [];
+      if (userIds && userIds.length > 0) {
+        onlineUsers = userIds.map((id) => {
+          if (checkOnlineUser(id)) {
+            return id;
+          }
+          return;
+        });
+      }
+      socket.emit("verify-online", onlineUsers);
+    });
+
     socket.on("disconnect", () => {
-      onlineUsers.delete(userId);
+      console.log(`❌ ${userId} dis-connected`);
+      deleteOnlineUser(userId);
     });
   });
 };

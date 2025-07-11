@@ -28,11 +28,12 @@ import { stripeWebhook } from "./services/stripe.service.js";
 
 // Socket IO
 import http from "http";
-import initSocket from "./socket/handler.socket.js";
+import initSocket from "./socket/init-socket.js";
 
 dotenv.config();
 
 const PORT = process.env.PORT || 8000;
+const FRONTEND_URL=process.env.FRONTEND_URL
 const NODE_ENV = process.env.NODE_ENV || "development";
 const numCPUs = os.cpus().length;
 
@@ -58,7 +59,7 @@ try {
     cors({
       allowedHeaders: ["Content-Type", "Authorization"],
       methods: ["GET", "POST", "PUT", "DELETE"],
-      origin: "*",
+      origin: [FRONTEND_URL],
       credentials: true,
     })
   );
