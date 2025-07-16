@@ -23,7 +23,7 @@ const verifyTokenMiddleware =
 
     try {
       const deocded = verifyToken(token);
-      console.log("decoded: ", deocded)
+      // console.log("decoded: ", deocded)
       if (!deocded && checking === "strict") {
         return res.status(401).json({ message: "Invalid token" });
       }

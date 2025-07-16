@@ -7,6 +7,7 @@ import {
   getFreelancerProfile,
   creatFreelancerProfile,
   editFreelanceProfile,
+  getUserJobStats,
   // addFreelanceProfile,
   // bookmarkFreelancer,
   // enableFreelancerProfile,
@@ -52,6 +53,12 @@ FreelancerRouter.get(
   "/profile",
   verifyTokenMiddleware(),
   a(getFreelancerProfile)
+);
+FreelancerRouter.get(
+  "/job-stats",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["freelancer"]),
+  a(getUserJobStats)
 );
 
 FreelancerRouter.post(

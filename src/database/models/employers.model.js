@@ -1,12 +1,12 @@
-import mongoose from "mongoose";
+import mongoose, { Mongoose, Types } from "mongoose";
 
 const employerSchema = mongoose.Schema({
   email: { type: String, required: true },
   fullName: { type: String, required: true },
   profilePictureUrl: String,
   password: {
-    hash: { type: String, required: true },
-    salt: { type: String, required: true },
+    hash: String,
+    salt: String,
   },
   temporaryPass: {
     password: String,
@@ -18,6 +18,40 @@ const employerSchema = mongoose.Schema({
     enum: ["active", "suspended", "deleted"],
     default: "active",
   },
+
+  // jobs
+  jobsCreated: { type: Number, default: 0 },
+  oneTimeCreate: { type: Boolean, default: false },
+
+  // free trail
+  freeTrial: {
+    availed: Boolean,
+    start: Date,
+    end: Date,
+  },
+
+  // subscriptions
+  usedSessions: { type: [String], default: [] },
+  currentSubscription: {
+    type: {
+      subId: String,
+      start: Date,
+      end: Date,
+    },
+    _id: false,
+  },
+  pastSubscriptions: [
+    {
+      subId: String,
+      start: Date,
+      end: Date,
+      _id: false,
+    },
+  ],
+
+  // stripe
+  stripeCustomerId: String,
+  stripeProfileSubscriptionId: String,
 });
 
 const EMPLOYER = mongoose.model("employer", employerSchema);

@@ -1,13 +1,15 @@
-import mongoose from "mongoose";
+import mongoose, { Types } from "mongoose";
 
 const freelancerSchema = mongoose.Schema({
   fullName: { type: String, required: true },
   email: { type: String, required: true },
   phoneNumber: String,
   profilePictureUrl: String,
+  role: { type: [String], enum: ["freelancer", "job-seeker"] },
+  activeRole: { type: String, required: true },
   password: {
-    hash: { type: String, required: true },
-    salt: { type: String, required: true },
+    hash: String,
+    salt: String,
   },
   temporaryPass: {
     password: String,
@@ -21,20 +23,20 @@ const freelancerSchema = mongoose.Schema({
   },
 
   //   Stripe
-  stripeAccountId: { type: String, required: true },
-  onboarded: { type: Boolean, default: false, required: true },
+  stripeAccountId: String,
+  onboarded: { type: Boolean, default: false },
 
   //   freelance profile
   profile: {
-    professionalTitle: { type: String, required: true },
+    professionalTitle: String,
     resumeUrl: String,
     bannerUrl: String,
-    bio: { type: String, required: true },
-    hourlyRate: { type: Number, required: true },
-    skills: { type: [String], required: true },
+    bio: String,
+    hourlyRate: Number,
+    skills: { type: [String], default: [] },
     projects: { type: [String], default: [] },
     samples: { type: [String], default: [] },
-    freelancerWork: { type: Boolean, required: true },
+    freelancerWork: Boolean,
     openToWork: Boolean,
     website: String,
     loaction: String,
@@ -64,8 +66,8 @@ const freelancerSchema = mongoose.Schema({
         jobDescription: String,
       },
       {
-        _id: false
-      }
+        _id: false,
+      },
     ],
     jobActivity: {
       profileViews: Number,
@@ -74,6 +76,8 @@ const freelancerSchema = mongoose.Schema({
     },
     achievements: [String],
   },
+  // saved jobs
+  savedJobs: [{ type: Types.ObjectId, ref: "Job" }],
 });
 
 const FREELANCER = mongoose.model("freelancer", freelancerSchema);

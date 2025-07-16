@@ -16,13 +16,13 @@ const jwtToken = (user, role, rememberMe = false) => {
       return null;
     }
 
-    const expiresIn = rememberMe ? "30d" : "1d";
+    const expiresIn = rememberMe ? "30d" : "7d";
     const token = jwt.sign(
       {
         _id: user._id,
         role: role,
-        fullName: user.fullName,
-        profilePictureUrl: user.profilePictureUrl,
+        fullName: user.fullName ?? "",
+        profilePictureUrl: user.profilePictureUrl ?? "",
       },
       process.env.JWT_SECRET,
       { expiresIn: expiresIn }

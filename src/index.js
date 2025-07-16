@@ -24,11 +24,16 @@ import ConversationRouter from "./routes/conversation.routes.js";
 import reviewRouter from "./routes/reviews.routes.js";
 import orderRouter from "./routes/order.routes.js";
 import transactionRouter from "./routes/transactions.routes.js";
-import { stripeWebhook } from "./services/stripe.service.js";
+import SubscriptionRouter from "./routes/subscription.routes.js";
+import AdminRouter from "./routes/admin.routes.js";
 
 // Socket IO
 import http from "http";
 import initSocket from "./socket/init-socket.js";
+
+// stripe
+import { stripeWebhook } from "./services/stripe.service.js";
+import StripeRouter from "./routes/stripe.routes.js";
 
 dotenv.config();
 
@@ -86,7 +91,10 @@ try {
   app.use("/reviews", reviewRouter);
   app.use("/orders", orderRouter);
   app.use("/payments", express.json(), transactionRouter);
+  app.use("/subscriptions", SubscriptionRouter);
+  app.use("/admin", AdminRouter);
   app.use("/upload", uploadRouter);
+  app.use("/stripe", StripeRouter);
 
   // End Middlewares
   app.use(errorHandlerMiddleware);

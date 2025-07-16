@@ -1,13 +1,18 @@
-// models/SubscriptionPlan.js
 import mongoose from "mongoose";
 const { Schema, model } = mongoose;
 
 const subscriptionPlanSchema = new Schema(
   {
+    stripeProductId: { type: String },
+    stripePriceId: { type: String },
     name: {
       type: String,
       required: true,
-      unique: true,
+    },
+    mode: {
+      type: String,
+      enum: ["subscription", "oneTime", "free"],
+      required: true,
     },
 
     description: {
@@ -20,28 +25,14 @@ const subscriptionPlanSchema = new Schema(
       required: true,
     },
 
-    currency: {
-      type: String,
-      default: "USD",
-    },
+    totalDays: Number,
 
-    duration: {
+    interval: {
       type: String,
-      enum: ["monthly", "annually"],
+      enum: ["day", "week", "month", "year"],
       required: true,
     },
-
-    features: [
-      {
-        type: String,
-        enum: [
-          "priority_job_postings",
-          "enhanced_candidate_analytics",
-          "unlimited_job_posts",
-        ],
-      },
-    ],
-
+    interval_count: { type: Number, required: true },
     isActive: {
       type: Boolean,
       default: true,
@@ -52,6 +43,6 @@ const subscriptionPlanSchema = new Schema(
   }
 );
 
-const SubscriptionPlan = model("SubscriptionPlan", subscriptionPlanSchema);
+const SUBSCRIPTIONS_PLANS = model("SubscriptionPlan", subscriptionPlanSchema);
 
-export default SubscriptionPlan;
+export default SUBSCRIPTIONS_PLANS;

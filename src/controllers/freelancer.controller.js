@@ -5,6 +5,8 @@ import { z } from "zod";
 import { jwtToken } from "../utils/jwt.js";
 import FREELANCER from "../database/models/freelancer.model.js";
 import uploadProfile from "../utils/files/uploadProfile.js";
+import Job from "../database/models/jobs.model.js";
+import calculateJobMatchPercentage from "../utils/calculate-job-match.js";
 
 dotenv.config();
 
@@ -155,10 +157,10 @@ const editFreelanceProfile = async (req, res, next) => {
     const profilePic = req.files["profile"]?.[0];
 
     if (banner) {
-      user.profile.bannerUrl = "images/" + banner.filename;
+      user.profile.bannerUrl = process.env.BACKEND_URL + "/images/" + banner.filename;
     }
     if (profilePic) {
-      user.profilePictureUrl = "images/" + profilePic.filename;
+      user.profilePictureUrl = process.env.BACKEND_URL + "/images/" + profilePic.filename;
     }
     let parsedExps = [];
     if (data.experiences) {
@@ -181,6 +183,81 @@ const editFreelanceProfile = async (req, res, next) => {
     return res.status(500).json({ message: "Server Error" });
   }
 };
+
+// Job Stats
+const getUserJobStats = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+
+    // Get all jobs the user has applied to
+    const user = await FREELANCER.findById(userId);
+    if (!user) {
+      return res.status(401).json({ message: "User not found!" });
+    }
+
+    // Get count of saved jobs
+    const savedJobs = user.savedJobs || [];
+    const savedCount = savedJobs.length;
+
+    // Get count of applied jobs
+    const applied = await Job.find({
+      status: "empty",
+      applicants: { $in: [new mongoose.Types.ObjectId(userId)] },
+      deadline: { $gt: new Date() },
+      "simpleJobDetails.deadline": { $gt: new Date() },
+    }).select("_id");
+    const appliedCount = applied.length;
+
+    // Suggested jobs — based on recent active jobs the user hasn’t applied/saved
+    const appliedJobIds = applied.map((job) => job._id);
+    const savedJobIds = savedJobs.map((entry) => entry);
+
+    const excludedJobIds = Array.from(
+      new Set([...appliedJobIds, ...savedJobIds])
+    );
+
+    const suggestions = await Job.find({
+      _id: { $nin: excludedJobIds },
+      status: "empty",
+      deadline: { $gt: new Date() },
+      "simpleJobDetails.deadline": { $gt: new Date() },
+    })
+      .limit(2)
+      .select("_id title description")
+      .populate("employerId", "fullName");
+
+    const tempSuggestions = suggestions.map((e) => ({
+      _id: e._id,
+      title: e.title,
+      company: e.employerId.fullName,
+      match: calculateJobMatchPercentage(
+        {
+          title: e.title,
+          description: e.description,
+        },
+        {
+          bio: user.profile.bio,
+          skills: user.profile.skills,
+        }
+      ),
+    }));
+
+    return res.status(200).json({
+      suggestions: tempSuggestions,
+      appliedCount,
+      savedCount,
+    });
+  } catch (err) {
+    console.error("❌ Error in getUserJobStats:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+
 
 // const featureEnum = z.enum(["pro", "top_rated", "new_talent", "rising star"]);
 // const freelancerDetailsZodSchema = z.object({
@@ -544,6 +621,7 @@ export {
   creatFreelancerProfile,
   getFreelancerProfile,
   editFreelanceProfile,
+  getUserJobStats,
   // enableFreelancerProfile,
   // addFreelanceProfile,
   // getFreelancerProfileById,

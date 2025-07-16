@@ -98,7 +98,7 @@ const getUserConversations = async (req, res) => {
       participants: userId,
     };
 
-    const [total, conversations] = await Promise.all([
+    const [total, conversations] = await ([
       Conversation.countDocuments(filters),
       Conversation.find(filters)
         .sort({ lastMessageAt: -1 }) // most recent first

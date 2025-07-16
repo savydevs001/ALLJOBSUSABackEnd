@@ -4,40 +4,27 @@ const { Schema, model, Types } = mongoose;
 
 const transactionSchema = new Schema(
   {
-    orderId: { type: Types.ObjectId, ref: "Order", required: true },
+    mode: { type: String, enum: ["profile-subscription"] },
 
-    payerId: { type: Types.ObjectId, ref: "User", required: true }, // Employer
-    payeeId: { type: Types.ObjectId, ref: "User", required: true }, // Freelancer
-
-    amount: { type: Number, required: true },
-    currency: { type: String, default: "USD" },
-
-    type: {
-      type: String,
-      enum: ["deposit", "release", "refund", "withdrawal"],
-      required: true,
-    },
-
-    status: {
-      type: String,
-      enum: ["pending", "completed", "failed"],
-      default: "pending",
-    },
-
-    transactionDate: { type: Date, default: Date.now },
-
-     paymentGatewayRef: {
-      type: String,
-      required: true,
-      description: "Stripe paymentIntent ID or charge ID",
-    },
-
-    serviceFee: { type: Number, default: 0 }, // Platform commission
-
-    payoutMethod: {
-      type: String,
-      enum: ["stripe_connect"],
-      default: "stripe_connect",
+    subscriptionDetails: {
+      type: {
+        userId: {
+          type: mongoose.Types.ObjectId,
+          ref: "employer",
+        },
+        sessionId: String,
+        subscriptionId: {
+          type: mongoose.Types.ObjectId,
+          ref: "SubscriptionPlan",
+        },
+        stripeSubscriptionId: String,
+        status: {
+          type: String,
+          enum: ["pending", "failed", "completed"],
+          default: "pending",
+        },
+        completedAt: Date,
+      },
     },
   },
   {
@@ -45,8 +32,5 @@ const transactionSchema = new Schema(
   }
 );
 
-const Transaction = model("Transaction", transactionSchema);
-export default Transaction;
-
-
-
+const TRANSACTION = model("Transaction", transactionSchema);
+export default TRANSACTION;
