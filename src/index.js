@@ -101,7 +101,7 @@ try {
 
   server.listen(PORT, () => {
     console.log(
-      `✅ Server running on http://localhost:${PORT} (PID: ${process.pid})`
+      `✅ Date: ${new Date} Server running on http://localhost:${PORT} (PID: ${process.pid}) `
     );
   });
 } catch (error) {

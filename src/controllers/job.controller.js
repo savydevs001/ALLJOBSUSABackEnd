@@ -164,6 +164,22 @@ const createJob = async (req, res) => {
           experienceLevel: data.experienceLevel,
           deadline: data.deadline,
         };
+        if (
+          data.creationType == "free" &&
+          data.deadline > getDateNDaysFromNow(15)
+        ) {
+          return res.status(400).json({
+            message: "Deadline cannot be greateer than 14 days in Free Trial",
+          });
+        } else if (
+          (data.creationType == "oneTime" ||
+            data.creationType == "subscription") &&
+          data.deadline > getDateNDaysFromNow(31)
+        ) {
+          return res
+            .status(400)
+            .json({ message: "Deadline cannot be greateer than 30 days" });
+        }
       }
       // Add freelance job details
       else if (data.job === "freelance") {
@@ -202,6 +218,37 @@ const createJob = async (req, res) => {
     }
   } catch (err) {
     console.log("❌ Error creating job: ", err);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
+// Get job by Id
+const getJobById = async (req, res) => {
+  try {
+    const jobId = req.params.id;
+    console.log("Job Id :", jobId);
+    if (!mongoose.Types.ObjectId.isValid(jobId)) {
+      return res.status(400).json({ message: "Invalid Job!" });
+    }
+
+    const job = await Job.findById(jobId)
+      .populate(
+        "employerId",
+        "fullName profilePictureUrl jobsCreated ordersCompleted"
+      )
+      .lean();
+    if (!job) {
+      return res.status(404).json({ message: "No Job Found!" });
+    }
+
+    if (job.deadline < new Date() && job.status == "empty") {
+      job.status = "expired";
+      await job.save();
+    }
+
+    return res.status(200).json({ job });
+  } catch (err) {
+    console.log("❌ Error getting job by id: ", err);
     return res.status(500).json({ message: "Server Error" });
   }
 };
@@ -673,7 +720,14 @@ const getAllSavedJobs = async (req, res) => {
 //   return res.status(200).json({ message: "Job deleted successfully" });
 // };
 
-export { createJob, getAllJobs, saveAJob, removeSavedJob, getAllSavedJobs };
+export {
+  createJob,
+  getAllJobs,
+  saveAJob,
+  removeSavedJob,
+  getAllSavedJobs,
+  getJobById,
+};
 
 // createJob,
 // updateJob,

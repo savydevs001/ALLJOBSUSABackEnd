@@ -111,13 +111,6 @@ const signUp = async (req, res) => {
       userDetails.activeRole = userDetails.role;
       userDetails.role = [userDetails.role];
       const user = new FREELANCER(userDetails);
-      // try {
-      //   const account = await createStripeExpressAcount(email);
-      //   user.stripeAccountId = account.id;
-      // } catch (err) {
-      //   console.log("❌ Error creating stripe account: " + err);
-      //   return res.status(400).json({ message: "Error creating user account" });
-      // }
       await user.save();
       token = jwtToken(user, "freelancer");
     }

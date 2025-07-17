@@ -3,6 +3,7 @@ import {
   createJob,
   getAllJobs,
   getAllSavedJobs,
+  getJobById,
   removeSavedJob,
   saveAJob,
   // jobById,
@@ -31,6 +32,7 @@ JobRouter.get(
   roleBasedAuthMiddleware(["freelancer"]),
   a(removeSavedJob)
 );
+JobRouter.get("/:id", a(getJobById));
 
 // JobRouter.get("/save/:id", a(saveAJob));
 // JobRouter.get("/unsave/:id", a(removeSavedJob));

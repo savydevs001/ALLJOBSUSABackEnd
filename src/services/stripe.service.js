@@ -4,6 +4,7 @@ import Order from "../database/models/order.model.js";
 import TRANSACTION from "../database/models/transactions.model.js";
 import EMPLOYER from "../database/models/employers.model.js";
 import { getMemorySubscriptionns } from "../controllers/subscriptions.controller.js";
+import FREELANCER from "../database/models/freelancer.model.js";
 
 dotenv.config();
 
@@ -136,7 +137,37 @@ const stripeWebhook = async (req, res) => {
       return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
-    const session = event.data.object;
+    if (event.type == "account.updated") {
+      const account = event.data.object;
+      console.log("-------> Account: ", account)
+      const isReady =
+        account.details_submitted &&
+        account.charges_enabled &&
+        account.payouts_enabled;
+
+      if (!isReady) {
+        return res.status(200).json({
+          message: "Account onboarding is incomplete",
+          received: true,
+        });
+      }
+      if (isReady) {
+        // Find the user with this Stripe account ID
+        const user = await FREELANCER.findOne({ stripeAccountId: account.id });
+        if (user && !user.onboarded) {
+          user.onboarded = true;
+          await user.save();
+          console.log(`User ${user._id} has completed onboarding`);
+
+          return res
+            .status(200)
+            .json({ message: "Subscription successfull", received: true });
+        }
+      }
+      return res
+        .status(200)
+        .json({ message: "No Matching condition", received: true });
+    }
 
     if (event.type == "charge.succeeded") {
       // update order status
@@ -193,7 +224,7 @@ const stripeWebhook = async (req, res) => {
         }
         transaction.subscriptionDetails.status = "completed";
         transaction.subscriptionDetails.sessionId = sessionId;
-        transaction.stripeSubscriptionId = stripeSubscriptionId
+        transaction.stripeSubscriptionId = stripeSubscriptionId;
         await transaction.save();
 
         // get susbscription

@@ -7,6 +7,10 @@ import FREELANCER from "../database/models/freelancer.model.js";
 import uploadProfile from "../utils/files/uploadProfile.js";
 import Job from "../database/models/jobs.model.js";
 import calculateJobMatchPercentage from "../utils/calculate-job-match.js";
+import {
+  createStripeExpressAcount,
+  generateOnBoardingAccountLink,
+} from "../services/stripe.service.js";
 
 dotenv.config();
 
@@ -157,10 +161,12 @@ const editFreelanceProfile = async (req, res, next) => {
     const profilePic = req.files["profile"]?.[0];
 
     if (banner) {
-      user.profile.bannerUrl = process.env.BACKEND_URL + "/images/" + banner.filename;
+      user.profile.bannerUrl =
+        process.env.BACKEND_URL + "/images/" + banner.filename;
     }
     if (profilePic) {
-      user.profilePictureUrl = process.env.BACKEND_URL + "/images/" + profilePic.filename;
+      user.profilePictureUrl =
+        process.env.BACKEND_URL + "/images/" + profilePic.filename;
     }
     let parsedExps = [];
     if (data.experiences) {
@@ -257,371 +263,116 @@ const getUserJobStats = async (req, res) => {
   }
 };
 
+// Get Earning
+const getFreelancerEarnings = async (req, res) => {
+  try {
+    const userId = req.user?._id;
 
+    const user = await FREELANCER.findById(userId);
+    if (!userId) {
+      return res.status(401).json({ message: "User not found!" });
+    }
 
-// const featureEnum = z.enum(["pro", "top_rated", "new_talent", "rising star"]);
-// const freelancerDetailsZodSchema = z.object({
-//   jobTitle: z.string().min(2, "Job title is required"),
-//   jobTags: z.array(z.string().min(1)).min(1, "At least one tag is required"),
-//   yearsOfExperience: z
-//     .number()
-//     .int()
-//     .nonnegative("Years of experience must be 0 or more"),
+    if (user.onboarded === false) {
+      return res.status(200).json({
+        message: "Please setupe Payment first in Earnings tab",
+        onboardRequired: true,
+      });
+    }
 
-//   hourlyRate: z
-//     .number()
-//     .positive("Hourly rate must be greater than 0")
-//     .max(10000),
+    return res.status(200).json({ message: "need to be implemented" });
+  } catch (err) {
+    console.error("❌ Error geeting Earning info:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
 
-//   location: z.string().min(3, "Location is required"),
+// start onboarding
+const startFreelancerOnboarding = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(401).json({ message: "Inavlid User" });
+    }
 
-//   description: z
-//     .string()
-//     .min(10, "Description must be at least 10 characters long")
-//     .max(1000),
-// });
+    const user = await FREELANCER.findById(userId);
+    if (!user || user.status == "deleted") {
+      return res.status(401).json({ message: "User not found1" });
+    }
 
-// export const updateFreelancerDetailsZodSchema = z
-//   .object({
-//     jobTitle: z
-//       .string()
-//       .min(2, "Job title must be at least 2 characters")
-//       .optional(),
+    if (user.status == "suspended") {
+      return res
+        .status(400)
+        .json({ message: "Suspended Accounts cannot be onboarded" });
+    }
 
-//     jobTags: z.array(z.string().min(1, "Tags cannot be empty")).optional(),
+    if (user.onboarded === true) {
+      return res
+        .status(400)
+        .json({ message: "User has completed onboarding process" });
+    }
 
-//     yearsOfExperience: z
-//       .number()
-//       .min(0, "Years of experience cannot be negative")
-//       .max(100, "Years of experience seems too high")
-//       .optional(),
+    try {
+      if (!user.stripeAccountId) {
+        const account = await createStripeExpressAcount(user.email);
+        user.stripeAccountId = account.id;
+        await user.save();
+      }
 
-//     hourlyRate: z.number().min(0, "Hourly rate must be positive").optional(),
+      const link = await generateOnBoardingAccountLink(
+        user.stripeAccountId,
+        process.env.STRIPE_REFRESH_URL,
+        process.env.STRIPE_RETURN_URL
+      );
 
-//     location: z.string().min(2, "Location is too short").optional(),
-//     description: z.string().max(1000).optional(),
-//   })
-//   .partial(); // allows any subset of the above fields
+      return res.status(200).json({ url: link.url });
+    } catch (err) {
+      console.log("❌ Error creating stripe account: " + err);
+      return res.status(400).json({ message: "Error creating stripe account" });
+    }
+  } catch (err) {
+    console.error("❌ Error geting Earning info:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
 
-// const enableFreelancerProfile = async (req, res) => {
-//   const userId = req.user?._id;
-//   const user = await User.findById(userId);
-//   if (!user) {
-//     return res.status(404).json({ message: "User not found" });
-//   }
-//   if (user.role.includes("freelancer")) {
-//     return res
-//       .status(400)
-//       .json({ message: "Freelancer profile already enabled" });
-//   }
-//   user.role.push("freelancer");
-//   await user.save();
+// check onboarding
+const checkOnboared = async (req, res) => {
+  try {
+    const userId = req.user?._id;
 
-//   const token = jwtToken(user);
-//   if (!token) {
-//     return res.status(500).json({ message: "Server Error" });
-//   }
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(401).json({ message: "Inavlid User" });
+    }
 
-//   res.cookie(process.env.JWT_COOKIE_NAME, token, {
-//     httpOnly: true,
-//     secure: process.env.NODE_ENV === "production",
-//     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-//   });
+    const user = await FREELANCER.findById(userId);
+    if (!user) {
+      return res.status(401).json({ message: "User Not found!" });
+    }
 
-//   return res
-//     .status(200)
-//     .json({ message: "Freelancer profile enabled successfully", token });
-// };
-
-// const addFreelanceProfile = async (req, res, next) => {
-//   const data = freelancerDetailsZodSchema.parse(req.body);
-
-//   const userId = req.user?._id;
-
-//   const user = await User.findOne({
-//     _id: userId,
-//     status: { $nin: ["suspended", "deleted"] },
-//   });
-
-//   if (!user) {
-//     return res.status(404).json({ message: "User not found" });
-//   }
-
-//   if (!user.role.includes("freelancer")) {
-//     return res.status(403).json({
-//       message: "Only freelancers can add freelancer details",
-//     });
-//   }
-
-//   if (user.freelancerDetails) {
-//     return res.status(400).json({
-//       message: "Freelancer profile already exists",
-//     });
-//   }
-//   user.freelancerDetails = data;
-//   await user.save();
-
-//   return res.status(201).json({
-//     message: "Freelancer profile created successfully",
-//     freelancerDetails: user.freelancerDetails,
-//   });
-// };
-
-// const getFreelancerProfile = async (req, res) => {
-//   const userId = req.user?._id;
-//   const user = await User.findOne(
-//     { _id: userId, status: { $nin: ["deleted"] } },
-//     {
-//       email: 1,
-//       status: 1,
-//       profile: 1,
-//       freelancerDetails: 1,
-//     }
-//   );
-
-//   if (!user) {
-//     return res.status(404).json({ message: "User not found" });
-//   }
-
-//   if (!user.freelancerDetails) {
-//     return res.status(404).json({ message: "Freelancer profile not set" });
-//   }
-
-//   return res.status(200).json({
-//     user: user,
-//   });
-// };
-
-// const getFreelancerProfileById = async (req, res) => {
-//   const { id } = req.params;
-//   if (!id) {
-//     return res.status(400).json({ message: "No ID" });
-//   }
-
-//   if (!mongoose.Types.ObjectId.isValid(id)) {
-//     return res.status(400).json({ message: "Invalid ID" });
-//   }
-
-//   const user = await User.findOne(
-//     { _id: id, status: { $nin: ["deleted"] } },
-//     {
-//       email: 1,
-//       status: 1,
-//       profile: 1,
-//       freelancerDetails: 1,
-//     }
-//   );
-
-//   if (!user) {
-//     return res.status(404).json({ message: "User not found" });
-//   }
-
-//   if (!user.freelancerDetails) {
-//     return res.status(404).json({ message: "Freelancer profile not set" });
-//   }
-
-//   return res.status(200).json({
-//     user: user,
-//   });
-// };
-
-// const getAllFreelancers = async (req, res) => {
-//   try {
-//     const page = parseInt(req.query.page) || 1;
-//     const limit = parseInt(req.query.limit) || 10;
-//     const skip = (page - 1) * limit;
-
-//     const {
-//       skills, // Comma-separated skills
-//       minExperience,
-//       maxExperience,
-//       minRate,
-//       maxRate,
-//       search,
-//     } = req.query;
-
-//     const filters = {
-//       role: { $in: ["freelancer"] },
-//       status: { $nin: ["deleted"] },
-//     };
-
-//     // Skill filtering based on jobTags
-//     if (skills) {
-//       const skillArray = skills.split(",").map((s) => s.trim());
-//       filters["freelancerDetails.jobTags"] = { $in: skillArray };
-//     }
-
-//     // 🔍 Full-text search on skills or fullName
-//     if (search && search.trim() !== "") {
-//       const searchRegex = new RegExp(search.trim(), "i");
-//       filters.$or = [
-//         { "freelancerDetails.jobTags": { $regex: searchRegex } },
-//         { "profile.fullName": { $regex: searchRegex } },
-//       ];
-//     }
-
-//     // Years of experience filter
-//     if (minExperience || maxExperience) {
-//       filters["freelancerDetails.yearsOfExperience"] = {};
-//       if (minExperience)
-//         filters["freelancerDetails.yearsOfExperience"].$gte =
-//           parseInt(minExperience);
-//       if (maxExperience)
-//         filters["freelancerDetails.yearsOfExperience"].$lte =
-//           parseInt(maxExperience);
-//     }
-
-//     // Hourly rate filter
-//     if (minRate || maxRate) {
-//       filters["freelancerDetails.hourlyRate"] = {};
-//       if (minRate)
-//         filters["freelancerDetails.hourlyRate"].$gte = parseFloat(minRate);
-//       if (maxRate)
-//         filters["freelancerDetails.hourlyRate"].$lte = parseFloat(maxRate);
-//     }
-
-//     const [total, freelancers] = await Promise.all([
-//       User.countDocuments(filters),
-//       User.find(filters)
-//         .select({
-//           email: 1,
-//           status: 1,
-//           profile: 1,
-//           freelancerDetails: 1,
-//         })
-//         .skip(skip)
-//         .limit(limit),
-//     ]);
-
-//     return res.status(200).json({
-//       total,
-//       page,
-//       pages: Math.ceil(total / limit),
-//       results: freelancers.length,
-//       freelancers,
-//     });
-//   } catch (err) {
-//     console.error("❌ Error fetching freelancers:", err);
-//     return res.status(500).json({ message: "Server error" });
-//   }
-// };
-
-// const bookmarkFreelancer = async (req, res) => {
-//   try {
-//     const employerId = req.user._id;
-//     const freelancerId = req.params.id;
-
-//     // Validation: Valid ObjectId
-//     if (!mongoose.Types.ObjectId.isValid(freelancerId)) {
-//       return res.status(400).json({ message: "Invalid freelancer ID" });
-//     }
-
-//     // Cannot bookmark self
-//     if (employerId.toString() === freelancerId.toString()) {
-//       return res.status(403).json({ message: "You cannot bookmark yourself" });
-//     }
-
-//     // Atomically add to employer's bookmarkedFreelancers if not already present
-//     const updatedEmployer = await User.findOneAndUpdate(
-//       {
-//         _id: employerId,
-//         role: { $in: ["employer"] },
-//         "employerDetails.bookmarkedFreelancers": { $ne: freelancerId }, // not already bookmarked
-//       },
-//       {
-//         $addToSet: {
-//           "employerDetails.bookmarkedFreelancers": freelancerId,
-//         },
-//       },
-//       { new: true }
-//     );
-
-//     // If update didn't happen (already bookmarked or invalid employer)
-//     if (!updatedEmployer) {
-//       return res
-//         .status(409)
-//         .json({ message: "Freelancer already bookmarked or invalid employer" });
-//     }
-
-//     // Increment like count on freelancer (only if valid and is freelancer)
-//     const updatedFreelancer = await User.findOneAndUpdate(
-//       {
-//         _id: freelancerId,
-//         role: { $in: ["freelancer"] },
-//       },
-//       {
-//         $inc: { "freelancerDetails.likeCount": 1 },
-//       }
-//     );
-
-//     if (!updatedFreelancer) {
-//       return res.status(404).json({ message: "Freelancer not found" });
-//     }
-
-//     return res.status(200).json({
-//       message: "Freelancer bookmarked successfully",
-//     });
-//   } catch (error) {
-//     console.error("❌ Error bookmarking freelancer:", error);
-//     return res.status(500).json({ message: "Server error" });
-//   }
-// };
-
-// const unbookmarkFreelancer = async (req, res) => {
-//   const employerId = req.user?._id;
-//   const freelancerId = req.params.id;
-
-//   // Validate ID
-//   if (!mongoose.Types.ObjectId.isValid(freelancerId)) {
-//     return res.status(400).json({ message: "Invalid freelancer ID" });
-//   }
-
-//   // Prevent self-unbookmark
-//   if (employerId.toString() === freelancerId.toString()) {
-//     return res.status(403).json({ message: "You cannot unbookmark yourself" });
-//   }
-
-//   const employer = await User.findById(employerId);
-//   if (!employer || !employer.role.includes("employer")) {
-//     return res
-//       .status(403)
-//       .json({ message: "Only employers can unbookmark freelancers" });
-//   }
-
-//   const updatedEmployer = await User.findOneAndUpdate(
-//     {
-//       _id: employerId,
-//       role: { $in: ["employer"] },
-//       "employerDetails.bookmarkedFreelancers": freelancerId,
-//     },
-//     {
-//       $pull: { "employerDetails.bookmarkedFreelancers": freelancerId },
-//     },
-//     { new: true }
-//   );
-
-//   if (!updatedEmployer) {
-//     return res
-//       .status(404)
-//       .json({ message: "Freelancer not found in bookmarks or unauthorized" });
-//   }
-
-//   // Decrement like count atomically
-//   await User.updateOne(
-//     { _id: freelancerId },
-//     { $inc: { "freelancerDetails.likeCount": -1 } }
-//   );
-
-//   return res.status(200).json({
-//     message: "Freelancer unbookmarked successfully",
-//   });
-// };
+    if (user.onboarded === true) {
+      return res
+        .status(200)
+        .json({ message: "Account is onboarded", onboarded: true });
+    } else {
+      return res
+        .status(200)
+        .json({ message: "Account is onboarded", onboarded: false });
+    }
+  } catch (err) {
+    console.error("❌ Error geting Earning info:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
 
 export {
   creatFreelancerProfile,
   getFreelancerProfile,
   editFreelanceProfile,
   getUserJobStats,
+  getFreelancerEarnings,
+  startFreelancerOnboarding,
+  checkOnboared
   // enableFreelancerProfile,
   // addFreelanceProfile,
   // getFreelancerProfileById,

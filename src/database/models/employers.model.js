@@ -21,6 +21,7 @@ const employerSchema = mongoose.Schema({
 
   // jobs
   jobsCreated: { type: Number, default: 0 },
+  ordersCompleted: { type: Number, default: 0 },
   oneTimeCreate: { type: Boolean, default: false },
 
   // free trail

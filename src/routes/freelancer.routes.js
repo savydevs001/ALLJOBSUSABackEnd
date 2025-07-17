@@ -8,6 +8,9 @@ import {
   creatFreelancerProfile,
   editFreelanceProfile,
   getUserJobStats,
+  getFreelancerEarnings,
+  startFreelancerOnboarding,
+  checkOnboared,
   // addFreelanceProfile,
   // bookmarkFreelancer,
   // enableFreelancerProfile,
@@ -57,14 +60,32 @@ FreelancerRouter.get(
 FreelancerRouter.get(
   "/job-stats",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["freelancer"]),
+  roleBasedAuthMiddleware(["freelancer", "job-seeker"]),
   a(getUserJobStats)
+);
+FreelancerRouter.get(
+  "/earnings",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["freelancer", "job-seeker"]),
+  a(getFreelancerEarnings)
+);
+FreelancerRouter.get(
+  "/onbaord",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["freelancer", "job-seeker"]),
+  a(startFreelancerOnboarding)
+);
+FreelancerRouter.get(
+  "/onboarding-completed",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["freelancer", "job-seeker"]),
+  a(checkOnboared)
 );
 
 FreelancerRouter.post(
   "/profile",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["freelancer"]),
+  roleBasedAuthMiddleware(["freelancer", "job-seeker"]),
   uploadProfilePictureMiddleware.single("file"),
   a(creatFreelancerProfile)
 );
@@ -72,7 +93,7 @@ FreelancerRouter.post(
 FreelancerRouter.put(
   "/profile",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["freelancer"]),
+  roleBasedAuthMiddleware(["freelancer", "job-seeker"]),
   uploadProfilePictureMiddleware.fields([
     { name: "banner", maxCount: 1 },
     { name: "profile", maxCount: 1 },

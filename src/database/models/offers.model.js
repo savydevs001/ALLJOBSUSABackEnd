@@ -12,29 +12,41 @@ const milestoneSchema = new Schema(
   { _id: false }
 );
 
+const interviewSchema = new Schema(
+  {
+    time: Date,
+    link: String,
+    result: String,
+  },
+  {
+    _id: false,
+  }
+);
+
 // Main Offer schema
 const offerSchema = new Schema(
   {
     jobId: { type: Types.ObjectId, ref: "Job" }, // Optional
-    senderId: { type: Types.ObjectId, ref: "User", required: true },
-    receiverId: { type: Types.ObjectId, ref: "User", required: true },
+    senderId: { type: Types.ObjectId, ref: "freelancer", required: true },
+    receiverId: { type: Types.ObjectId, ref: "employer", required: true },
 
-    proposedAmount: { type: Number, required: true },
+    price: { type: Number, required: true },
+    duration: { type: Number, required: true },
+    title: { type: String, required: true },
     description: { type: String, required: true },
 
     milestones: [milestoneSchema], // Optional
 
     status: {
       type: String,
-      enum: ["pending", "accepted", "rejected", "withdrawn"],
+      enum: ["pending", "interviewing", "accepted", "rejected", "withdrawn"],
       default: "pending",
     },
-
-    sentAt: { type: Date, default: Date.now },
-    acceptedAt: { type: Date }, // only if accepted
+    interviewDetails: interviewSchema,
+    acceptedAt: { type: Date }, 
   },
   {
-    timestamps: true, // adds createdAt and updatedAt
+    timestamps: true,
   }
 );
 
