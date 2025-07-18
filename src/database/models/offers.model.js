@@ -39,11 +39,18 @@ const offerSchema = new Schema(
 
     status: {
       type: String,
-      enum: ["pending", "interviewing", "accepted", "rejected", "withdrawn"],
+      enum: [
+        "pending",
+        "interviewing",
+        "reviewd",
+        "accepted",
+        "rejected",
+        "withdrawn",
+      ],
       default: "pending",
     },
     interviewDetails: interviewSchema,
-    acceptedAt: { type: Date }, 
+    acceptedAt: { type: Date },
   },
   {
     timestamps: true,

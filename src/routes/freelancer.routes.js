@@ -11,6 +11,7 @@ import {
   getFreelancerEarnings,
   startFreelancerOnboarding,
   checkOnboared,
+  getDashboardData,
   // addFreelanceProfile,
   // bookmarkFreelancer,
   // enableFreelancerProfile,
@@ -56,6 +57,12 @@ FreelancerRouter.get(
   "/profile",
   verifyTokenMiddleware(),
   a(getFreelancerProfile)
+);
+FreelancerRouter.get(
+  "/dashboard",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["freelancer", "job-seeker"]),
+  a(getDashboardData)
 );
 FreelancerRouter.get(
   "/job-stats",

@@ -82,7 +82,8 @@ const signUp = async (req, res) => {
       lastLogin: new Date(),
     };
     if (req.file) {
-      userDetails.profilePictureUrl = process.env.BACKEND_URL + `/${req.newName}`;
+      userDetails.profilePictureUrl =
+        process.env.BACKEND_URL + `/${req.newName}`;
     }
     let token = null;
 
@@ -108,8 +109,9 @@ const signUp = async (req, res) => {
       if (existing)
         return res.status(409).json({ message: "Email already registered" });
 
-      userDetails.activeRole = userDetails.role;
-      userDetails.role = [userDetails.role];
+      userDetails.activeRole = role;
+      userDetails.role = [role];
+      console.log("user details: ", userDetails);
       const user = new FREELANCER(userDetails);
       await user.save();
       token = jwtToken(user, "freelancer");
@@ -134,14 +136,14 @@ const signIn = async (req, res) => {
 
   try {
     let user = null;
-    let dbRole = role
+    let dbRole = role;
 
     if (role === "employer") {
       // Employer Signin
       user = await EMPLOYER.findOne({
         email: email,
       });
-      dbRole = "employer"
+      dbRole = "employer";
     } else if (role == "job-seeker" || role == "freelancer") {
       // Freelancer Signin
       user = await FREELANCER.findOne({
@@ -163,8 +165,10 @@ const signIn = async (req, res) => {
       return res.status(403).json({ message: "No user found!" });
     }
 
-    if(!user.password.hash || !user.password.salt){
-      return res.status(400).json({message: "You have not setup password yet."})
+    if (!user.password.hash || !user.password.salt) {
+      return res
+        .status(400)
+        .json({ message: "You have not setup password yet." });
     }
 
     const isMatch = verifyPassword(
@@ -178,6 +182,7 @@ const signIn = async (req, res) => {
     }
 
     user.lastLogin = new Date();
+    userDetails.activeRole = role;
     await user.save();
 
     const token = jwtToken(user, role, rememberMe);
@@ -378,9 +383,9 @@ const googleCallback = async (req, res) => {
           lastLogin: new Date(),
         });
       }
-      if(!user.role.includes(role)){
-        user.role.push(role)
-        await user.save()
+      if (!user.role.includes(role)) {
+        user.role.push(role);
+        await user.save();
       }
       token = jwtToken(user, role, true);
     }

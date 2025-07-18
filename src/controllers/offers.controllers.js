@@ -49,7 +49,11 @@ const createOffer = async (req, res, next) => {
     }
 
     // Job validation
-    const job = await Job.findById(jobId);
+    const job = await Job.findById(jobId)
+      .select("title")
+      .populate("employerId", "fullName")
+      .lean();
+      
     if (!job) {
       return res.status(404).json({ message: "Job not found!" });
     }
@@ -114,6 +118,16 @@ const createOffer = async (req, res, next) => {
       });
 
       user.savedJobs.push(job._id);
+
+      // Add to recent activity
+      user.activity.unshift({
+        title: "Saved " + job.title,
+        subTitle: job.employerId.fullName,
+        at: new Date(),
+      });
+      if (user.activity.length > 3) {
+        user.activity.splice(3);
+      }
 
       offer.save({ session });
       user.save({ session });
@@ -483,7 +497,7 @@ const getUserOffers = async (req, res) => {
 
 export {
   createOffer,
-  getUserOffers
+  getUserOffers,
   // editOffer,
   // withdrawOffer,
   // rejectOffer,

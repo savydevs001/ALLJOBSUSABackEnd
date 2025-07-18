@@ -11,6 +11,7 @@ import {
   createStripeExpressAcount,
   generateOnBoardingAccountLink,
 } from "../services/stripe.service.js";
+import Offer from "../database/models/offers.model.js";
 
 dotenv.config();
 
@@ -365,6 +366,42 @@ const checkOnboared = async (req, res) => {
   }
 };
 
+// Profile
+const getDashboardData = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(401).json({ message: "Invalid user id" });
+    }
+
+    const user = await FREELANCER.findById(userId);
+    if (!user || user.status == "deleted") {
+      return res.status(401).json({ message: "No user found" });
+    }
+
+    const offers = await Offer.find({ senderId: userId }).select("createdAt");
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    const lastWeekOffers = offers.filter(
+      (e) => new Date(e.createdAt) >= oneWeekAgo
+    );
+
+    const transformedData = {
+      applications: offers.length || 0,
+      newApplications: lastWeekOffers.length || 0,
+      savedJobs: user.savedJobs.length || 0,
+      views: user.profile.jobActivity?.profileViews || 0,
+      activity: user.activity,
+      fullName: user.fullName,
+    };
+
+    return res.status(200).json({ data: transformedData });
+  } catch (err) {
+    console.error("❌ Error geting Earning info:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
 export {
   creatFreelancerProfile,
   getFreelancerProfile,
@@ -372,7 +409,8 @@ export {
   getUserJobStats,
   getFreelancerEarnings,
   startFreelancerOnboarding,
-  checkOnboared
+  checkOnboared,
+  getDashboardData
   // enableFreelancerProfile,
   // addFreelanceProfile,
   // getFreelancerProfileById,

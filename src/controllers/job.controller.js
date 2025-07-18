@@ -377,19 +377,30 @@ const getAllJobs = async (req, res) => {
       .skip(skip)
       .limit(parseInt(limit))
       .select(
-        "_id title description job simpleJobDetails.jobType simpleJobDetails.locationCity simpleJobDetails.locationState simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.budget"
+        "_id title description job status createdAt applicants simpleJobDetails.jobType simpleJobDetails.locationCity simpleJobDetails.locationState simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.budget"
       )
       .populate("employerId", "fullName")
       .lean();
 
     const transformedJobs = jobs.map((job) => ({
       ...job,
-      applicantCount: job.applicants?.length ?? 0,
-      saved: user?.savedJobs?.includes(job._id) === true ? true : false,
-      match: calculateJobMatchPercentage(
-        { title: job.title, description: job.description },
-        { bio: user?.profile?.bio || "", skills: user?.profile?.skills || [] }
-      ),
+      applicants: job.applicants?.length ?? 0,
+      saved:
+        employerId == ""
+          ? user?.savedJobs?.includes(job._id) === true
+            ? true
+            : false
+          : "",
+      match:
+        employerId == ""
+          ? calculateJobMatchPercentage(
+              { title: job.title, description: job.description },
+              {
+                bio: user?.profile?.bio || "",
+                skills: user?.profile?.skills || [],
+              }
+            )
+          : "",
     }));
 
     return res.status(200).json({
@@ -407,6 +418,14 @@ const saveAJob = async (req, res) => {
     const jobId = req.params.id;
     if (!jobId || !mongoose.Types.ObjectId.isValid(jobId)) {
       return res.status(400).json({ message: "Invalid job Id" });
+    }
+
+    const job = await Job.findById(jobId)
+      .select("title")
+      .populate("employerId", "fullName")
+      .lean();
+    if (!jobId) {
+      return res.status(400).json({ message: "No Job found!" });
     }
 
     const userId = req.user._id;
@@ -429,6 +448,17 @@ const saveAJob = async (req, res) => {
 
     if (canSave == true) {
       user.savedJobs.push(new mongoose.Types.ObjectId(jobId));
+
+      // Add to recent activity
+      user.activity.unshift({
+        title: "Saved " + job.title,
+        subTitle: job.employerId.fullName,
+        at: new Date(),
+      });
+      if (user.activity.length > 3) {
+        user.activity.splice(3);
+      }
+
       await user.save();
 
       return res.status(200).json({ message: "job Saved" });

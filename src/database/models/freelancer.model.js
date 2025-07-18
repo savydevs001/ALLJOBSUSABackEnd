@@ -71,10 +71,22 @@ const freelancerSchema = mongoose.Schema({
     ],
     jobActivity: {
       profileViews: Number,
-      applicationsSent: Number,
       interviewRequest: Number,
     },
     achievements: [String],
+  },
+
+  // recent activity
+  activity: {
+    type: [
+      {
+        title: String,
+        subTitle: String,
+        at: Date,
+      },
+      { _id: false },
+    ],
+    default: []
   },
   // saved jobs
   savedJobs: [{ type: Types.ObjectId, ref: "Job" }],
