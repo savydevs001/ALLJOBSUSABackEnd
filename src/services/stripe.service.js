@@ -139,7 +139,7 @@ const stripeWebhook = async (req, res) => {
 
     if (event.type == "account.updated") {
       const account = event.data.object;
-      console.log("-------> Account: ", account)
+      console.log("-------> Account: ", account);
       const isReady =
         account.details_submitted &&
         account.charges_enabled &&
@@ -182,7 +182,10 @@ const stripeWebhook = async (req, res) => {
         order.paymentStatus = "escrow_held";
         await order.save();
       }
-      return res.status(302).redirect("/order/confirmed");
+      // return res.status(200).redirect("/order/confirmed");
+      return res
+        .status(200)
+        .json({ message: "No Matching condition", received: true });
     }
 
     if (event.type === "checkout.session.expired") {
