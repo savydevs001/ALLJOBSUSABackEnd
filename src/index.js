@@ -79,6 +79,7 @@ try {
     async (req, res) => res.status(200).json({ message: "ok" })
   );
 
+  app.get("/", (req,res)=> res.send("Hello world"))
   app.use("/auth", AuthenticationRouter);
   app.use("/users", UserRouter);
   app.use("/freelancers", FreelancerRouter);
