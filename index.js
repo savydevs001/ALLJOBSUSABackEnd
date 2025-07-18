@@ -1,11 +1,11 @@
 import dotenv from "dotenv"
 dotenv.config()
-import connectToDatabase from "./api/database/index.js";
-import app from "./api/app.js";
+import connectToDatabase from "./src/database/index.js";
+import app from "./src/app.js";
 
 // Socket IO
 import http from "http";
-import initSocket from "./api/socket/init-socket.js";
+import initSocket from "./src/socket/init-socket.js";
 
 
 const PORT = process.env.PORT || 8000;
