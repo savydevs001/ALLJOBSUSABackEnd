@@ -182,7 +182,7 @@ const signIn = async (req, res) => {
     }
 
     user.lastLogin = new Date();
-    userDetails.activeRole = role;
+    user.activeRole = role;
     await user.save();
 
     const token = jwtToken(user, role, rememberMe);
