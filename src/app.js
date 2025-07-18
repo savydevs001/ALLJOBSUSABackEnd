@@ -1,0 +1,85 @@
+import express from "express";
+import dotenv from "dotenv";
+import cors from "cors";
+import os from "os";
+import cluster from "cluster";
+
+// utils
+import errorHandlerMiddleware from "./middlewares/errorHandler.middleware.js";
+import verifyTokenMiddleware from "./middlewares/verifyToken.middleware.js";
+
+// Routers
+import AuthenticationRouter from "./routes/authentication.routes.js";
+import UserRouter from "./routes/users.routes.js";
+import uploadRouter from "./routes/upload.routes.js";
+import FreelancerRouter from "./routes/freelancer.routes.js";
+import EmployerRouter from "./routes/employer.routes.js";
+import JobRouter from "./routes/jobs.routes.js";
+import NotificationRouter from "./routes/notification.routes.js";
+import OfferRouter from "./routes/offers.routes.js";
+import lastOnlineMiddleware from "./middlewares/lastOnline.middleware.js";
+import MessageRouter from "./routes/messages.routes.js";
+import ConversationRouter from "./routes/conversation.routes.js";
+import reviewRouter from "./routes/reviews.routes.js";
+import orderRouter from "./routes/order.routes.js";
+import transactionRouter from "./routes/transactions.routes.js";
+import SubscriptionRouter from "./routes/subscription.routes.js";
+import AdminRouter from "./routes/admin.routes.js";
+
+// stripe
+import { stripeWebhook } from "./services/stripe.service.js";
+import StripeRouter from "./routes/stripe.routes.js";
+
+dotenv.config();
+
+const FRONTEND_URL = process.env.FRONTEND_URL;
+const NODE_ENV = process.env.NODE_ENV || "development";
+const numCPUs = os.cpus().length;
+
+const app = express();
+
+app.post("/webhook", express.raw({ type: "application/json" }), stripeWebhook);
+
+// Middlewares
+app.use(
+  cors({
+    allowedHeaders: ["Content-Type", "Authorization"],
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    origin: [FRONTEND_URL],
+    credentials: true,
+  })
+);
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Routes
+app.use(express.static("src/public"));
+app.get(
+  "/",
+  verifyTokenMiddleware("weak"),
+  lastOnlineMiddleware,
+  async (req, res) => res.status(200).json({ message: "ok" })
+);
+
+app.get("/", (req, res) => res.send("Hello world"));
+app.use("/auth", AuthenticationRouter);
+app.use("/users", UserRouter);
+app.use("/freelancers", FreelancerRouter);
+app.use("/employers", verifyTokenMiddleware(), EmployerRouter);
+app.use("/jobs", verifyTokenMiddleware(), JobRouter);
+app.use("/notifications", NotificationRouter);
+app.use("/offers", OfferRouter);
+app.use("/messages", MessageRouter);
+app.use("/conversation", ConversationRouter);
+app.use("/reviews", reviewRouter);
+app.use("/orders", orderRouter);
+app.use("/payments", express.json(), transactionRouter);
+app.use("/subscriptions", SubscriptionRouter);
+app.use("/admin", AdminRouter);
+app.use("/upload", uploadRouter);
+app.use("/stripe", StripeRouter);
+
+// End Middlewares
+app.use(errorHandlerMiddleware);
+
+export default app;
