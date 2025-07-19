@@ -2,6 +2,8 @@ import { Router } from "express";
 import verifyTokenMiddleware from "../middlewares/verifyToken.middleware.js";
 import {
   createOffer,
+  getOfferById,
+  getReceivedOffers,
   getUserOffers,
   // acceptOffer,
   // editOffer,
@@ -26,6 +28,20 @@ OfferRouter.get(
   verifyTokenMiddleware(),
   roleBasedAuthMiddleware(["freelancer", "job-seeker"]),
   a(getUserOffers)
+);
+
+OfferRouter.get(
+  "/received-offers",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["employer"]),
+  a(getReceivedOffers)
+);
+
+OfferRouter.get(
+  "/:id",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["employer", "freelancer", "job-seeker"]),
+  a(getOfferById)
 );
 
 OfferRouter.post(

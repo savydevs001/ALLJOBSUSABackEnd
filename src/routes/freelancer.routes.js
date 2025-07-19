@@ -12,6 +12,7 @@ import {
   startFreelancerOnboarding,
   checkOnboared,
   getDashboardData,
+  getFreelanceProfileById,
   // addFreelanceProfile,
   // bookmarkFreelancer,
   // enableFreelancerProfile,
@@ -88,6 +89,12 @@ FreelancerRouter.get(
   roleBasedAuthMiddleware(["freelancer", "job-seeker"]),
   a(checkOnboared)
 );
+FreelancerRouter.get(
+  "/profile/:id",
+  verifyTokenMiddleware(),
+  a(getFreelanceProfileById)
+);
+
 
 FreelancerRouter.post(
   "/profile",
@@ -96,6 +103,7 @@ FreelancerRouter.post(
   uploadProfilePictureMiddleware.single("file"),
   a(creatFreelancerProfile)
 );
+
 
 FreelancerRouter.put(
   "/profile",

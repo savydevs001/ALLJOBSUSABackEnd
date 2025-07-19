@@ -16,7 +16,7 @@ const connectToDatabase = async () => {
     console.log("✅ Connected to MongoDB via Mongoose");
   } catch (err) {
     console.error("❌ Failed to connect to MongoDB:", err.message);
-    process.exit(1);
+    connectToDatabase()
   }
 };
 

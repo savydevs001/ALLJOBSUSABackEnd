@@ -12,16 +12,16 @@ const milestoneSchema = new Schema(
   { _id: false }
 );
 
-const interviewSchema = new Schema(
-  {
-    time: Date,
-    link: String,
-    result: String,
-  },
-  {
-    _id: false,
-  }
-);
+// const interviewSchema = new Schema(
+//   {
+//     time: Date,
+//     link: String,
+//     result: String,
+//   },
+//   {
+//     _id: false,
+//   }
+// );
 
 // Main Offer schema
 const offerSchema = new Schema(
@@ -41,15 +41,17 @@ const offerSchema = new Schema(
       type: String,
       enum: [
         "pending",
+        "reviewed",
         "interviewing",
-        "reviewd",
         "accepted",
         "rejected",
         "withdrawn",
       ],
       default: "pending",
     },
-    interviewDetails: interviewSchema,
+    // interviewDetails: interviewSchema,
+    rejectionDetails: String,
+    emailUpdates: {type: Boolean, default: false},
     acceptedAt: { type: Date },
   },
   {

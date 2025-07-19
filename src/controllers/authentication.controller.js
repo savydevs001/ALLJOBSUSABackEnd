@@ -4,12 +4,14 @@ import crypto from "crypto";
 
 import User from "../database/models/users.model.js";
 import { hashPassword, verifyPassword } from "../utils/password.js";
-import sendEmail from "../utils/emailSender.js";
+// import sendEmail from "../utils/emailSender.js";
 import { notifyUser } from "./notification.controller.js";
 import { createStripeExpressAcount } from "../services/stripe.service.js";
 import { jwtToken } from "../utils/jwt.js";
 import EMPLOYER from "../database/models/employers.model.js";
 import FREELANCER from "../database/models/freelancer.model.js";
+import mongoose from "mongoose";
+import req from "express/lib/request.js";
 
 dotenv.config();
 
@@ -149,6 +151,9 @@ const signIn = async (req, res) => {
       user = await FREELANCER.findOne({
         email: email,
       });
+      if (!user) {
+        return res.status(401).json({ message: "No User found!" });
+      }
       if (!user.role.includes(role)) {
         return res.status(400).json({ message: "Invalid Role" });
       }
@@ -224,12 +229,12 @@ const forgotPassword = async (req, res) => {
   await user.save();
 
   const resetLink = `${process.env.FRONTEND_URL}/reset-password/${token}`;
-  await sendEmail({
-    to: user.email,
-    subject: "Reset Your Password",
-    html: `<p>Click below to reset your password:</p>
-         <a href="${resetLink}">${resetLink}</a>`,
-  });
+  // await sendEmail({
+  //   to: user.email,
+  //   subject: "Reset Your Password",
+  //   html: `<p>Click below to reset your password:</p>
+  //        <a href="${resetLink}">${resetLink}</a>`,
+  // });
 
   // clear cookies to ensure security
   res.clearCookie(process.env.JWT_COOKIE_NAME, {

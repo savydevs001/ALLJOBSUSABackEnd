@@ -10,6 +10,7 @@ import {
   getOnlineUser,
   refreshOnlineUser,
 } from "./onlineUsers.js";
+import mongoose from "mongoose";
 
 dotenv.config();
 
@@ -35,11 +36,27 @@ const initSocket = (httpServer) => {
   });
 
   io.on("connection", (socket) => {
-    const userId = socket.user._id;
-    console.log(`✅ ${userId} connected`);
-    refreshOnlineUser(userId, socket.id); // First registration
+    const userId = socket.user?._id;
+    const role =
+      socket.user?.role == "employer"
+        ? "employer"
+        : socket.user?.role == "freelancer" || socket.user?.role == "job-seeker"
+        ? "freelancer"
+        : "";
 
-    socket.on("send-message", async ({ to, content, fileName, fileUrl }) => {
+    if (
+      !role ||
+      !userId ||
+      !mongoose.Types.ObjectId.isValid(userId) ||
+      role == ""
+    ) {
+      return;
+    }
+
+    refreshOnlineUser(userId, socket.id); // First registration
+    console.log(`✅ ${userId} connected`);
+
+    socket.on("message", async ({ to, content, fileName, fileUrl }) => {
       const details = {
         senderId: userId,
         message: content,
@@ -52,16 +69,15 @@ const initSocket = (httpServer) => {
         };
       }
       const message = new Message(details);
-      const reciverSocketId = getOnlineUser.get(to);
-      if (reciverSocketId) {
-        io.to(reciverSocketId).emit("receive-message", message);
-      }
-      createOrUpdateConversation({
-        senderId: userId,
-        receiverId: to,
-        message: content,
-      });
       await message.save();
+      const receiver = getOnlineUser(to);
+      const sender = getOnlineUser(userId);
+      if (sender && sender.socketId) {
+        io.to(sender.socketId).emit("message", message);
+      }
+      if (receiver && receiver.socketId) {
+        io.to(receiver.socketId).emit("message", message);
+      }
     });
 
     socket.on("check-online", (userIds) => {

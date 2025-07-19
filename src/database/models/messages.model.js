@@ -14,8 +14,8 @@ const attachmentSchema = new Schema(
 // Message Schema
 const messageSchema = new Schema(
   {
-    senderId: { type: Types.ObjectId, ref: "User", required: true },
-    receiverId: { type: Types.ObjectId, ref: "User", required: true },
+    senderId: { type: String, required: true },
+    receiverId: { type: String, required: true },
 
     message: { type: String, required: true },
 

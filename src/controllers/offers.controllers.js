@@ -9,6 +9,45 @@ import Job from "../database/models/jobs.model.js";
 import User from "../database/models/users.model.js";
 import FREELANCER from "../database/models/freelancer.model.js";
 import EMPLOYER from "../database/models/employers.model.js";
+import sendEmail from "../services/emailSender.js";
+import enqueueEmail from "../services/emailSender.js";
+
+function getTotalYearsWorkedWithMerging(employers) {
+  if (!Array.isArray(employers)) return 0;
+
+  // Convert and sort by startDate
+  const ranges = employers
+    .map(({ startDate, endDate }) => ({
+      start: new Date(startDate),
+      end: new Date(endDate),
+    }))
+    .filter(({ start, end }) => !isNaN(start) && !isNaN(end) && end > start)
+    .sort((a, b) => a.start - b.start);
+
+  if (ranges.length === 0) return 0;
+
+  const merged = [ranges[0]];
+
+  for (let i = 1; i < ranges.length; i++) {
+    const last = merged[merged.length - 1];
+    const current = ranges[i];
+
+    // If overlapping or contiguous
+    if (current.start <= last.end) {
+      last.end = new Date(Math.max(last.end, current.end));
+    } else {
+      merged.push(current);
+    }
+  }
+
+  const totalMilliseconds = merged.reduce(
+    (sum, { start, end }) => sum + (end - start),
+    0
+  );
+  const millisecondsPerYear = 1000 * 60 * 60 * 24 * 365.25;
+
+  return parseFloat((totalMilliseconds / millisecondsPerYear).toFixed(0));
+}
 
 // Create Offer
 const milestoneSchema = z.object({
@@ -51,9 +90,9 @@ const createOffer = async (req, res, next) => {
     // Job validation
     const job = await Job.findById(jobId)
       .select("title")
-      .populate("employerId", "fullName")
-      .lean();
-      
+      .populate("employerId", "fullName");
+    // .lean();
+
     if (!job) {
       return res.status(404).json({ message: "Job not found!" });
     }
@@ -117,20 +156,27 @@ const createOffer = async (req, res, next) => {
         milestones: data.milestones || [],
       });
 
-      user.savedJobs.push(job._id);
+      if (job.applicants && job.applicants.length > 0) {
+        job.applicants = [...job.applicants, user._id];
+      } else {
+        job.applicants = [user._id];
+      }
 
       // Add to recent activity
       user.activity.unshift({
-        title: "Saved " + job.title,
+        title: "Applied to " + job.title,
         subTitle: job.employerId.fullName,
         at: new Date(),
       });
       if (user.activity.length > 3) {
         user.activity.splice(3);
       }
+      user.profile.jobActivity.applicationsSent =
+        (user.profile?.jobActivity?.applicationsSent || 0) + 1;
 
-      offer.save({ session });
-      user.save({ session });
+      await offer.save({ session });
+      await job.save({ session });
+      await user.save({ session });
 
       await session.commitTransaction();
       session.endSession();
@@ -142,8 +188,6 @@ const createOffer = async (req, res, next) => {
       console.log("❌ Error creating Offer: ", err);
       abortSessionWithMessage(res, session, "Server Error", 400);
     }
-
-    return res.status(200).json({ message: "Un-expected error occurred" });
   } catch (err) {
     console.log("❌ Error creating Offer: ", err);
     return res.status(500).json({ message: "Server Error" });
@@ -176,6 +220,266 @@ const getUserOffers = async (req, res) => {
   } catch (err) {
     console.log("❌ Error creating Offer: ", err);
     return res.status(500).json({ message: "Server Error" });
+  }
+};
+
+// Received Offers
+const getReceivedOffers = async (req, res) => {
+  try {
+    const skip = parseInt(req.query.skip) || 0;
+    const limit = parseInt(req.query.limit) || 10;
+    const text = req.query.text?.trim();
+    const status = req.query.status?.trim();
+    const userId = req.user?._id;
+
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(401).json({ message: "Invalid user" });
+    }
+
+    const textTerms = text
+      ? text
+          .split(" ")
+          .map((t) => t.trim())
+          .filter(Boolean)
+      : [];
+
+    const initialFilter = { receiverId: new mongoose.Types.ObjectId(userId) };
+    if (status != "") {
+      initialFilter.status = status;
+    }
+
+    const matchStages = [
+      {
+        ...initialFilter,
+      },
+    ];
+
+    if (textTerms.length > 0) {
+      const orConditions = textTerms.map((term) => {
+        const regex = new RegExp(term, "i");
+        return {
+          $or: [
+            { title: { $regex: regex } },
+            { description: { $regex: regex } },
+            { "sender.fullName": { $regex: regex } },
+          ],
+        };
+      });
+      matchStages.push(...orConditions);
+    }
+
+    const offers = await Offer.aggregate([
+      {
+        $lookup: {
+          from: "freelancers",
+          localField: "senderId",
+          foreignField: "_id",
+          as: "sender",
+        },
+      },
+      { $unwind: "$sender" },
+      { $match: { $and: matchStages } },
+      { $sort: { createdAt: -1 } },
+      { $skip: skip },
+      { $limit: limit },
+      {
+        $project: {
+          _id: 1,
+          jobId: 1,
+          title: 1,
+          status: 1,
+          createdAt: 1,
+          sender: {
+            _id: "$sender._id",
+            fullName: "$sender.fullName",
+            profilePictureUrl: {
+              $ifNull: ["$sender.profilePictureUrl", ""],
+            },
+            title: "$sender.profile.professionalTitle",
+            resumeUrl: {
+              $ifNull: ["$sender.profile.resumeUrl", ""],
+            },
+            rating: {
+              $cond: [
+                "$sender.rating.isRated",
+                "$sender.rating.value",
+                "not rated",
+              ],
+            },
+            experiences: "$sender.profile.experiences",
+          },
+        },
+      },
+    ]);
+
+    const transformedOffers = offers.map((e) => {
+      const yearsOfExperience = getTotalYearsWorkedWithMerging(
+        e.sender.experiences || []
+      );
+
+      return {
+        _id: e._id,
+        jobId: e.jobId,
+        appliedTo: e.title,
+        status: e.status,
+        createdAt: e.createdAt,
+        sender: {
+          _id: e.sender._id,
+          fullName: e.sender.fullName,
+          profilePictureUrl: e.sender.profilePictureUrl || "",
+          title: e.sender.title || "",
+          resumeUrl: e.sender.resumeUrl || "",
+          rating: e.sender.rating,
+          yearsOfExperience,
+        },
+      };
+    });
+
+    return res.status(200).json({ offers: transformedOffers });
+  } catch (err) {
+    console.error("❌ Error retrieving received offers:", err);
+    return res
+      .status(500)
+      .json({ message: "Error retrieving received offers" });
+  }
+};
+
+// Get offer by id;
+const getOfferById = async (req, res) => {
+  const offerId = req.params?.id;
+  const userId = req.user?._id;
+  try {
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    if (!offerId || !mongoose.Types.ObjectId.isValid(offerId)) {
+      return res.status(404).json({ message: "Offer not found" });
+    }
+
+    const offer = await Offer.findById(offerId)
+      .populate(
+        "senderId",
+        "_id fullName email profilePictureUrl profile.resumeUrl profile.professionalTitle profile.experiences  rating"
+      )
+      .populate(
+        "jobId",
+        "_id, title description job status simpleJobDetails.locationState simpleJobDetails.locationCity deadline simpleJobDetails.experienceLevel freelanceJobDetails.experienceLevel applicants simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.budget"
+      );
+
+    if (!offer) {
+      return res.status(404).json({ message: "No Offer found" });
+    }
+
+    if (!req.user || res.user?.role != "admin") {
+      if (
+        ![
+          offer.senderId._id.toString(),
+          offer.receiverId._id.toString(),
+        ].includes(userId)
+      ) {
+        return res
+          .status(404)
+          .json({ message: "You are not authorized for this offer" });
+      }
+    }
+
+    const transformedData = {
+      _id: offer._id,
+      title: offer.title,
+      description: offer.description,
+      price: offer.price,
+      duration: offer.duration,
+      status: offer.status,
+      createdAt: offer.createdAt,
+
+      sender: {
+        _id: offer.senderId._id,
+        fullName: offer.senderId.fullName,
+        profilePictureUrl: offer.senderId.profilePictureUrl,
+        title: offer.senderId.profile.professionalTitle,
+        resumeUrl: offer.senderId.profile.resumeUrl,
+        rating: offer.senderId.rating.isRated
+          ? offer.senderId.rating.value
+          : "not rated",
+        yearsOfExperience: getTotalYearsWorkedWithMerging(
+          offer.senderId.experiences || []
+        ),
+      },
+
+      job: {
+        _id: offer.jobId._id,
+        title: offer.jobId.title,
+        description: offer.jobId.description,
+        job: offer.jobId.job,
+        status: offer.jobId.status,
+        location:
+          offer.jobId.job == "freelance"
+            ? "remote"
+            : offer.jobId.simpleJobDetails?.locationCity +
+              " " +
+              offer.jobId.simpleJobDetails?.locationState,
+        deadline: offer.jobId.deadline,
+        experienceLevel:
+          offer.jobId.job == "freelance"
+            ? offer.jobId.freelanceJobDetails?.experienceLevel
+            : offer.jobId.simpleJobDetails?.experienceLevel,
+        applicantsCount: offer.jobId.applicants?.length || 0,
+        budget: {
+          type:
+            offer.jobId.job == "simple"
+              ? "fixed"
+              : offer.jobId.freelanceJobDetails?.budget?.budgetType == "Fixed"
+              ? "fixed"
+              : "start" || "",
+          price:
+            offer.jobId.job == "freelance"
+              ? offer.jobId.freelanceJobDetails?.budget?.price
+              : null,
+          min:
+            offer.jobId.job == "simple"
+              ? offer.jobId.simpleJobDetails?.minSalary
+              : offer.jobId.freelanceJobDetails?.budget?.minimum || null,
+          max:
+            offer.jobId.job == "simple"
+              ? offer.jobId.simpleJobDetails?.maxSalary
+              : offer.jobId.freelanceJobDetails?.budget?.maximum || null,
+        },
+      },
+    };
+
+    // send email if updates are on
+    if (offer.emailUpdates === true && offer.senderId.email) {
+      const emailHtml = `
+    <div style="font-family: Arial, sans-serif; padding: 10px;">
+      <h2 style="color: #003366;">Offer Reviewed</h2>
+      <p>Hello ${offer.senderId.fullName || "Freelancer"},</p>
+      <p>Your offer titled <strong>"${
+        offer.title
+      }"</strong> has been reviewed by the employer.</p>
+      <p>We will keep you updated on further actions.</p>
+      <br/>
+      <p>Regards,<br/>Freelancing Platform Team</p>
+    </div>
+  `;
+      enqueueEmail(
+        offer.senderId.email,
+        "Your Offer Has Been Reviewed",
+        emailHtml
+      );
+    }
+
+    // mark as reviewd once receiver open it
+    if (offer.status == "pending") {
+      offer.status = "reviewed";
+      transformedData.status = "reviewed"
+      await offer.save();
+    }
+
+    return res.status(200).json({ offer: transformedData });
+  } catch (err) {
+    console.error("❌ Error retrieving offer for id " + offerId + ": ", err);
+    return res.status(500).json({ message: "Error retrieving offer" });
   }
 };
 
@@ -498,6 +802,8 @@ const getUserOffers = async (req, res) => {
 export {
   createOffer,
   getUserOffers,
+  getReceivedOffers,
+  getOfferById,
   // editOffer,
   // withdrawOffer,
   // rejectOffer,

@@ -70,7 +70,8 @@ const freelancerSchema = mongoose.Schema({
       },
     ],
     jobActivity: {
-      profileViews: Number,
+      profileViews: {type: [String], default: []},
+      applicationsSent: {type:Number, default: 0},
       interviewRequest: Number,
     },
     achievements: [String],
@@ -90,6 +91,13 @@ const freelancerSchema = mongoose.Schema({
   },
   // saved jobs
   savedJobs: [{ type: Types.ObjectId, ref: "Job" }],
+
+  rating: {
+    isRated: {type: Boolean, default: false},
+    totalRatings: Number,
+    totalRatingsSum: Number,
+    value: Number,
+  }
 });
 
 const FREELANCER = mongoose.model("freelancer", freelancerSchema);

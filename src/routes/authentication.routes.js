@@ -13,16 +13,14 @@ import {
   googleCallback,
 } from "../controllers/authentication.controller.js";
 
+AuthenticationRouter.get("/google", a(createGoogleSignInLink));
+AuthenticationRouter.get("/google/callback", a(googleCallback));
 
 AuthenticationRouter.post(
   "/signup",
   uploadProfilePictureMiddleware.single("file"),
   a(signUp)
 );
-
-AuthenticationRouter.get("/google", a(createGoogleSignInLink))
-AuthenticationRouter.get("/google/callback", a(googleCallback))
-
 
 AuthenticationRouter.post("/signin", a(signIn));
 AuthenticationRouter.post("/signout", a(signOut));

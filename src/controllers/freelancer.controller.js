@@ -102,6 +102,10 @@ const getFreelancerProfile = async (req, res) => {
       ...user.profile,
       profilePictureUrl: user.profilePictureUrl,
     };
+    data.jobActivity.profileViews =
+      user.profile?.jobActivity?.profileViews?.length;
+
+      console.log(data)
 
     return res.status(200).json({
       user: data,
@@ -390,7 +394,7 @@ const getDashboardData = async (req, res) => {
       applications: offers.length || 0,
       newApplications: lastWeekOffers.length || 0,
       savedJobs: user.savedJobs.length || 0,
-      views: user.profile.jobActivity?.profileViews || 0,
+      views: user.profile.jobActivity?.profileViews?.length || 0,
       activity: user.activity,
       fullName: user.fullName,
     };
@@ -402,6 +406,58 @@ const getDashboardData = async (req, res) => {
   }
 };
 
+// get Public profile
+const getFreelanceProfileById = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const viewerId = req.params.id;
+
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(403).json({ message: "Invalid User" });
+    }
+
+    const user = await FREELANCER.findOne(
+      { _id: userId, status: { $nin: ["deleted"] } },
+      {
+        fullName: 1,
+        profilePictureUrl: 1,
+        profile: 1,
+      }
+    );
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (!user.profile) {
+      return res.status(404).json({ message: "Freelancer profile not set" });
+    }
+
+    if (viewerId && mongoose.Types.ObjectId.isValid(viewerId)) {
+      if (!user.profile.jobActivity.profileViews.includes(viewerId)) {
+        user.profile.jobActivity.profileViews = [
+          ...user.profile.jobActivity.profileViews,
+          viewerId,
+        ];
+
+        await user.save();
+      }
+    }
+
+    const data = {
+      fullName: user.fullName,
+      ...user.profile,
+      profilePictureUrl: user.profilePictureUrl,
+    };
+
+    return res.status(200).json({
+      user: data,
+    });
+  } catch (err) {
+    console.log("❌ Error getting freelance profile: ", err);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
 export {
   creatFreelancerProfile,
   getFreelancerProfile,
@@ -410,7 +466,8 @@ export {
   getFreelancerEarnings,
   startFreelancerOnboarding,
   checkOnboared,
-  getDashboardData
+  getDashboardData,
+  getFreelanceProfileById,
   // enableFreelancerProfile,
   // addFreelanceProfile,
   // getFreelancerProfileById,
