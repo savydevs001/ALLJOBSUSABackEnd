@@ -62,6 +62,10 @@ const initSocket = (httpServer) => {
       if (!to || !content) {
         return;
       }
+      if(mongoose.Types.ObjectId.isValid(to) === false || mongoose.Types.ObjectId.isValid(userId) === false){
+        console.log("Invalid userId or to");
+        return;
+      }
       const details = {
         senderId: userId,
         message: content,
