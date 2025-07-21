@@ -1,11 +1,12 @@
-import User from "../database/models/users.model.js";
+import dotenv from "dotenv"
+dotenv.config()
 
 const uploadFile = async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: "No file uploaded" });
     }
-    const fileUrl = req.newName;
+    const fileUrl =  process.env.BACKEND_URL + `/${req.newName}`;
     console.log(":::::::::")
     console.log(fileUrl)
     return res

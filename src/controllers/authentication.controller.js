@@ -83,10 +83,14 @@ const signUp = async (req, res) => {
       },
       lastLogin: new Date(),
     };
+    
     if (req.file) {
       userDetails.profilePictureUrl =
         process.env.BACKEND_URL + `/${req.newName}`;
+    } else if (profilePictureUrl) {
+      userDetails.profilePictureUrl = profilePictureUrl;
     }
+
     let token = null;
 
     if (role === "employer") {
@@ -154,9 +158,9 @@ const signIn = async (req, res) => {
       if (!user) {
         return res.status(401).json({ message: "No User found!" });
       }
-      if (!user.role.includes(role)) {
-        return res.status(400).json({ message: "Invalid Role" });
-      }
+      // if (!user.role.includes(role)) {
+      //   return res.status(400).json({ message: "Invalid Role" });
+      // }
     }
 
     if (!user || dbRole != role) {
@@ -336,7 +340,6 @@ const googleCallback = async (req, res) => {
         grant_type: "authorization_code",
       }).toString(),
     });
-    console.log("---------- Google response: ", tokenRes);
     if (!tokenRes.ok) {
       return res.status(400).json({
         message: "Failed to exchange code for token",
@@ -344,7 +347,6 @@ const googleCallback = async (req, res) => {
     }
 
     const tokenResponse = await tokenRes.json();
-    console.log("---------- Google response data: ", tokenResponse);
     const { id_token } = tokenResponse;
     const profileRes = await fetch(
       `https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=${id_token}`,
@@ -355,6 +357,7 @@ const googleCallback = async (req, res) => {
     const profileResponse = await profileRes.json();
     const { email, name, picture } = profileResponse;
     let token = null;
+    let newUser = false;
 
     // search Employers
     if (role == "employer") {
@@ -363,14 +366,11 @@ const googleCallback = async (req, res) => {
         { lastLogin: new Date() }
       );
       if (!user) {
-        user = await EMPLOYER.create({
-          email: email,
-          fullName: name,
-          profilePictureUrl: picture,
-          lastLogin: new Date(),
-        });
+        newUser = true;
       }
-      token = jwtToken(user, role, true);
+      if (user) {
+        token = jwtToken(user, role, true);
+      }
     }
     // Search Freelancers or Job-Seekers
     else if (role == "job-seeker" || role == "freelancer") {
@@ -379,33 +379,34 @@ const googleCallback = async (req, res) => {
         { activeRole: role, lastLogin: new Date() }
       );
       if (!user) {
-        user = await FREELANCER.create({
-          email: email,
-          fullName: name,
-          profilePictureUrl: picture,
-          role: [role],
-          activeRole: role,
-          lastLogin: new Date(),
-        });
+        newUser = true;
       }
-      if (!user.role.includes(role)) {
+      if (user && !user.role.includes(role)) {
         user.role.push(role);
         await user.save();
       }
-      token = jwtToken(user, role, true);
+      if (user) {
+        token = jwtToken(user, role, true);
+      }
     }
     // Invalid role
     else {
       return res.status(400).json({ message: "Invalid user role" });
     }
 
-    if (token === null) {
+    if (!newUser && token === null) {
       console.log("❌ Error creating jwt token");
       return res.status(500).json({ message: "Server Error" });
     }
+
     return res.status(201).json({
       message: "Signup successful",
-      token,
+      token: newUser ? "" : token,
+      passwordSetupRequired: newUser,
+      email: email,
+      fullName: name,
+      profilePictureUrl: picture,
+      role: role,
     });
   } catch (err) {
     console.error("❌ Google callback Signin  error:", err);

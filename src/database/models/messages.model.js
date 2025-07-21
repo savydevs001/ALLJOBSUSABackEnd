@@ -20,6 +20,7 @@ const messageSchema = new Schema(
     message: { type: String, required: true },
 
     sentAt: { type: Date, default: Date.now },
+    seen: {type: Boolean, default: true},
     attachments: attachmentSchema,
   },
   {

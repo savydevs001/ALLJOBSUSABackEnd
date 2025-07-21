@@ -56,7 +56,12 @@ const initSocket = (httpServer) => {
     refreshOnlineUser(userId, socket.id); // First registration
     console.log(`✅ ${userId} connected`);
 
+    socket.broadcast.emit("user-online", {userId});
+
     socket.on("message", async ({ to, content, fileName, fileUrl }) => {
+      if (!to || !content) {
+        return;
+      }
       const details = {
         senderId: userId,
         message: content,
@@ -78,24 +83,30 @@ const initSocket = (httpServer) => {
       if (receiver && receiver.socketId) {
         io.to(receiver.socketId).emit("message", message);
       }
+      else{
+        message.seen = false;
+        await message.save()
+      }
     });
 
-    socket.on("check-online", (userIds) => {
+    socket.on("online", (userIds) => {
       let onlineUsers = [];
       if (userIds && userIds.length > 0) {
-        onlineUsers = userIds.map((id) => {
-          if (checkOnlineUser(id)) {
-            return id;
-          }
-          return;
-        });
+        onlineUsers = userIds.filter((id) => checkOnlineUser(id));
       }
-      socket.emit("verify-online", onlineUsers);
+      socket.emit("online", onlineUsers);
     });
+
+    socket.on("single-online", ({userId})=> {
+      const online = checkOnlineUser(userId)
+      console.log("single-online: " + userId + " " + online)
+      socket.emit("single-online", {online})
+    })
 
     socket.on("disconnect", () => {
       console.log(`❌ ${userId} dis-connected`);
       deleteOnlineUser(userId);
+      socket.broadcast.emit("user-offline", {userId});
     });
   });
 };

@@ -260,6 +260,7 @@ const getEmployerDashboardData = async (req, res) => {
 
     const transformOffers = latestApplicantsOffers.map((e) => ({
       _id: e._id,
+      senderId: e.senderId._id,
       fullName: e.senderId.fullName,
       profilePictureUrl: e.senderId.profilePictureUrl || "",
       professionalTitle: e.senderId.profile.professionalTitle || "",
