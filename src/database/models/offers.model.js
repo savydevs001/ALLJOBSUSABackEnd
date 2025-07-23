@@ -29,6 +29,7 @@ const offerSchema = new Schema(
     jobId: { type: Types.ObjectId, ref: "Job" }, // Optional
     senderId: { type: Types.ObjectId, ref: "freelancer", required: true },
     receiverId: { type: Types.ObjectId, ref: "employer", required: true },
+    job: { type: String, enum: ["simple", "freelance"], required: true },
 
     price: { type: Number, required: true },
     duration: { type: Number, required: true },
@@ -51,7 +52,7 @@ const offerSchema = new Schema(
     },
     // interviewDetails: interviewSchema,
     rejectionDetails: String,
-    emailUpdates: {type: Boolean, default: false},
+    emailUpdates: { type: Boolean, default: false },
     acceptedAt: { type: Date },
   },
   {

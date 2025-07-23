@@ -88,9 +88,7 @@ const createOffer = async (req, res, next) => {
     }
 
     // Job validation
-    const job = await Job.findById(jobId)
-      .select("title")
-      .populate("employerId", "fullName");
+    const job = await Job.findById(jobId).populate("employerId", "fullName");
     // .lean();
 
     if (!job) {
@@ -472,7 +470,7 @@ const getOfferById = async (req, res) => {
     // mark as reviewd once receiver open it
     if (offer.status == "pending") {
       offer.status = "reviewed";
-      transformedData.status = "reviewed"
+      transformedData.status = "reviewed";
       await offer.save();
     }
 

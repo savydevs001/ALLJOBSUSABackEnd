@@ -2,11 +2,12 @@ import Message from "../database/models/messages.model.js";
 import mongoose, { mongo } from "mongoose";
 import EMPLOYER from "../database/models/employers.model.js";
 import FREELANCER from "../database/models/freelancer.model.js";
+import JOBSEEKER from "../database/models/job-seeker.model.js";
 
 const getMessagesWithProfile = async (req, res) => {
   try {
-    const userId = req.user._id;
-    const withUserId = req.params.id;
+    const userId = req.user?._id;
+    const withUserId = req.params?.id;
 
     if (
       !userId ||
@@ -31,9 +32,12 @@ const getMessagesWithProfile = async (req, res) => {
     if (!user) {
       user = await FREELANCER.findById(withUserId);
       if (!user) {
-        return res
-          .status(400)
-          .json({ message: "sender or receiver not found" });
+        user = await JOBSEEKER.findById(withUserId);
+        if (!user) {
+          return res
+            .status(400)
+            .json({ message: "sender or receiver not found" });
+        }
       }
     }
     const receiver = {
@@ -81,7 +85,10 @@ const getMessagesWithProfile = async (req, res) => {
 
 const getConversations = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user?._id;
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid sender or receiver Id" });
+    }
 
     const conversations = await Message.aggregate([
       {
@@ -152,7 +159,9 @@ const getConversations = async (req, res) => {
       if (otherId) userIdsSet.add(otherId.toString());
     });
 
-    const userIds = Array.from(userIdsSet);
+    const userIds = Array.from(userIdsSet).filter((id) =>
+      mongoose.Types.ObjectId.isValid(id)
+    );
 
     const [freelancers, employers] = await Promise.all([
       FREELANCER.find({ _id: { $in: userIds } }).select(

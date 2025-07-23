@@ -25,7 +25,7 @@ const jobSchema = new Schema(
     job: { type: String, enum: ["simple", "freelance"], required: true },
     status: {
       type: String,
-      enum: ["empty", "filled", "completed", "expired", "paused"],
+      enum: ["empty", "filled", "completed", "expired", "paused", "deleted"],
       default: "empty",
     },
 

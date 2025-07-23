@@ -21,6 +21,7 @@ const jwtToken = (user, role, rememberMe = false) => {
       {
         _id: user._id,
         role: role,
+        email: user.email,
         fullName: user.fullName ?? "",
         profilePictureUrl: user.profilePictureUrl ?? "",
       },

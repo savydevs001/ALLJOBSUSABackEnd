@@ -7,6 +7,7 @@ import FREELANCER from "../database/models/freelancer.model.js";
 import EMPLOYER from "../database/models/employers.model.js";
 import getDateNDaysFromNow from "../utils/date-and-days.js";
 import calculateJobMatchPercentage from "../utils/calculate-job-match.js";
+import JOBSEEKER from "../database/models/job-seeker.model.js";
 
 // POST job
 const createJobZODSchema = z.object({
@@ -262,13 +263,14 @@ const getAllJobs = async (req, res) => {
       category,
       tags,
       status = "empty",
+      job = "simple",
       jobType,
       employerId,
       location,
       text,
     } = req.query;
 
-    const filters = {};
+    const filters = { job: job };
 
     // get user to check if he had saved this job
     const user = await FREELANCER.findById(req.user?._id).select("savedJobs");
@@ -416,6 +418,12 @@ const getAllJobs = async (req, res) => {
 const saveAJob = async (req, res) => {
   try {
     const jobId = req.params.id;
+    const role = req.user?.role;
+
+    if (!["freelancer", "job-seeker"].includes(role)) {
+      return res.status(403).json({ message: "invalid user role" });
+    }
+
     if (!jobId || !mongoose.Types.ObjectId.isValid(jobId)) {
       return res.status(400).json({ message: "Invalid job Id" });
     }
@@ -433,7 +441,13 @@ const saveAJob = async (req, res) => {
       return res.status(401).json({ message: "Invalid user Id" });
     }
 
-    const user = await FREELANCER.findById(userId);
+    let user = null;
+    if (role == "freelancer") {
+      user = await FREELANCER.findById(userId);
+    } else if (role == "job-seeker") {
+      user = await JOBSEEKER.findById(userId);
+    }
+
     if (!user) {
       return res.status(401).json({ message: "Invalid User" });
     }
@@ -475,6 +489,12 @@ const saveAJob = async (req, res) => {
 const removeSavedJob = async (req, res) => {
   try {
     const jobId = req.params.id;
+    const role = req.user?.role;
+
+    if (!["freelancer", "job-seeker"].includes(role)) {
+      return res.status(403).json({ message: "invalid user role" });
+    }
+
     if (!jobId || !mongoose.Types.ObjectId.isValid(jobId)) {
       return res.status(400).json({ message: "Invalid job Id" });
     }
@@ -484,7 +504,12 @@ const removeSavedJob = async (req, res) => {
       return res.status(401).json({ message: "Invalid user Id" });
     }
 
-    const user = await FREELANCER.findById(userId);
+    let user = null;
+    if (role == "freelancer") {
+      user = await FREELANCER.findById(userId);
+    } else if (role == "job-seeker") {
+      user = await FREELANCER.findById(userId);
+    }
     if (!user) {
       return res.status(401).json({ message: "Invalid User" });
     }
@@ -516,18 +541,31 @@ const removeSavedJob = async (req, res) => {
   }
 };
 
+// saved jobs of job-seeker
 const getAllSavedJobs = async (req, res) => {
   try {
     const skip = parseInt(req.query.skip) || 0;
     const limit = parseInt(req.query.limit) || 10;
 
+    const role = req.user?.role;
     const userId = req.user?._id;
+
+    if (!["freelancer", "job-seeker"].includes(role)) {
+      return res.status(403).json({ message: "invalid user role" });
+    }
 
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(401).json({ message: "Invalid user ID" });
     }
 
-    const user = await FREELANCER.findById(userId).select("savedJobs");
+    let user = null;
+    if (role == "freelancer") {
+      user = await FREELANCER.findById(userId).select("savedJobs");
+    } else if (role == "job-seeker") {
+      user = await JOBSEEKER.findById(userId).select("savedJobs");
+    }
+    console.log("role: ", user)
+
     if (!user) {
       return res.status(401).json({ message: "User not found" });
     }
@@ -565,190 +603,95 @@ const getAllSavedJobs = async (req, res) => {
   }
 };
 
-// const updateJobSchema = z
-//   .object({
-//     title: z.string().min(3).optional(),
-//     description: z.string().min(10).optional(),
-//     jobType: z
-//       .enum(["full-time", "part-time", "contract", "freelance"])
-//       .optional(),
-//     category: z.string().min(2).optional(),
-//     tags: z.array(z.string()).optional(),
-//     location: z
-//       .string()
-//       .min(2, "Please provide a valid job location")
-//       .optional(),
-//     price: z.number().positive().optional(),
-//     plusBonus: z.boolean().optional(),
-//     applicationDeadline: z.string().date().optional(),
-//   })
-//   .strict();
+// get all jobs of employer
+const myJobPostings = async (req, res) => {
+  try {
+    const skip = parseInt(req.query.skip) || 0;
+    const limit = parseInt(req.query.limit) || 10;
+    const text = req.query.text?.trim();
+    const status = req.query.status?.trim();
+    const userId = req.user?._id;
 
-// const updateJob = async (req, res) => {
-//   const jobId = req.params.id;
-//   const employerId = req.user?._id;
-//   const updates = updateJobSchema.parse(req.body);
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(401).json({ message: "Invalid user" });
+    }
 
-//   const job = await Job.findOne({ _id: jobId, status: { $nin: ["deleted"] } });
+    const textTerms = text
+      ? text
+          .split(" ")
+          .map((t) => t.trim())
+          .filter(Boolean)
+      : [];
 
-//   if (!job) {
-//     return res.status(404).json({ message: "Job not found" });
-//   }
+    // Base filter
+    const baseFilter = { employerId: new mongoose.Types.ObjectId(userId) };
+    if (status && status !== "") {
+      baseFilter.status = status;
+    }
 
-//   if (job.status === "expired" || job.status === "filled") {
-//     return res.status(400).json({
-//       message: `Cannot edit job because it is ${job.status}`,
-//     });
-//   }
+    // Text search
+    const textFilter =
+      textTerms.length > 0
+        ? {
+            $and: textTerms.map((term) => {
+              const regex = new RegExp(term, "i");
+              return {
+                $or: [
+                  { title: { $regex: regex } },
+                  { description: { $regex: regex } },
+                ],
+              };
+            }),
+          }
+        : {};
 
-//   // Check ownership
-//   if (String(job.employerId) !== String(employerId)) {
-//     return res.status(403).json({ message: "Not authorized to edit this job" });
-//   }
+    const finalFilter = {
+      ...baseFilter,
+      ...textFilter,
+    };
 
-//   // Apply updates
-//   Object.assign(job, updates);
-//   await job.save();
+    const jobs = await Job.find(finalFilter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
 
-//   return res.status(200).json({
-//     message: "Job updated successfully",
-//     job,
-//   });
-// };
+    const transformedData = jobs.map((e) => ({
+      _id: e._id,
+      title: e.title,
+      status: e.status,
+      job: e.job,
+      location:
+        e.job == "freelance"
+          ? "remote"
+          : e.simpleJobDetails.locationCity +
+            " " +
+            e.simpleJobDetails.locationState,
+      budget: {
+        budgetType:
+          e.job == "freelance" &&
+          e.freelanceJobDetails.budget.budgetType == "Start"
+            ? "Start"
+            : "Fixed",
+        price: e.job == "freelance" ? e.freelanceJobDetails.budget.price : 0,
+        minimum:
+          e.job == "freelance"
+            ? e.freelanceJobDetails.budget.minimum
+            : e.simpleJobDetails.minSalary,
+        maximum:
+          e.job == "freelance"
+            ? e.freelanceJobDetails.budget.maximum
+            : e.simpleJobDetails.maxSalary,
+      },
+      applicantCount: e.applicants?.length || 0,
+      createdAt: e.createdAt,
+    }));
 
-// const jobById = async (req, res) => {
-//   const jobId = req.params.id;
-
-//   // Find job by ID
-//   const job = await Job.findOne({ _id: jobId, status: { $nin: ["deleted"] } })
-//     .populate("employerId", "profile.fullName, profile.profilePictureUrl")
-//     .populate(
-//       "applicants.freelancerId",
-//       "profile.fullName profile.profilePictureUrl"
-//     );
-
-//   if (!job) {
-//     return res.status(400).json({ message: "No Job found!" });
-//   }
-//   if (!req.user?.role?.includes("admin") && job.status !== "active") {
-//     return res.status(403).json({
-//       message: "No active job found with this ID",
-//     });
-//   }
-
-//   if (!job) {
-//     return res.status(404).json({ message: "Job not found" });
-//   }
-
-//   return res.status(200).json({
-//     message: "Job retrieved successfully",
-//     job,
-//   });
-// };
-
-// const saveAJob = async (req, res) => {
-//   const userId = req.user?._id;
-//   const jobId = req.params.id;
-
-//   if (!mongoose.Types.ObjectId.isValid(jobId)) {
-//     return res.status(400).json({ message: "Invalid job ID" });
-//   }
-
-//   // Find user with freelancer role
-//   const user = await User.findOne({
-//     _id: userId,
-//     status: "active",
-//     role: { $in: ["freelancer"] },
-//   });
-
-//   if (!user) {
-//     return res
-//       .status(403)
-//       .json({ message: "Only active freelancers can save jobs" });
-//   }
-
-//   // Check if job exists
-//   const job = await Job.findById(jobId);
-//   if (!job) {
-//     return res.status(404).json({ message: "Job not found" });
-//   }
-
-//   // Check if already saved
-//   const alreadySaved = user.freelancerDetails?.savedJobs?.includes(jobId);
-//   if (alreadySaved) {
-//     return res.status(400).json({ message: "Job already saved" });
-//   }
-
-//   // Add jobId to savedJobs
-//   user.freelancerDetails.savedJobs.push(jobId);
-//   await user.save();
-
-//   return res.status(200).json({
-//     message: "Job saved successfully",
-//     savedJobs: user.freelancerDetails.savedJobs,
-//   });
-// };
-
-// const removeSavedJob = async (req, res) => {
-//   const userId = req.user?._id;
-//   const jobId = req.params.id;
-
-//   if (!mongoose.Types.ObjectId.isValid(jobId)) {
-//     return res.status(400).json({ message: "Invalid job ID" });
-//   }
-
-//   // Find user with freelancer role
-//   const user = await User.findOne({
-//     _id: userId,
-//     status: "active",
-//     role: { $in: ["freelancer"] },
-//   });
-
-//   const savedJobs = user.freelancerDetails?.savedJobs || [];
-
-//   // Check if job is in savedJobs
-//   const index = savedJobs.findIndex((id) => id.toString() === jobId);
-//   if (index === -1) {
-//     return res.status(404).json({ message: "Job not found in saved jobs" });
-//   }
-
-//   // Remove the jobId from savedJobs
-//   savedJobs.splice(index, 1);
-//   user.freelancerDetails.savedJobs = savedJobs;
-//   await user.save();
-
-//   return res
-//     .status(200)
-//     .json({ message: "Job removed from saved jobs", savedJobs });
-// };
-
-// const deleteJob = async (req, res) => {
-//   const jobId = req.params.id;
-//   const userId = req.user?._id;
-
-//   const job = await Job.findOne({ _id: jobId, status: { $ne: "deleted" } });
-
-//   if (!job) {
-//     return res.status(404).json({ message: "Job not found" });
-//   }
-
-//   // Check if the logged-in user is the employer who created the job
-//   if (req.user?.role.includes["admin"]) {
-//     job.status = "deleted";
-//     await job.save();
-//     return res.status(200).json({ message: "Job deleted successfully" });
-//   }
-
-//   if (job.employerId.toString() !== userId.toString()) {
-//     return res.status(403).json({ message: "Unauthorized to delete this job" });
-//   }
-
-//   // Mark the job as deleted
-//   job.status = "deleted";
-//   await job.save();
-
-//   return res.status(200).json({ message: "Job deleted successfully" });
-// };
+    return res.json({ jobs: transformedData });
+  } catch (err) {
+    console.error("❌ Error getting job postings:", err);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
 
 export {
   createJob,
@@ -757,12 +700,5 @@ export {
   removeSavedJob,
   getAllSavedJobs,
   getJobById,
+  myJobPostings,
 };
-
-// createJob,
-// updateJob,
-// jobById,
-// getAllJobs,
-// saveAJob,
-// removeSavedJob,
-// deleteJob,

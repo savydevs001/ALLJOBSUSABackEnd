@@ -13,6 +13,9 @@ import {
   checkOnboared,
   getDashboardData,
   getFreelanceProfileById,
+  getFreelancerList,
+  likeFreelancer,
+  unlikeFreelancer,
   // addFreelanceProfile,
   // bookmarkFreelancer,
   // enableFreelancerProfile,
@@ -90,11 +93,26 @@ FreelancerRouter.get(
   a(checkOnboared)
 );
 FreelancerRouter.get(
+  "/all",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["employer"]),
+  a(getFreelancerList)
+);
+FreelancerRouter.get(
   "/profile/:id",
   verifyTokenMiddleware(),
   a(getFreelanceProfileById)
 );
-
+FreelancerRouter.get(
+  "/:id/like",
+  verifyTokenMiddleware(),
+  a(likeFreelancer)
+);
+FreelancerRouter.get(
+  "/:id/un-like",
+  verifyTokenMiddleware(),
+  a(unlikeFreelancer)
+);
 
 FreelancerRouter.post(
   "/profile",
@@ -103,7 +121,6 @@ FreelancerRouter.post(
   uploadProfilePictureMiddleware.single("file"),
   a(creatFreelancerProfile)
 );
-
 
 FreelancerRouter.put(
   "/profile",

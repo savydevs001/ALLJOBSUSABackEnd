@@ -1,17 +1,10 @@
 import mongoose from "mongoose";
-import User from "../database/models/users.model.js";
 import dotenv from "dotenv";
 import { z } from "zod";
-import { jwtToken } from "../utils/jwt.js";
-import FREELANCER from "../database/models/freelancer.model.js";
-import uploadProfile from "../utils/files/uploadProfile.js";
 import Job from "../database/models/jobs.model.js";
 import calculateJobMatchPercentage from "../utils/calculate-job-match.js";
-import {
-  createStripeExpressAcount,
-  generateOnBoardingAccountLink,
-} from "../services/stripe.service.js";
 import Offer from "../database/models/offers.model.js";
+import JOBSEEKER from "../database/models/job-seeker.model.js";
 
 dotenv.config();
 
@@ -29,11 +22,10 @@ const createProfileZODSchema = z.object({
   freelancerWork: z.enum(["true", "false"]).default("false"),
   projects: z.array(z.string()).default([]),
   samples: z.array(z.string()).default([]),
-  loaction: z.string().optional(),
 });
 
 // Controllers
-const creatFreelancerProfile = async (req, res) => {
+const creatJobSeekerProfile = async (req, res) => {
   const data = createProfileZODSchema.parse(req.body);
   try {
     const userId = req.user._id;
@@ -41,32 +33,32 @@ const creatFreelancerProfile = async (req, res) => {
       return res.status(403).json({ message: "Invalid User" });
     }
 
-    const freelancer = await FREELANCER.findById(userId);
-    if (!freelancer) {
+    const user = await JOBSEEKER.findById(userId);
+    if (!user) {
       return res.status(403).json({ message: "No User found!" });
     }
 
-    // if (freelancer.profile) {
-    //   return res.status(403).json({ message: "Profile already set" });
-    // }
-
-    freelancer.profile = data;
-    freelancer.profile.freelancerWork = data.freelancerWork === "true";
-    if (req.file && req.newName) {
-      freelancer.profilePictureUrl = `${req.newName.replace(/\\/g, "/")}`;
+    if (user.profile) {
+      return res.status(403).json({ message: "Profile already set" });
     }
 
-    await freelancer.save();
+    user.profile = data;
+    user.profile.freelancerWork = data.freelancerWork === "true";
+    if (req.file && req.newName) {
+      user.profilePictureUrl = `${req.newName.replace(/\\/g, "/")}`;
+    }
+
+    await user.save();
 
     return res.status(201).json({ message: "Profile created successfully" });
   } catch (err) {
-    console.log("❌ Error creating freelance profile: ", err);
+    console.log("❌ Error creating User profile: ", err);
     return res.status(500).json({ message: "Server Error" });
   }
 };
 
 // Get Profile
-const getFreelancerProfile = async (req, res) => {
+const getJobSeekerProfile = async (req, res) => {
   try {
     const userId = req.user?._id;
 
@@ -74,15 +66,14 @@ const getFreelancerProfile = async (req, res) => {
       return res.status(403).json({ message: "Invalid User" });
     }
 
-    const user = await FREELANCER.findOne(
+    const user = await JOBSEEKER.findOne(
       { _id: userId, status: { $nin: ["deleted"] } },
       {
         fullName: 1,
+        phoneNumber: 1,
+        email: 1,
         profilePictureUrl: 1,
         profile: 1,
-        rating: 1,
-        projectsCompleted: 1,
-        createdAt: 1,
       }
     );
 
@@ -91,17 +82,15 @@ const getFreelancerProfile = async (req, res) => {
     }
 
     if (!user.profile) {
-      return res.status(404).json({ message: "Freelancer profile not set" });
+      return res.status(404).json({ message: "USER profile not set" });
     }
 
     const data = {
-      _id: user._id,
       fullName: user.fullName,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
       ...user.profile,
       profilePictureUrl: user.profilePictureUrl,
-      rating: user.rating,
-      projectsCompleted: user.projectsCompleted,
-      createdAt: user.createdAt,
     };
     data.jobActivity.profileViews =
       user.profile?.jobActivity?.profileViews?.length;
@@ -110,7 +99,7 @@ const getFreelancerProfile = async (req, res) => {
       user: data,
     });
   } catch (err) {
-    console.log("❌ Error getting freelance profile: ", err);
+    console.log("❌ Error getting profile: ", err);
     return res.status(500).json({ message: "Server Error" });
   }
 };
@@ -136,7 +125,7 @@ const updateProfileZODSchema = z.object({
   skills: z.array(z.string()).min(1, "At lease 1 skill required"),
   experiences: z.array(z.string()).optional(),
 });
-const editFreelanceProfile = async (req, res, next) => {
+const editJobSeekerProfile = async (req, res) => {
   const data = updateProfileZODSchema.parse(req.body);
 
   try {
@@ -145,7 +134,7 @@ const editFreelanceProfile = async (req, res, next) => {
     if (!userId) {
       return res.status(401).json({ message: "User invalid" });
     }
-    const user = await FREELANCER.findOne({
+    const user = await JOBSEEKER.findOne({
       _id: userId,
       status: { $nin: ["deleted"] },
     });
@@ -154,7 +143,7 @@ const editFreelanceProfile = async (req, res, next) => {
       return res.status(403).json({ message: "Account cannot be modified" });
     }
 
-    const existing = await FREELANCER.findOne({
+    const existing = await JOBSEEKER.findOne({
       email: data.email,
     });
     if (existing && userId != existing._id) {
@@ -189,7 +178,7 @@ const editFreelanceProfile = async (req, res, next) => {
     await user.save();
     return res.status(200).json({ message: "Profile updated successfully" });
   } catch (err) {
-    console.log("❌ Error getting freelance profile: ", err);
+    console.log("❌ Error getting profile: ", err);
     return res.status(500).json({ message: "Server Error" });
   }
 };
@@ -205,7 +194,7 @@ const getUserJobStats = async (req, res) => {
     }
 
     // Get all jobs the user has applied to
-    const user = await FREELANCER.findById(userId);
+    const user = await JOBSEEKER.findById(userId);
     if (!user) {
       return res.status(401).json({ message: "User not found!" });
     }
@@ -268,108 +257,6 @@ const getUserJobStats = async (req, res) => {
   }
 };
 
-// Get Earning
-const getFreelancerEarnings = async (req, res) => {
-  try {
-    const userId = req.user?._id;
-
-    const user = await FREELANCER.findById(userId);
-    if (!userId) {
-      return res.status(401).json({ message: "User not found!" });
-    }
-
-    if (user.onboarded === false) {
-      return res.status(200).json({
-        message: "Please setupe Payment first in Earnings tab",
-        onboardRequired: true,
-      });
-    }
-
-    return res.status(200).json({ message: "need to be implemented" });
-  } catch (err) {
-    console.error("❌ Error geeting Earning info:", err);
-    return res.status(500).json({ message: "Server error" });
-  }
-};
-
-// start onboarding
-const startFreelancerOnboarding = async (req, res) => {
-  try {
-    const userId = req.user?._id;
-    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(401).json({ message: "Inavlid User" });
-    }
-
-    const user = await FREELANCER.findById(userId);
-    if (!user || user.status == "deleted") {
-      return res.status(401).json({ message: "User not found1" });
-    }
-
-    if (user.status == "suspended") {
-      return res
-        .status(400)
-        .json({ message: "Suspended Accounts cannot be onboarded" });
-    }
-
-    if (user.onboarded === true) {
-      return res
-        .status(400)
-        .json({ message: "User has completed onboarding process" });
-    }
-
-    try {
-      if (!user.stripeAccountId) {
-        const account = await createStripeExpressAcount(user.email);
-        user.stripeAccountId = account.id;
-        await user.save();
-      }
-
-      const link = await generateOnBoardingAccountLink(
-        user.stripeAccountId,
-        process.env.STRIPE_REFRESH_URL,
-        process.env.STRIPE_RETURN_URL
-      );
-
-      return res.status(200).json({ url: link.url });
-    } catch (err) {
-      console.log("❌ Error creating stripe account: " + err);
-      return res.status(400).json({ message: "Error creating stripe account" });
-    }
-  } catch (err) {
-    console.error("❌ Error geting Earning info:", err);
-    return res.status(500).json({ message: "Server error" });
-  }
-};
-
-// check onboarding
-const checkOnboared = async (req, res) => {
-  try {
-    const userId = req.user?._id;
-
-    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(401).json({ message: "Inavlid User" });
-    }
-
-    const user = await FREELANCER.findById(userId);
-    if (!user) {
-      return res.status(401).json({ message: "User Not found!" });
-    }
-
-    if (user.onboarded === true) {
-      return res
-        .status(200)
-        .json({ message: "Account is onboarded", onboarded: true });
-    } else {
-      return res
-        .status(200)
-        .json({ message: "Account is onboarded", onboarded: false });
-    }
-  } catch (err) {
-    console.error("❌ Error geting Earning info:", err);
-    return res.status(500).json({ message: "Server error" });
-  }
-};
-
 // Profile
 const getDashboardData = async (req, res) => {
   try {
@@ -378,7 +265,7 @@ const getDashboardData = async (req, res) => {
       return res.status(401).json({ message: "Invalid user id" });
     }
 
-    const user = await FREELANCER.findById(userId);
+    const user = await JOBSEEKER.findById(userId);
     if (!user || user.status == "deleted") {
       return res.status(401).json({ message: "No user found" });
     }
@@ -407,7 +294,7 @@ const getDashboardData = async (req, res) => {
 };
 
 // get Public profile
-const getFreelanceProfileById = async (req, res) => {
+const getJobSeekerProfileById = async (req, res) => {
   try {
     const userId = req.params.id;
     const viewerId = req.params.id;
@@ -416,15 +303,12 @@ const getFreelanceProfileById = async (req, res) => {
       return res.status(403).json({ message: "Invalid User" });
     }
 
-    const user = await FREELANCER.findOne(
+    const user = await JOBSEEKER.findOne(
       { _id: userId, status: { $nin: ["deleted"] } },
       {
         fullName: 1,
         profilePictureUrl: 1,
         profile: 1,
-        rating: 1,
-        projectsCompleted: 1,
-        createdAt: 1,
       }
     );
 
@@ -433,7 +317,7 @@ const getFreelanceProfileById = async (req, res) => {
     }
 
     if (!user.profile) {
-      return res.status(404).json({ message: "Freelancer profile not set" });
+      return res.status(404).json({ message: "User profile not set" });
     }
 
     if (viewerId && mongoose.Types.ObjectId.isValid(viewerId)) {
@@ -448,13 +332,9 @@ const getFreelanceProfileById = async (req, res) => {
     }
 
     const data = {
-      _id: user._id,
       fullName: user.fullName,
       ...user.profile,
       profilePictureUrl: user.profilePictureUrl,
-      rating: user.rating,
-      projectsCompleted: user.projectsCompleted,
-      createdAt: user.createdAt,
     };
 
     return res.status(200).json({
@@ -466,8 +346,8 @@ const getFreelanceProfileById = async (req, res) => {
   }
 };
 
-// get all Freelancer
-const getFreelancerList = async (req, res) => {
+// get all JobSeekers
+const getJobSeekerList = async (req, res) => {
   try {
     const skip = parseInt(req.query.skip) || 0;
     const limit = parseInt(req.query.limit) || 10;
@@ -511,12 +391,11 @@ const getFreelancerList = async (req, res) => {
       filter["profile.hourlyRate"] = { $lte: maxBudget };
     }
 
-    let freelancers = await FREELANCER.find(filter)
+    let users = await JOBSEEKER.find(filter)
       .select([
         "_id",
         "fullName",
         "lastOnline",
-        "projectsCompleted",
         "profile.professionalTitle",
         "profile.skills",
         "profile.experiences",
@@ -533,7 +412,7 @@ const getFreelancerList = async (req, res) => {
       .lean();
 
     if (experience > 0) {
-      freelancers = freelancers.filter((f) => {
+      users = users.filter((f) => {
         const totalExpYears = (f.profile.experiences || []).reduce(
           (acc, exp) => {
             const start = new Date(exp.startDate);
@@ -556,7 +435,7 @@ const getFreelancerList = async (req, res) => {
       });
     }
 
-    const formatted = freelancers.map((f) => {
+    const formatted = users.map((f) => {
       const experienceYears = (f.profile.experiences || []).reduce(
         (acc, exp) => {
           const start = new Date(exp.startDate);
@@ -584,105 +463,24 @@ const getFreelancerList = async (req, res) => {
         totalRating: f.rating?.totalRatings || 0,
         startPrice: f.profile?.hourlyRate || 0,
         location: f.profile?.loaction || "",
-        projectsCompleted: f.projectsCompleted || 0,
+        projectsCompleted: f.profile?.projects?.length || 0,
         liked: f.likedBy?.includes(userId?.toString()) || false,
       };
     });
 
-    return res.json({ freelancers: formatted });
+    return res.json({ users: formatted });
   } catch (err) {
-    console.error("❌ Failed to fetch freelancers:", err);
+    console.error("❌ Failed to fetch users:", err);
     return res.status(500).json({ message: "Server Error" });
   }
 };
 
-// Like a freelancer
-const likeFreelancer = async (req, res) => {
-  try {
-    const freelancerId = req.params.id;
-    const userId = req.user?._id;
-
-    if (!mongoose.Types.ObjectId.isValid(freelancerId)) {
-      return res.status(400).json({ message: "Invalid freelancer ID" });
-    }
-
-    if (!userId) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-
-    const freelancer = await FREELANCER.findById(freelancerId);
-    if (!freelancer) {
-      return res.status(404).json({ message: "Freelancer not found" });
-    }
-
-    const alreadyLiked = freelancer.likedBy.includes(userId.toString());
-
-    if (alreadyLiked) {
-      return res
-        .status(400)
-        .json({ message: "You already liked this freelancer" });
-    }
-
-    freelancer.likedBy.push(userId.toString());
-    await freelancer.save();
-
-    return res.status(200).json({ message: "Freelancer liked successfully" });
-  } catch (err) {
-    console.error("Like error:", err);
-    return res.status(500).json({ message: "Something went wrong" });
-  }
-};
-
-// un Like
-const unlikeFreelancer = async (req, res) => {
-  try {
-    const freelancerId = req.params.id;
-    const userId = req.user?._id;
-
-    if (!mongoose.Types.ObjectId.isValid(freelancerId)) {
-      return res.status(400).json({ message: "Invalid freelancer ID" });
-    }
-
-    if (!userId) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-
-    const freelancer = await FREELANCER.findById(freelancerId);
-    if (!freelancer) {
-      return res.status(404).json({ message: "Freelancer not found" });
-    }
-
-    const wasLiked = freelancer.likedBy.includes(userId.toString());
-
-    if (!wasLiked) {
-      return res
-        .status(400)
-        .json({ message: "You haven't liked this freelancer" });
-    }
-
-    freelancer.likedBy = freelancer.likedBy.filter(
-      (id) => id !== userId.toString()
-    );
-    await freelancer.save();
-
-    return res.status(200).json({ message: "Like removed successfully" });
-  } catch (err) {
-    console.error("Unlike error:", err);
-    return res.status(500).json({ message: "Something went wrong" });
-  }
-};
-
 export {
-  creatFreelancerProfile,
-  getFreelancerProfile,
-  editFreelanceProfile,
+  creatJobSeekerProfile,
+  getJobSeekerProfile,
+  editJobSeekerProfile,
   getUserJobStats,
-  getFreelancerEarnings,
-  startFreelancerOnboarding,
-  checkOnboared,
   getDashboardData,
-  getFreelanceProfileById,
-  getFreelancerList,
-  likeFreelancer,
-  unlikeFreelancer,
+  getJobSeekerList,
+  getJobSeekerProfileById,
 };

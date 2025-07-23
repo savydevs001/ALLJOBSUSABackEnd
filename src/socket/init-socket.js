@@ -40,8 +40,10 @@ const initSocket = (httpServer) => {
     const role =
       socket.user?.role == "employer"
         ? "employer"
-        : socket.user?.role == "freelancer" || socket.user?.role == "job-seeker"
+        : socket.user?.role == "freelancer"
         ? "freelancer"
+        : socket.user?.role == "job-seeker"
+        ? "job-seeker"
         : "";
 
     if (
@@ -56,16 +58,25 @@ const initSocket = (httpServer) => {
     refreshOnlineUser(userId, socket.id); // First registration
     console.log(`✅ ${userId} connected`);
 
-    socket.broadcast.emit("user-online", {userId});
+    socket.broadcast.emit("user-online", { userId });
 
     socket.on("message", async ({ to, content, fileName, fileUrl }) => {
       if (!to || !content) {
         return;
       }
-      if(mongoose.Types.ObjectId.isValid(to) === false || mongoose.Types.ObjectId.isValid(userId) === false){
+      if (
+        mongoose.Types.ObjectId.isValid(to) === false ||
+        mongoose.Types.ObjectId.isValid(userId) === false
+      ) {
         console.log("Invalid userId or to");
         return;
       }
+
+      if (userId == to) {
+        console.log("Sender or Receiver could not be same");
+        return;
+      }
+
       const details = {
         senderId: userId,
         message: content,
@@ -81,15 +92,28 @@ const initSocket = (httpServer) => {
       await message.save();
       const receiver = getOnlineUser(to);
       const sender = getOnlineUser(userId);
+
+      /***
+       * Enhancement
+       * Track user with which the receiver is chatting
+       * If the chatting user is sender
+       * then mark message as seen
+       * otherwise unnseen
+       * we can track chatting user by creating a new socket i.e
+       * when user click on chat on frontend an event will emit with chatting userid
+       * which will set chattinguser against current user id memory
+       */
       if (sender && sender.socketId) {
+        console.log("Sent to sender");
         io.to(sender.socketId).emit("message", message);
       }
       if (receiver && receiver.socketId) {
+        console.log("sent to receiver");
         io.to(receiver.socketId).emit("message", message);
-      }
-      else{
+      } else {
+        console.log("marked as unseen");
         message.seen = false;
-        await message.save()
+        await message.save();
       }
     });
 
@@ -98,19 +122,20 @@ const initSocket = (httpServer) => {
       if (userIds && userIds.length > 0) {
         onlineUsers = userIds.filter((id) => checkOnlineUser(id));
       }
+      // console.log("online: ", onlineUsers)
       socket.emit("online", onlineUsers);
     });
 
-    socket.on("single-online", ({userId})=> {
-      const online = checkOnlineUser(userId)
-      console.log("single-online: " + userId + " " + online)
-      socket.emit("single-online", {online})
-    })
+    socket.on("single-online", ({ userId }) => {
+      const online = checkOnlineUser(userId);
+      console.log("single-online: " + userId + " " + online);
+      socket.emit("single-online", { online });
+    });
 
     socket.on("disconnect", () => {
       console.log(`❌ ${userId} dis-connected`);
       deleteOnlineUser(userId);
-      socket.broadcast.emit("user-offline", {userId});
+      socket.broadcast.emit("user-offline", { userId });
     });
   });
 };

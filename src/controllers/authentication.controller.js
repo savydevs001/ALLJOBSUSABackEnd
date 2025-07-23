@@ -12,6 +12,7 @@ import EMPLOYER from "../database/models/employers.model.js";
 import FREELANCER from "../database/models/freelancer.model.js";
 import mongoose from "mongoose";
 import req from "express/lib/request.js";
+import JOBSEEKER from "../database/models/job-seeker.model.js";
 
 dotenv.config();
 
@@ -83,7 +84,7 @@ const signUp = async (req, res) => {
       },
       lastLogin: new Date(),
     };
-    
+
     if (req.file) {
       userDetails.profilePictureUrl =
         process.env.BACKEND_URL + `/${req.newName}`;
@@ -107,7 +108,7 @@ const signUp = async (req, res) => {
       await user.save();
 
       token = jwtToken(user, "employer");
-    } else if (role == "job-seeker" || role == "freelancer") {
+    } else if (role == "freelancer") {
       // Freelancer Signup
       const existing = await FREELANCER.findOne({
         email: email,
@@ -115,12 +116,20 @@ const signUp = async (req, res) => {
       if (existing)
         return res.status(409).json({ message: "Email already registered" });
 
-      userDetails.activeRole = role;
-      userDetails.role = [role];
-      console.log("user details: ", userDetails);
       const user = new FREELANCER(userDetails);
       await user.save();
       token = jwtToken(user, "freelancer");
+    } else if (role == "job-seeker") {
+      // JOb seeker Signup
+      const existing = await JOBSEEKER.findOne({
+        email: email,
+      });
+      if (existing)
+        return res.status(409).json({ message: "Email already registered" });
+
+      const user = new JOBSEEKER(userDetails);
+      await user.save();
+      token = jwtToken(user, "job-seeker");
     }
 
     if (token === null) {
@@ -142,28 +151,23 @@ const signIn = async (req, res) => {
 
   try {
     let user = null;
-    let dbRole = role;
-
     if (role === "employer") {
       // Employer Signin
       user = await EMPLOYER.findOne({
         email: email,
       });
-      dbRole = "employer";
-    } else if (role == "job-seeker" || role == "freelancer") {
+    } else if (role == "freelancer") {
       // Freelancer Signin
       user = await FREELANCER.findOne({
         email: email,
       });
-      if (!user) {
-        return res.status(401).json({ message: "No User found!" });
-      }
-      // if (!user.role.includes(role)) {
-      //   return res.status(400).json({ message: "Invalid Role" });
-      // }
+    } else if (role == "job-seeker") {
+      user = await JOBSEEKER.findOne({
+        email: email,
+      });
     }
 
-    if (!user || dbRole != role) {
+    if (!user) {
       return res.status(401).json({ message: "No User found!" });
     }
 
@@ -373,17 +377,24 @@ const googleCallback = async (req, res) => {
       }
     }
     // Search Freelancers or Job-Seekers
-    else if (role == "job-seeker" || role == "freelancer") {
+    else if (role == "freelancer") {
       let user = await FREELANCER.findOneAndUpdate(
         { email: email },
-        { activeRole: role, lastLogin: new Date() }
+        { lastLogin: new Date() }
       );
       if (!user) {
         newUser = true;
       }
-      if (user && !user.role.includes(role)) {
-        user.role.push(role);
-        await user.save();
+      if (user) {
+        token = jwtToken(user, role, true);
+      }
+    } else if (role == "job-seeker") {
+      let user = await JOBSEEKER.findOneAndUpdate(
+        { email: email },
+        { lastLogin: new Date() }
+      );
+      if (!user) {
+        newUser = true;
       }
       if (user) {
         token = jwtToken(user, role, true);
@@ -394,6 +405,8 @@ const googleCallback = async (req, res) => {
       return res.status(400).json({ message: "Invalid user role" });
     }
 
+    console.log("token: :", token)
+    console.log("newUser :", newUser)
     if (!newUser && token === null) {
       console.log("❌ Error creating jwt token");
       return res.status(500).json({ message: "Server Error" });

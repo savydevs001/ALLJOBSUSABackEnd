@@ -4,6 +4,7 @@ import {
   getAllJobs,
   getAllSavedJobs,
   getJobById,
+  myJobPostings,
   removeSavedJob,
   saveAJob,
   // jobById,
@@ -20,6 +21,7 @@ const JobRouter = Router();
 
 JobRouter.get("/all", verifyTokenMiddleware("strict"), a(getAllJobs));
 JobRouter.get("/saved", verifyTokenMiddleware("strict"), a(getAllSavedJobs));
+JobRouter.get("/my-postings", verifyTokenMiddleware("strict"), a(myJobPostings));
 JobRouter.get(
   "/:id/save",
   verifyTokenMiddleware(),

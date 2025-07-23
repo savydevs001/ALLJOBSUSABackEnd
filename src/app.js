@@ -2,7 +2,6 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import os from "os";
-import cluster from "cluster";
 
 // utils
 import errorHandlerMiddleware from "./middlewares/errorHandler.middleware.js";
@@ -17,7 +16,6 @@ import EmployerRouter from "./routes/employer.routes.js";
 import JobRouter from "./routes/jobs.routes.js";
 import NotificationRouter from "./routes/notification.routes.js";
 import OfferRouter from "./routes/offers.routes.js";
-import lastOnlineMiddleware from "./middlewares/lastOnline.middleware.js";
 import MessageRouter from "./routes/messages.routes.js";
 import ConversationRouter from "./routes/conversation.routes.js";
 import reviewRouter from "./routes/reviews.routes.js";
@@ -29,15 +27,14 @@ import AdminRouter from "./routes/admin.routes.js";
 // stripe
 import { stripeWebhook } from "./services/stripe.service.js";
 import StripeRouter from "./routes/stripe.routes.js";
+import JobSeekerRouter from "./routes/job-seeker.routes.js";
 
 dotenv.config();
 
 const FRONTEND_URL = process.env.FRONTEND_URL;
-const NODE_ENV = process.env.NODE_ENV || "development";
-const numCPUs = os.cpus().length;
-
 const app = express();
 
+// Stripe webhook
 app.post("/webhook", express.raw({ type: "application/json" }), stripeWebhook);
 
 // Middlewares
@@ -54,18 +51,13 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use(express.static("src/public"));
-app.get(
-  "/",
-  verifyTokenMiddleware("weak"),
-  lastOnlineMiddleware,
-  async (req, res) => res.status(200).json({ message: "ok" })
-);
 
 app.get("/", (req, res) => res.send("Hello world"));
 app.use("/auth", AuthenticationRouter);
 app.use("/users", UserRouter);
 app.use("/freelancers", FreelancerRouter);
-app.use("/employers", verifyTokenMiddleware(), EmployerRouter);
+app.use("/employers", EmployerRouter);
+app.use("/job-seekers", JobSeekerRouter);
 app.use("/jobs", verifyTokenMiddleware(), JobRouter);
 app.use("/notifications", NotificationRouter);
 app.use("/offers", OfferRouter);

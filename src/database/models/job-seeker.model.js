@@ -1,9 +1,10 @@
 import mongoose, { Types } from "mongoose";
 
-const freelancerSchema = mongoose.Schema(
+const jobSeekerSchema = mongoose.Schema(
   {
     fullName: { type: String, required: true },
     email: { type: String, required: true },
+    phoneNumber: String,
     profilePictureUrl: String,
     password: {
       hash: String,
@@ -14,18 +15,13 @@ const freelancerSchema = mongoose.Schema(
       createdAt: Date,
     },
     lastLogin: Date,
-    lastOnline: { type: Date, default: new Date() },
     status: {
       type: String,
       enum: ["active", "suspended", "deleted"],
       default: "active",
     },
 
-    //   Stripe
-    stripeAccountId: String,
-    onboarded: { type: Boolean, default: false },
-
-    //   freelance profile
+    //   profile
     profile: {
       professionalTitle: String,
       resumeUrl: String,
@@ -96,17 +92,8 @@ const freelancerSchema = mongoose.Schema(
       ],
       default: [],
     },
-
-    projectsCompleted: { type: Number, default: 0 },
     // saved jobs
     savedJobs: [{ type: Types.ObjectId, ref: "Job" }],
-
-    rating: {
-      isRated: { type: Boolean, default: false },
-      totalRatings: Number,
-      totalRatingsSum: Number,
-      value: Number,
-    },
 
     likedBy: { type: [String], default: [] },
   },
@@ -115,5 +102,6 @@ const freelancerSchema = mongoose.Schema(
   }
 );
 
-const FREELANCER = mongoose.model("freelancer", freelancerSchema);
-export default FREELANCER;
+const JOBSEEKER = mongoose.model("jobSeeker", jobSeekerSchema);
+
+export default JOBSEEKER;
