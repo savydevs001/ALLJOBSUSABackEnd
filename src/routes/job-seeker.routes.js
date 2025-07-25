@@ -11,7 +11,9 @@ import {
   getJobSeekerProfile,
   getJobSeekerProfileById,
   getUserJobStats,
-} from "../controllers/job-seeker.js";
+  likeJobSeeker,
+  unlikeJObSeeker,
+} from "../controllers/job-seeker.controller.js";
 
 const JobSeekerRouter = Router();
 
@@ -44,6 +46,16 @@ JobSeekerRouter.get(
   verifyTokenMiddleware(),
   a(getJobSeekerProfileById)
 );
+JobSeekerRouter.get(
+  "/:id/like",
+  verifyTokenMiddleware(),
+  a(likeJobSeeker)
+);
+JobSeekerRouter.get(
+  "/:id/un-like",
+  verifyTokenMiddleware(),
+  a(unlikeJObSeeker)
+);
 
 JobSeekerRouter.post(
   "/profile",
@@ -56,7 +68,7 @@ JobSeekerRouter.post(
 JobSeekerRouter.put(
   "/profile",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["freelancer", "job-seeker"]),
+  roleBasedAuthMiddleware([ "job-seeker"]),
   uploadProfilePictureMiddleware.fields([
     { name: "banner", maxCount: 1 },
     { name: "profile", maxCount: 1 },

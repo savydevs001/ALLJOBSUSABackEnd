@@ -11,6 +11,7 @@ import FREELANCER from "../database/models/freelancer.model.js";
 import EMPLOYER from "../database/models/employers.model.js";
 import sendEmail from "../services/emailSender.js";
 import enqueueEmail from "../services/emailSender.js";
+import JOBSEEKER from "../database/models/job-seeker.model.js";
 
 function getTotalYearsWorkedWithMerging(employers) {
   if (!Array.isArray(employers)) return 0;
@@ -66,87 +67,86 @@ const createOfferSchema = z.object({
 });
 const createOffer = async (req, res, next) => {
   const data = createOfferSchema.parse(req.body);
+
   try {
-    const jobId = req.params.id;
-    if (!jobId || !mongoose.Types.ObjectId.isValid(jobId)) {
+    const jobId = req.params.jobid || "";
+    const employerId = req.query.employerId || "";
+
+    if (jobId && jobId !== "" && !mongoose.Types.ObjectId.isValid(jobId)) {
       return res.status(400).json({ message: "Invalid Job id" });
     }
 
-    // user validation
     const userId = req.user?._id;
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ message: "Invalid User id" });
     }
+
     const user = await FREELANCER.findById(userId);
-    if (!user || user.status == "deleted") {
+    if (!user || user.status === "deleted") {
       return res.status(400).json({ message: "User not found!" });
     }
-    if (user.status == "suspended") {
+    if (user.status === "suspended") {
       return res
         .status(400)
-        .json({ message: "Suspeneded User cannot create Offer" });
+        .json({ message: "Suspended users cannot create offers" });
     }
 
-    // Job validation
-    const job = await Job.findById(jobId).populate("employerId", "fullName");
-    // .lean();
+    let job = null;
+    if (jobId) {
+      job = await Job.findById(jobId).populate("employerId", "fullName");
+      if (!job) return res.status(404).json({ message: "Job not found!" });
+      if (job.status === "expired" || job.deadline < new Date()) {
+        return res.status(400).json({ message: "Job Expired" });
+      }
 
-    if (!job) {
-      return res.status(404).json({ message: "Job not found!" });
-    }
-
-    if (job.status == "expired" || job.deadline < new Date()) {
-      return res.status(400).json({ message: "Job Expired" });
-    }
-
-    if (job.job === "freelance") {
-      if (!user.onboarded) {
-        return res
-          .status(200)
-          .json({ message: "User need to be onbarded", onBoardRequired: true });
+      const existingOffer = await Offer.findOne({
+        senderId: userId,
+        jobId: job._id,
+      });
+      if (existingOffer) {
+        return res.status(400).json({
+          message: "You have already made an offer to this job",
+          offer_id: existingOffer._id,
+        });
       }
     }
 
-    // check if offer exists
-    const existingOffer = await Offer.findOne({
-      senderId: userId,
-      jobId: job._id,
-    });
-    if (existingOffer) {
-      return res.status(400).json({
-        message: "You have already made offer to this Job",
-        offer_id: existingOffer._id,
-      });
+    if (!job && (!employerId || !mongoose.Types.ObjectId.isValid(employerId))) {
+      return res.status(400).json({ message: "Invalid Employer ID" });
     }
 
-    // employer validation
-    const employer = await EMPLOYER.findById(job.employerId);
+    let employer = await EMPLOYER.findById(job ? job.employerId : employerId);
+    let receiverModel = "employer";
+
     if (!employer) {
-      return res.status(404).json({ message: "Invalid Employer" });
-    }
-    if (employer.status != "active") {
-      return res
-        .status(400)
-        .json({ message: "Employer Account suspended or deleted" });
-    }
-
-    // check if employer and freelancer are same
-    if (employer.email == user.email) {
-      return res
-        .status(400)
-        .json({ message: "Offer recipent and sender could not be same" });
+      employer = await JOBSEEKER.findById(employerId);
+      if (!employer) {
+        return res.status(404).json({ message: "Invalid Employer" });
+      }
+      receiverModel = "jobSeeker";
     }
 
-    // create transaction
+    if (employer.status !== "active") {
+      return res
+        .status(400)
+        .json({ message: "Employer account suspended or deleted" });
+    }
+
+    if (employer.email === user.email) {
+      return res
+        .status(400)
+        .json({ message: "Sender and receiver cannot be the same person" });
+    }
+
     const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
-      // create offer
       const offer = new Offer({
         senderId: userId,
-        receiverId: job.employerId,
-        jobId: job._id,
+        receiverId: job ? job.employerId : employer._id,
+        receiverModel: job ? "employer" : receiverModel,
+        jobId: job ? job._id : null,
         duration: data.duration,
         price: data.price,
         title: data.title,
@@ -154,40 +154,48 @@ const createOffer = async (req, res, next) => {
         milestones: data.milestones || [],
       });
 
-      if (job.applicants && job.applicants.length > 0) {
-        job.applicants = [...job.applicants, user._id];
-      } else {
-        job.applicants = [user._id];
+      // Update job applicants
+      if (job) {
+        if (!job.applicants.includes(user._id)) {
+          job.applicants.push(user._id);
+        }
       }
 
       // Add to recent activity
       user.activity.unshift({
-        title: "Applied to " + job.title,
-        subTitle: job.employerId.fullName,
+        title: job
+          ? `Applied to ${job.title}`
+          : `Created Custom Offer ${offer.title}`,
+        subTitle: employer.fullName,
         at: new Date(),
       });
+
       if (user.activity.length > 3) {
         user.activity.splice(3);
       }
+
       user.profile.jobActivity.applicationsSent =
         (user.profile?.jobActivity?.applicationsSent || 0) + 1;
 
       await offer.save({ session });
-      await job.save({ session });
+      if (job) await job.save({ session });
       await user.save({ session });
 
       await session.commitTransaction();
       session.endSession();
 
-      return res
-        .status(200)
-        .json({ message: "Offer creted successfully", offer_id: offer._id });
+      return res.status(200).json({
+        message: "Offer created successfully",
+        offer_id: offer._id,
+      });
     } catch (err) {
-      console.log("❌ Error creating Offer: ", err);
-      abortSessionWithMessage(res, session, "Server Error", 400);
+      console.error("❌ Error creating Offer:", err);
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(500).json({ message: "Server Error" });
     }
   } catch (err) {
-    console.log("❌ Error creating Offer: ", err);
+    console.error("❌ Error creating Offer:", err);
     return res.status(500).json({ message: "Server Error" });
   }
 };
@@ -241,8 +249,11 @@ const getReceivedOffers = async (req, res) => {
           .filter(Boolean)
       : [];
 
-    const initialFilter = { receiverId: new mongoose.Types.ObjectId(userId) };
-    if (status != "") {
+    const initialFilter = {
+      receiverId: new mongoose.Types.ObjectId(userId),
+    };
+
+    if (status) {
       initialFilter.status = status;
     }
 
@@ -268,6 +279,9 @@ const getReceivedOffers = async (req, res) => {
 
     const offers = await Offer.aggregate([
       {
+        $match: initialFilter,
+      },
+      {
         $lookup: {
           from: "freelancers",
           localField: "senderId",
@@ -276,7 +290,7 @@ const getReceivedOffers = async (req, res) => {
         },
       },
       { $unwind: "$sender" },
-      { $match: { $and: matchStages } },
+      ...(textTerms.length > 0 ? [{ $match: { $and: matchStages } }] : []),
       { $sort: { createdAt: -1 } },
       { $skip: skip },
       { $limit: limit },
@@ -346,6 +360,7 @@ const getReceivedOffers = async (req, res) => {
 const getOfferById = async (req, res) => {
   const offerId = req.params?.id;
   const userId = req.user?._id;
+
   try {
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(401).json({ message: "User not found" });
@@ -358,26 +373,26 @@ const getOfferById = async (req, res) => {
     const offer = await Offer.findById(offerId)
       .populate(
         "senderId",
-        "_id fullName email profilePictureUrl profile.resumeUrl profile.professionalTitle profile.experiences  rating"
+        "_id fullName email profilePictureUrl profile.resumeUrl profile.professionalTitle profile.experiences rating"
       )
       .populate(
         "jobId",
-        "_id, title description job status simpleJobDetails.locationState simpleJobDetails.locationCity deadline simpleJobDetails.experienceLevel freelanceJobDetails.experienceLevel applicants simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.budget"
+        "_id title description job status simpleJobDetails.locationState simpleJobDetails.locationCity deadline simpleJobDetails.experienceLevel freelanceJobDetails.experienceLevel applicants simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.budget"
       );
 
     if (!offer) {
       return res.status(404).json({ message: "No Offer found" });
     }
 
-    if (!req.user || res.user?.role != "admin") {
+    if (!req.user || req.user.role !== "admin") {
       if (
         ![
           offer.senderId._id.toString(),
-          offer.receiverId._id.toString(),
+          offer.receiverId.toString(), // since not populated
         ].includes(userId)
       ) {
         return res
-          .status(404)
+          .status(403)
           .json({ message: "You are not authorized for this offer" });
       }
     }
@@ -390,76 +405,80 @@ const getOfferById = async (req, res) => {
       duration: offer.duration,
       status: offer.status,
       createdAt: offer.createdAt,
+      receiverId: offer.receiverId,
 
       sender: {
         _id: offer.senderId._id,
         fullName: offer.senderId.fullName,
-        profilePictureUrl: offer.senderId.profilePictureUrl,
-        title: offer.senderId.profile.professionalTitle,
-        resumeUrl: offer.senderId.profile.resumeUrl,
-        rating: offer.senderId.rating.isRated
+        profilePictureUrl: offer.senderId.profilePictureUrl || "",
+        title: offer.senderId.profile?.professionalTitle || "",
+        resumeUrl: offer.senderId.profile?.resumeUrl || "",
+        rating: offer.senderId.rating?.isRated
           ? offer.senderId.rating.value
           : "not rated",
         yearsOfExperience: getTotalYearsWorkedWithMerging(
-          offer.senderId.experiences || []
+          offer.senderId.profile?.experiences || []
         ),
       },
+    };
 
-      job: {
+    if (offer.jobId) {
+      const jobType = offer.jobId.job;
+      transformedData.job = {
         _id: offer.jobId._id,
         title: offer.jobId.title,
         description: offer.jobId.description,
-        job: offer.jobId.job,
+        job: jobType,
         status: offer.jobId.status,
         location:
-          offer.jobId.job == "freelance"
+          jobType === "freelance"
             ? "remote"
-            : offer.jobId.simpleJobDetails?.locationCity +
-              " " +
-              offer.jobId.simpleJobDetails?.locationState,
+            : `${offer.jobId.simpleJobDetails?.locationCity || ""}, ${
+                offer.jobId.simpleJobDetails?.locationState || ""
+              }`,
         deadline: offer.jobId.deadline,
         experienceLevel:
-          offer.jobId.job == "freelance"
+          jobType === "freelance"
             ? offer.jobId.freelanceJobDetails?.experienceLevel
             : offer.jobId.simpleJobDetails?.experienceLevel,
         applicantsCount: offer.jobId.applicants?.length || 0,
         budget: {
           type:
-            offer.jobId.job == "simple"
+            jobType === "simple"
               ? "fixed"
-              : offer.jobId.freelanceJobDetails?.budget?.budgetType == "Fixed"
+              : offer.jobId.freelanceJobDetails?.budget?.budgetType === "Fixed"
               ? "fixed"
-              : "start" || "",
+              : "start",
           price:
-            offer.jobId.job == "freelance"
+            jobType === "freelance"
               ? offer.jobId.freelanceJobDetails?.budget?.price
               : null,
           min:
-            offer.jobId.job == "simple"
+            jobType === "simple"
               ? offer.jobId.simpleJobDetails?.minSalary
               : offer.jobId.freelanceJobDetails?.budget?.minimum || null,
           max:
-            offer.jobId.job == "simple"
+            jobType === "simple"
               ? offer.jobId.simpleJobDetails?.maxSalary
               : offer.jobId.freelanceJobDetails?.budget?.maximum || null,
         },
-      },
-    };
+      };
+    }
 
-    // send email if updates are on
-    if (offer.emailUpdates === true && offer.senderId.email) {
+    // Send email if updates enabled
+    if (offer.emailUpdates && offer.senderId.email) {
       const emailHtml = `
-    <div style="font-family: Arial, sans-serif; padding: 10px;">
-      <h2 style="color: #003366;">Offer Reviewed</h2>
-      <p>Hello ${offer.senderId.fullName || "Freelancer"},</p>
-      <p>Your offer titled <strong>"${
-        offer.title
-      }"</strong> has been reviewed by the employer.</p>
-      <p>We will keep you updated on further actions.</p>
-      <br/>
-      <p>Regards,<br/>Freelancing Platform Team</p>
-    </div>
-  `;
+        <div style="font-family: Arial, sans-serif; padding: 10px;">
+          <h2 style="color: #003366;">Offer Reviewed</h2>
+          <p>Hello ${offer.senderId.fullName || "Freelancer"},</p>
+          <p>Your offer titled <strong>"${
+            offer.title
+          }"</strong> has been reviewed by the employer.</p>
+          <p>We will keep you updated on further actions.</p>
+          <br/>
+          <p>Regards,<br/>Freelancing Platform Team</p>
+        </div>
+      `;
       enqueueEmail(
         offer.senderId.email,
         "Your Offer Has Been Reviewed",
@@ -467,8 +486,8 @@ const getOfferById = async (req, res) => {
       );
     }
 
-    // mark as reviewd once receiver open it
-    if (offer.status == "pending") {
+    // Mark as reviewed if currently pending
+    if (offer.status === "pending") {
       offer.status = "reviewed";
       transformedData.status = "reviewed";
       await offer.save();

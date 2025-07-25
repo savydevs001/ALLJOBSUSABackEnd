@@ -11,7 +11,7 @@ const subscriptionPlanSchema = new Schema(
     },
     mode: {
       type: String,
-      enum: ["subscription", "oneTime", "free"],
+      enum: ["subscription", "oneTime", "free", "resume", "cover"],
       required: true,
     },
 

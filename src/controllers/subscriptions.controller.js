@@ -7,6 +7,8 @@ import {
   createStripePrice,
   generateStripeCheckoutSubscription,
   genrateStripeCheckoutSession,
+  getStripeSubscription,
+  updateNewPriceToStripeSubscription,
 } from "../services/stripe.service.js";
 import TRANSACTION from "../database/models/transactions.model.js";
 import getDateNDaysFromNow from "../utils/date-and-days.js";
@@ -38,7 +40,7 @@ const createSubscriptionZODSchema = z.object({
   price: z.number().min(0, "price cannt be less than 0"),
   interval: z.enum(["day", "week", "month", "year"]),
   interval_count: z.number().min(1, "Min interval count is 1"),
-  mode: z.enum(["subscription", "oneTime", "free"]),
+  mode: z.enum(["subscription", "oneTime", "free", "resume", "cover"]),
 });
 const createSubscription = async (req, res) => {
   const data = createSubscriptionZODSchema.parse(req.body);
@@ -96,7 +98,9 @@ const createSubscription = async (req, res) => {
       }
       data.stripeProductId = product.id;
       data.stripePriceId = price.id;
-    } else if (data.mode == "free") {
+    }
+    // Free subscription
+    else if (data.mode == "free") {
       const subsriptionsCount = await SUBSCRIPTIONS_PLANS.countDocuments({
         mode: "free",
       });
@@ -107,6 +111,49 @@ const createSubscription = async (req, res) => {
       }
       data.stripeProductId = "";
       data.stripePriceId = "";
+    }
+    // Mode = Resume
+    else if (data.mode == "resume") {
+      const subsriptionsCount = await SUBSCRIPTIONS_PLANS.countDocuments({
+        mode: "resume",
+      });
+      if (subsriptionsCount >= 1) {
+        return res
+          .status(403)
+          .json({ message: "Only 1 plan is supported in Resume mode" });
+      }
+      const product = await createStripeProduct(data.name, data.description);
+      if (!product) {
+        return res.status(500).json({ message: "Server Error" });
+      }
+      const price = await createStripePrice(data.price, null, null, product.id);
+      if (!price) {
+        return res.status(500).json({ message: "Server Error" });
+      }
+      data.stripeProductId = product.id;
+      data.stripePriceId = price.id;
+    }
+
+    // Mode = cover
+    else if (data.mode == "cover") {
+      const subsriptionsCount = await SUBSCRIPTIONS_PLANS.countDocuments({
+        mode: "cover",
+      });
+      if (subsriptionsCount >= 1) {
+        return res
+          .status(403)
+          .json({ message: "Only 1 plan is supported in Cover mode" });
+      }
+      const product = await createStripeProduct(data.name, data.description);
+      if (!product) {
+        return res.status(500).json({ message: "Server Error" });
+      }
+      const price = await createStripePrice(data.price, null, null, product.id);
+      if (!price) {
+        return res.status(500).json({ message: "Server Error" });
+      }
+      data.stripeProductId = product.id;
+      data.stripePriceId = price.id;
     }
 
     let totalDays = 0;
@@ -264,8 +311,8 @@ const enableProfileSubscription = async (req, res) => {
       );
       url = checkout.url;
     } else if (requestedSubscription.mode == "oneTime") {
-      console.log("--------------> Requested subscription")
-      console.log(requestedSubscription)
+      console.log("--------------> Requested subscription");
+      console.log(requestedSubscription);
       const checkout = await genrateStripeCheckoutSession(
         user.email,
         requestedSubscription.stripePriceId,
@@ -294,34 +341,109 @@ const enableProfileSubscription = async (req, res) => {
 
 const getALlProfileSubsriptions = async (req, res) => {
   try {
-    const subscriptions = await getMemorySubscriptionns();
-    const filteredSubs = subscriptions
-      .map((e) => {
-        if (e.mode == "subscription" || e.mode == "oneTime") {
-          return {
-            _id: e._id.toString(),
-            mode: e.mode,
-            price: e.price,
-            totalDays: e.totalDays,
-            name: e.name,
-            description: e.description,
-          };
-        }
-      })
-      .filter((e) => e != null)
-      .sort((a, b) => {
-        // Put "oneTime" before "subscription"
-        if (a.mode === "oneTime" && b.mode !== "oneTime") return -1;
-        if (a.mode !== "oneTime" && b.mode === "oneTime") return 1;
-        return a.price - b.price;
-      });
-    return res.status(200).json({ subscriptions: filteredSubs });
+    //  for can be freelancer or employer
+    // freelancer have resume and cover
+    // employer have one time, freetrialand subscription
+
+    const subFor = req.query.for || "employer";
+
+    const subscriptions = (await getMemorySubscriptionns()) || [];
+    const filteredSubs =
+      subFor == "employer"
+        ? subscriptions.filter((e) =>
+            ["subscription", "oneTime", "free"].includes(e.mode)
+          )
+        : subscriptions.filter((e) => ["resume", "cover"].includes(e.mode));
+
+    const sortedSubs = filteredSubs.sort((a, b) => {
+      return a.price - b.price;
+    });
+
+    return res.status(200).json({ subscriptions: sortedSubs });
   } catch (err) {
     console.log("❌ Error loading subscriptiptions: ", err);
     return res.status(500).json({ message: "Error loading subscriptiptions" });
   }
 };
 
+const updateProfileSubscriptions = async (req, res) => {
+  try {
+    const updates = req.body || [];
+    if (!updates || updates.length === 0) {
+      return res.status(200).json({ message: "No Updates" });
+    }
+
+    const memorySubs = await getMemorySubscriptionns(); // existing subs from DB
+    if (!memorySubs || memorySubs.length === 0) {
+      return res.status(404).json({ message: "No subscriptions found in DB" });
+    }
+
+    for (const newSub of updates) {
+      const currentSub = memorySubs.find((el) => el._id == newSub._id);
+      if (!currentSub) continue;
+
+      let updateFields = {};
+
+      // Check if price changed
+      if (currentSub.price !== newSub.price) {
+        // create new price
+        let priceObj = null;
+
+        // if mode is subscription
+        if (currentSub.mode == "subscription") {
+          priceObj = await createStripePrice(
+            newSub.price,
+            currentSub.interval,
+            currentSub.interval_count,
+            currentSub.stripeProductId
+          );
+        } else if (
+          currentSub.mode == "oneTime" ||
+          currentSub.mode == "resume" ||
+          currentSub.mode == "cover"
+        ) {
+          priceObj = await createStripePrice(
+            newSub.price,
+            null,
+            null,
+            currentSub.stripeProductId
+          );
+        }
+
+        if (!priceObj?.id) {
+          console.error("Stripe price creation failed");
+          return res
+            .status(500)
+            .json({ message: "Failed to update Stripe price" });
+        }
+
+        updateFields.price = newSub.price;
+        updateFields.stripePriceId = priceObj.id;
+      }
+
+      // Check if isActive changed
+      if (currentSub.isActive !== newSub.isActive) {
+        updateFields.isActive = newSub.isActive;
+      }
+
+      // Update only if something changed
+      if (Object.keys(updateFields).length > 0) {
+        await SUBSCRIPTIONS_PLANS.findByIdAndUpdate(currentSub._id, {
+          $set: updateFields,
+        });
+
+        await updateMemorySubscriptions();
+      }
+    }
+
+    return res
+      .status(200)
+      .json({ message: "Subscriptions updated successfully" });
+  } catch (err) {
+    console.log("❌ Error updating profile subscription: ", err);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
 export {
   getMemorySubscriptionns,
   updateMemorySubscriptions,
@@ -329,4 +451,5 @@ export {
   enableProfileSubscription,
   getALlProfileSubsriptions,
   enableProfileFreeTrial,
+  updateProfileSubscriptions,
 };

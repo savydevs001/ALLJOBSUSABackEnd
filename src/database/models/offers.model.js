@@ -28,8 +28,18 @@ const offerSchema = new Schema(
   {
     jobId: { type: Types.ObjectId, ref: "Job" }, // Optional
     senderId: { type: Types.ObjectId, ref: "freelancer", required: true },
-    receiverId: { type: Types.ObjectId, ref: "employer", required: true },
-    job: { type: String, enum: ["simple", "freelance"], required: true },
+    receiverId: {
+      type: Types.ObjectId,
+      required: true,
+      refPath: "receiverModel", // 👈 Dynamic reference
+    },
+
+    receiverModel: {
+      type: String,
+      required: true,
+      enum: ["employer", "jobSeeker"], // 👈 Specify valid models
+    },
+    // job: { type: String, enum: ["simple", "freelance"], required: true },
 
     price: { type: Number, required: true },
     duration: { type: Number, required: true },

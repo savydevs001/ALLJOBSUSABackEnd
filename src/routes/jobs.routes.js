@@ -25,13 +25,13 @@ JobRouter.get("/my-postings", verifyTokenMiddleware("strict"), a(myJobPostings))
 JobRouter.get(
   "/:id/save",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["freelancer"]),
+  roleBasedAuthMiddleware(["freelancer", "job-seeker"]),
   a(saveAJob)
 );
 JobRouter.get(
   "/:id/remove-saved",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["freelancer"]),
+  roleBasedAuthMiddleware(["freelancer", "job-seeker"]),
   a(removeSavedJob)
 );
 JobRouter.get("/:id", a(getJobById));

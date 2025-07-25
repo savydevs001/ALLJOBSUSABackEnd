@@ -14,6 +14,7 @@ import {
 import Offer from "../database/models/offers.model.js";
 
 dotenv.config();
+const BACKEND_URL = process.env.BACKEND_URL;
 
 const createProfileZODSchema = z.object({
   professionalTitle: z
@@ -53,7 +54,7 @@ const creatFreelancerProfile = async (req, res) => {
     freelancer.profile = data;
     freelancer.profile.freelancerWork = data.freelancerWork === "true";
     if (req.file && req.newName) {
-      freelancer.profilePictureUrl = `${req.newName.replace(/\\/g, "/")}`;
+      freelancer.profilePictureUrl = BACKEND_URL + "/" +`${req.newName.replace(/\\/g, "/")}`;
     }
 
     await freelancer.save();
@@ -410,7 +411,7 @@ const getDashboardData = async (req, res) => {
 const getFreelanceProfileById = async (req, res) => {
   try {
     const userId = req.params.id;
-    const viewerId = req.params.id;
+    const viewerId = req.user?._id;
 
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(403).json({ message: "Invalid User" });
@@ -436,7 +437,9 @@ const getFreelanceProfileById = async (req, res) => {
       return res.status(404).json({ message: "Freelancer profile not set" });
     }
 
-    if (viewerId && mongoose.Types.ObjectId.isValid(viewerId)) {
+    console.log("user: ", userId)
+    console.log("view: ", viewerId)
+    if (viewerId && viewerId != userId && mongoose.Types.ObjectId.isValid(viewerId)) {
       if (!user.profile.jobActivity.profileViews.includes(viewerId)) {
         user.profile.jobActivity.profileViews = [
           ...user.profile.jobActivity.profileViews,
@@ -491,12 +494,12 @@ const getFreelancerList = async (req, res) => {
         .split(" ")
         .filter(Boolean)
         .map((term) => new RegExp(term, "i"));
-      filter.$or = [
-        { fullName: { $in: terms } },
-        { "profile.professionalTitle": { $in: terms } },
-        { "profile.bio": { $in: terms } },
-        { "profile.skills": { $in: terms } },
-      ];
+      filter.$or = terms.flatMap((term) => [
+        { fullName: { $regex: term } },
+        { "profile.professionalTitle": { $regex: term } },
+        { "profile.bio": { $regex: term } },
+        { "profile.skills": { $regex: term } },
+      ]);
     }
 
     if (skill) {
@@ -520,7 +523,7 @@ const getFreelancerList = async (req, res) => {
         "profile.professionalTitle",
         "profile.skills",
         "profile.experiences",
-        "profile.profilePictureUrl",
+        "profilePictureUrl",
         "profile.badge",
         "profile.hourlyRate",
         "profile.loaction",
@@ -576,7 +579,7 @@ const getFreelancerList = async (req, res) => {
         professionalTitle: f.profile?.professionalTitle || "",
         skills: f.profile?.skills || [],
         experience: Math.floor(experienceYears),
-        profilePictureUrl: f.profile?.profilePictureUrl || "",
+        profilePictureUrl: f.profilePictureUrl || "",
         badge: f.profile?.badge,
         rated: f.rating.isRated,
         lastOnline: f.lastOnline,

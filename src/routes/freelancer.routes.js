@@ -95,7 +95,7 @@ FreelancerRouter.get(
 FreelancerRouter.get(
   "/all",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["employer"]),
+  roleBasedAuthMiddleware(["employer", "job-seeker"]),
   a(getFreelancerList)
 );
 FreelancerRouter.get(
@@ -103,11 +103,7 @@ FreelancerRouter.get(
   verifyTokenMiddleware(),
   a(getFreelanceProfileById)
 );
-FreelancerRouter.get(
-  "/:id/like",
-  verifyTokenMiddleware(),
-  a(likeFreelancer)
-);
+FreelancerRouter.get("/:id/like", verifyTokenMiddleware(), a(likeFreelancer));
 FreelancerRouter.get(
   "/:id/un-like",
   verifyTokenMiddleware(),
@@ -117,7 +113,7 @@ FreelancerRouter.get(
 FreelancerRouter.post(
   "/profile",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["freelancer", "job-seeker"]),
+  roleBasedAuthMiddleware(["freelancer"]),
   uploadProfilePictureMiddleware.single("file"),
   a(creatFreelancerProfile)
 );
@@ -125,7 +121,7 @@ FreelancerRouter.post(
 FreelancerRouter.put(
   "/profile",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["freelancer", "job-seeker"]),
+  roleBasedAuthMiddleware(["freelancer"]),
   uploadProfilePictureMiddleware.fields([
     { name: "banner", maxCount: 1 },
     { name: "profile", maxCount: 1 },

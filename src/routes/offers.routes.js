@@ -44,10 +44,17 @@ OfferRouter.get(
   a(getOfferById)
 );
 
+
 OfferRouter.post(
-  "/:id",
+  "/",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["freelancer", "job-seeker"]),
+  roleBasedAuthMiddleware(["freelancer",]),
+  a(createOffer)
+);
+OfferRouter.post(
+  "/:jobid",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["freelancer",]),
   a(createOffer)
 );
 

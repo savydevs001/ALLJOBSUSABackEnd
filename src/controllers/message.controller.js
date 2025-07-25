@@ -163,17 +163,20 @@ const getConversations = async (req, res) => {
       mongoose.Types.ObjectId.isValid(id)
     );
 
-    const [freelancers, employers] = await Promise.all([
+    const [freelancers, employers, jobseekers] = await Promise.all([
       FREELANCER.find({ _id: { $in: userIds } }).select(
         "fullName profilePictureUrl"
       ),
       EMPLOYER.find({ _id: { $in: userIds } }).select(
         "fullName profilePictureUrl"
       ),
+      JOBSEEKER.find({ _id: { $in: userIds } }).select(
+        "fullName profilePictureUrl"
+      ),
     ]);
 
     const userMap = new Map();
-    [...freelancers, ...employers].forEach((user) => {
+    [...freelancers, ...employers, ...jobseekers].forEach((user) => {
       userMap.set(user._id.toString(), {
         _id: user._id,
         fullName: user.fullName,

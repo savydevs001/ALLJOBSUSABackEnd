@@ -1,14 +1,21 @@
 import { Router } from "express";
 import verifyTokenMiddleware from "../middlewares/verifyToken.middleware.js";
 import roleBasedAuthMiddleware from "../middlewares/roleBasedAuth.middleware.js";
-import { completeOrder, createOrder } from "../controllers/order.controller.js";
+import { completeOrder, createOrder, getFreelancerOrders } from "../controllers/order.controller.js";
 
 const orderRouter = Router();
+
+orderRouter.get(
+  "/freelance-orders",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["freelancer"]),
+  getFreelancerOrders
+);
 
 orderRouter.post(
   "/",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["employer"]),
+  roleBasedAuthMiddleware(["employer", "job-seeker"]),
   createOrder
 );
 

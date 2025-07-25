@@ -41,8 +41,18 @@ const orderSchema = new Schema(
   {
     offerId: { type: Types.ObjectId, ref: "Offer", required: true },
     jobId: { type: Types.ObjectId, ref: "Job" }, // optional
-    employerId: { type: Types.ObjectId, ref: "User", required: true },
-    freelancerId: { type: Types.ObjectId, ref: "User", required: true },
+    employerId: {
+      type: Types.ObjectId,
+      required: true,
+      refPath: "employerModel",
+    },
+    employerModel: {
+      type: String,
+      required: true,
+      enum: ["employer", "jobSeeker"],
+    },
+
+    freelancerId: { type: Types.ObjectId, ref: "freelancer", required: true },
     intentId: String,
 
     title: { type: String, required: true },
@@ -55,6 +65,7 @@ const orderSchema = new Schema(
       enum: [
         "payment_pending",
         "in_progress",
+        "in_revision",
         "delivered",
         "completed",
         "disputed",
@@ -63,22 +74,14 @@ const orderSchema = new Schema(
       default: "payment_pending",
     },
 
-    // startDate: { type: Date, required: true },
-    // endDate: { type: Date },
-    // deliveryDate: { type: Date },
+    deadline: Date,
+    deliveryDate: Date,
+    completionDate: Date,
+    cancelledDate: Date,
 
-    paymentStatus: {
-      type: String,
-      enum: [
-        "payment_pending",
-        "escrow_held",
-        "released_to_freelancer",
-        "refunded",
-      ],
-      default: "payment_pending",
-    },
+    transactionId: { type: Types.ObjectId, ref: "Transaction", required: true },
 
-    milestones: [milestoneSchema],
+    // milestones: [milestoneSchema],
 
     disputeDetails: {
       type: disputeSchema,

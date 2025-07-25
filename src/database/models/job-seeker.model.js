@@ -35,19 +35,6 @@ const jobSeekerSchema = mongoose.Schema(
       openToWork: Boolean,
       website: String,
       loaction: String,
-      badge: {
-        type: String,
-        enum: [
-          "New",
-          "Level-1",
-          "Level-2",
-          "Top-rated",
-          "New-talent",
-          "Fast-response",
-          "Pro",
-        ],
-        default: "New",
-      },
       experiences: [
         {
           jobTitle: String,

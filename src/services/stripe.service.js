@@ -5,6 +5,9 @@ import TRANSACTION from "../database/models/transactions.model.js";
 import EMPLOYER from "../database/models/employers.model.js";
 import { getMemorySubscriptionns } from "../controllers/subscriptions.controller.js";
 import FREELANCER from "../database/models/freelancer.model.js";
+import mongoose from "mongoose";
+import Offer from "../database/models/offers.model.js";
+import Job from "../database/models/jobs.model.js";
 
 dotenv.config();
 
@@ -169,24 +172,24 @@ const stripeWebhook = async (req, res) => {
         .json({ message: "No Matching condition", received: true });
     }
 
-    if (event.type == "charge.succeeded") {
-      // update order status
-      const intent = event.data.object;
-      const order = await Order.findOne({ intentId: intent.payment_intent });
-      if (
-        order &&
-        order.status === "payment_pending" &&
-        order.paymentStatus === "payment_pending"
-      ) {
-        order.status = "in_progress";
-        order.paymentStatus = "escrow_held";
-        await order.save();
-      }
-      // return res.status(200).redirect("/order/confirmed");
-      return res
-        .status(200)
-        .json({ message: "No Matching condition", received: true });
-    }
+    // if (event.type == "charge.succeeded") {
+    //   // update order status
+    //   const intent = event.data.object;
+    //   const order = await Order.findOne({ intentId: intent.payment_intent });
+    //   if (
+    //     order &&
+    //     order.status === "payment_pending" &&
+    //     order.paymentStatus === "payment_pending"
+    //   ) {
+    //     order.status = "in_progress";
+    //     order.paymentStatus = "escrow_held";
+    //     await order.save();
+    //   }
+    //   // return res.status(200).redirect("/order/confirmed");
+    //   return res
+    //     .status(200)
+    //     .json({ message: "No Matching condition", received: true });
+    // }
 
     if (event.type === "checkout.session.expired") {
       const session = event.data.object;
@@ -275,6 +278,81 @@ const stripeWebhook = async (req, res) => {
         return res
           .status(200)
           .json({ message: "Subscription successfull", received: true });
+      } else if (purpose === "order-payment") {
+        const {
+          offerId,
+          transactionId,
+          employerId,
+          jobId,
+          orderId,
+          freelancerId,
+        } = metadata;
+
+        if (
+          !offerId ||
+          !transactionId ||
+          !employerId ||
+          !orderId ||
+          !freelancerId
+        ) {
+          throw new Error("Missing metadata in Stripe session");
+        }
+
+        const mongooseSession = await mongoose.startSession();
+        mongooseSession.startTransaction();
+
+        try {
+          // update offer to accepted
+          await Offer.findByIdAndUpdate(
+            offerId,
+            {
+              status: "accepted",
+            },
+            { session: mongooseSession }
+          );
+
+          // job to filled
+          if (jobId) {
+            await Job.findByIdAndUpdate(
+              jobId,
+              {
+                status: "filled",
+              },
+              { session: mongooseSession }
+            );
+          }
+
+          // update order to in_progress
+          await Order.findByIdAndUpdate(
+            orderId,
+            {
+              status: "in_progress",
+            },
+            { session: mongooseSession }
+          );
+
+          // update transaction to success and save stripe session and intent
+          await TRANSACTION.findByIdAndUpdate(
+            transactionId,
+            {
+              $set: {
+                "orderDeatils.status": "escrow_held",
+                "orderDeatils.stripeSessionId": session.id,
+                "orderDeatils.stripeIntentId": session.payment_intent,
+              },
+            },
+            { session: mongooseSession }
+          );
+
+          //
+          await mongooseSession.commitTransaction();
+        } catch (err) {
+          console.log("❌ Error on making paymet for order: ", err);
+          await mongooseSession.abortTransaction();
+        } finally {
+          mongooseSession.endSession();
+          return res.status(200).json({ received: true });
+        }
       }
     }
 
@@ -285,10 +363,6 @@ const stripeWebhook = async (req, res) => {
         return res.status(200).json({ received: true });
       }
 
-      console.log("....................................");
-      console.log("....................................");
-      console.log("....................................");
-      console.log(invoice);
       const stripeCustomer = invoice.customer;
 
       const subscriptionId =
@@ -411,6 +485,115 @@ const getStripeSubscription = async (subId) => {
   return subscription;
 };
 
+const getMonthRange = (year, month) => {
+  const start = new Date(Date.UTC(year, month, 1));
+  const end = new Date(Date.UTC(year, month + 1, 1));
+  return { start, end };
+};
+
+const getTotalIncomeAndMonthlyChange = async () => {
+  try {
+    const now = new Date();
+    const currentMonth = now.getUTCMonth();
+    const currentYear = now.getUTCFullYear();
+
+    const { start: currentStart, end: currentEnd } = getMonthRange(
+      currentYear,
+      currentMonth
+    );
+    const { start: lastStart, end: lastEnd } = getMonthRange(
+      currentYear,
+      currentMonth - 1
+    );
+
+    let totalIncome = 0;
+    let currentMonthIncome = 0;
+    let lastMonthIncome = 0;
+
+    // ✅ Await the list() promise before auto-paging
+    const invoiceList = await stripe.invoices.list({
+      status: "paid",
+      limit: 100,
+    });
+
+    // 🔁 Handle auto-pagination using autoPagingEach
+    await stripe.invoices.list({ status: "paid" }).autoPagingEach((invoice) => {
+      const created = new Date(invoice.created * 1000);
+      const amount = invoice.amount_paid / 100;
+
+      totalIncome += amount;
+
+      if (created >= currentStart && created < currentEnd) {
+        currentMonthIncome += amount;
+      } else if (created >= lastStart && created < lastEnd) {
+        lastMonthIncome += amount;
+      }
+    });
+
+    const percentChange =
+      lastMonthIncome === 0
+        ? 0
+        : ((currentMonthIncome - lastMonthIncome) / lastMonthIncome) * 100;
+
+    return {
+      totalIncome: totalIncome.toFixed(2),
+      currentMonthIncome: currentMonthIncome.toFixed(2),
+      lastMonthIncome: lastMonthIncome.toFixed(2),
+      percentChange:
+        percentChange !== null ? percentChange.toFixed(2) + "%" : "N/A",
+    };
+  } catch (err) {
+    console.log("Error calculation payments: ", err);
+    return null;
+  }
+};
+
+const updateNewPriceToStripeSubscription = async (subscription, newPriceId) => {
+  const updated = await stripe.subscriptions.update(subscription.id, {
+    items: [
+      {
+        id: subscription.items.data[0].id, // Get the item ID to update
+        price: newPriceId, // New recurring price ID
+      },
+    ],
+  });
+
+  return updated;
+};
+
+const createCheckoutSession = async ({
+  successUrl,
+  cancelUrl,
+  customerEmail,
+  amount,
+  name,
+  description,
+  metadata = {},
+}) => {
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ["card"],
+    mode: "payment",
+    customer_email: customerEmail,
+    line_items: [
+      {
+        price_data: {
+          currency: "usd",
+          unit_amount: Math.round(amount * 100),
+          product_data: {
+            name,
+            description,
+          },
+        },
+        quantity: 1,
+      },
+    ],
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+    metadata,
+  });
+  return session;
+};
+
 export {
   createStripeExpressAcount,
   generateOnBoardingAccountLink,
@@ -426,4 +609,8 @@ export {
   getStripeSession,
   createStripePrice,
   createStripeProduct,
+  getStripeSubscription,
+  getTotalIncomeAndMonthlyChange,
+  updateNewPriceToStripeSubscription,
+  createCheckoutSession,
 };

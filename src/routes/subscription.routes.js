@@ -6,6 +6,7 @@ import {
   enableProfileSubscription,
   getALlProfileSubsriptions,
   enableProfileFreeTrial,
+  updateProfileSubscriptions,
 } from "../controllers/subscriptions.controller.js";
 
 const SubscriptionRouter = Router();
@@ -36,6 +37,13 @@ SubscriptionRouter.post(
   verifyTokenMiddleware(),
   roleBasedAuthMiddleware(["admin"]),
   createSubscription
+);
+
+SubscriptionRouter.put(
+  "/profile-subscriptions",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["admin"]),
+  updateProfileSubscriptions
 );
 
 export default SubscriptionRouter;

@@ -7,6 +7,7 @@ import Offer from "../database/models/offers.model.js";
 import JOBSEEKER from "../database/models/job-seeker.model.js";
 
 dotenv.config();
+const BACKEND_URL = process.env.BACKEND_URL;
 
 const createProfileZODSchema = z.object({
   professionalTitle: z
@@ -45,7 +46,8 @@ const creatJobSeekerProfile = async (req, res) => {
     user.profile = data;
     user.profile.freelancerWork = data.freelancerWork === "true";
     if (req.file && req.newName) {
-      user.profilePictureUrl = `${req.newName.replace(/\\/g, "/")}`;
+      user.profilePictureUrl =
+        BACKEND_URL + "/" + `${req.newName.replace(/\\/g, "/")}`;
     }
 
     await user.save();
@@ -297,7 +299,7 @@ const getDashboardData = async (req, res) => {
 const getJobSeekerProfileById = async (req, res) => {
   try {
     const userId = req.params.id;
-    const viewerId = req.params.id;
+    const viewerId = req.user?._id;
 
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(403).json({ message: "Invalid User" });
@@ -320,7 +322,11 @@ const getJobSeekerProfileById = async (req, res) => {
       return res.status(404).json({ message: "User profile not set" });
     }
 
-    if (viewerId && mongoose.Types.ObjectId.isValid(viewerId)) {
+    if (
+      viewerId &&
+      viewerId != userId &&
+      mongoose.Types.ObjectId.isValid(viewerId)
+    ) {
       if (!user.profile.jobActivity.profileViews.includes(viewerId)) {
         user.profile.jobActivity.profileViews = [
           ...user.profile.jobActivity.profileViews,
@@ -352,118 +358,60 @@ const getJobSeekerList = async (req, res) => {
     const skip = parseInt(req.query.skip) || 0;
     const limit = parseInt(req.query.limit) || 10;
     const text = req.query.text?.trim() || "";
-    const skill = req.query.skill?.trim();
-    const experience = parseInt(req.query.experience) || 0;
-    const budget = parseInt(req.query.budget) || 0;
-    const maxBudget = parseInt(req.query.maxBudget) || 0;
     const userId = req.user?._id;
 
     const filter = {
       status: "active",
       profile: { $exists: true },
-      "profile.professionalTitle": { $exists: true },
+      // "profile.professionalTitle": { $exists: true },
       "profile.skills": { $exists: true, $ne: [] },
     };
 
-    // Text search on name, title or bio
     if (text) {
       const terms = text
         .split(" ")
         .filter(Boolean)
         .map((term) => new RegExp(term, "i"));
-      filter.$or = [
-        { fullName: { $in: terms } },
-        { "profile.professionalTitle": { $in: terms } },
-        { "profile.bio": { $in: terms } },
-        { "profile.skills": { $in: terms } },
-      ];
-    }
 
-    if (skill) {
-      filter["profile.skills"] = skill;
-    }
-
-    if (budget > 0 && maxBudget > 0) {
-      filter["profile.hourlyRate"] = { $gte: budget, $lte: maxBudget };
-    } else if (budget > 0) {
-      filter["profile.hourlyRate"] = { $gte: budget };
-    } else if (maxBudget > 0) {
-      filter["profile.hourlyRate"] = { $lte: maxBudget };
+      filter.$or = terms.flatMap((term) => [
+        { fullName: { $regex: term } },
+        // { "profile.professionalTitle": { $regex: term } },
+        // { "profile.bio": { $regex: term } },
+        { "profile.skills": { $regex: term } }, // works for exact matches in skill array
+      ]);
     }
 
     let users = await JOBSEEKER.find(filter)
       .select([
         "_id",
         "fullName",
-        "lastOnline",
         "profile.professionalTitle",
         "profile.skills",
         "profile.experiences",
-        "profile.profilePictureUrl",
-        "profile.badge",
-        "profile.hourlyRate",
+        "profilePictureUrl",
         "profile.loaction",
-        "profile.projects",
-        "rating",
         "likedBy",
       ])
       .skip(skip)
       .limit(limit)
       .lean();
 
-    if (experience > 0) {
-      users = users.filter((f) => {
-        const totalExpYears = (f.profile.experiences || []).reduce(
-          (acc, exp) => {
-            const start = new Date(exp.startDate);
-            const end = exp.isCurrentJob
-              ? new Date()
-              : new Date(exp.endDate || new Date());
-            const diffYears =
-              (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 365);
-            return acc + (diffYears > 0 ? diffYears : 0);
-          },
-          0
-        );
-
-        // Apply range filtering
-        if (experience === 1) return totalExpYears < 2; // Basic
-        if (experience === 2) return totalExpYears >= 2 && totalExpYears <= 5; // Intermediate
-        if (experience === 3) return totalExpYears > 5; // Expert
-
-        return true;
-      });
-    }
-
     const formatted = users.map((f) => {
-      const experienceYears = (f.profile.experiences || []).reduce(
-        (acc, exp) => {
-          const start = new Date(exp.startDate);
-          const end = exp.isCurrentJob
-            ? new Date()
-            : new Date(exp.endDate || new Date());
-          const years =
-            (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 365);
-          return acc + (years > 0 ? years : 0);
-        },
-        0
-      );
+      const experiences = (f.profile.experiences || []).map((e) => ({
+        start: e.startDate,
+        end: e.endDate,
+        title: e.jobTitle,
+      }));
 
       return {
         _id: f._id,
         fullName: f.fullName,
+        resumeUrl: f.profile.resumeUrl,
         professionalTitle: f.profile?.professionalTitle || "",
         skills: f.profile?.skills || [],
-        experience: Math.floor(experienceYears),
-        profilePictureUrl: f.profile?.profilePictureUrl || "",
-        badge: f.profile?.badge,
-        rated: f.rating.isRated,
-        lastOnline: f.lastOnline,
-        rating: f.rating?.value || 0,
-        totalRating: f.rating?.totalRatings || 0,
-        startPrice: f.profile?.hourlyRate || 0,
+        experiences: experiences || [],
+        profilePictureUrl: f.profilePictureUrl || "",
         location: f.profile?.loaction || "",
-        projectsCompleted: f.profile?.projects?.length || 0,
         liked: f.likedBy?.includes(userId?.toString()) || false,
       };
     });
@@ -475,6 +423,82 @@ const getJobSeekerList = async (req, res) => {
   }
 };
 
+// Like a freelancer
+const likeJobSeeker = async (req, res) => {
+  try {
+    const jobSeekerId = req.params.id;
+    const userId = req.user?._id;
+
+    if (!mongoose.Types.ObjectId.isValid(jobSeekerId)) {
+      return res.status(400).json({ message: "Invalid ID" });
+    }
+
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const jobseeker = await JOBSEEKER.findById(jobSeekerId);
+    if (!jobseeker) {
+      return res.status(404).json({ message: "jobseeker not found" });
+    }
+
+    const alreadyLiked = jobseeker.likedBy.includes(userId.toString());
+
+    if (alreadyLiked) {
+      return res
+        .status(400)
+        .json({ message: "You already liked this jobseeker" });
+    }
+
+    jobseeker.likedBy.push(userId.toString());
+    await jobseeker.save();
+
+    return res.status(200).json({ message: "jobseeker liked successfully" });
+  } catch (err) {
+    console.error("Like error:", err);
+    return res.status(500).json({ message: "Something went wrong" });
+  }
+};
+
+// un Like
+const unlikeJObSeeker = async (req, res) => {
+  try {
+    const jobseekerId = req.params.id;
+    const userId = req.user?._id;
+
+    if (!mongoose.Types.ObjectId.isValid(jobseekerId)) {
+      return res.status(400).json({ message: "Invalid jobseeker ID" });
+    }
+
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const jobseeker = await JOBSEEKER.findById(jobseekerId);
+    if (!jobseeker) {
+      return res.status(404).json({ message: "Freelancer not found" });
+    }
+
+    const wasLiked = jobseeker.likedBy.includes(userId.toString());
+
+    if (!wasLiked) {
+      return res
+        .status(400)
+        .json({ message: "You haven't liked this jobseeker" });
+    }
+
+    jobseeker.likedBy = jobseeker.likedBy.filter(
+      (id) => id !== userId.toString()
+    );
+    await jobseeker.save();
+
+    return res.status(200).json({ message: "Like removed successfully" });
+  } catch (err) {
+    console.error("Unlike error:", err);
+    return res.status(500).json({ message: "Something went wrong" });
+  }
+};
+
 export {
   creatJobSeekerProfile,
   getJobSeekerProfile,
@@ -483,4 +507,6 @@ export {
   getDashboardData,
   getJobSeekerList,
   getJobSeekerProfileById,
+  likeJobSeeker,
+  unlikeJObSeeker,
 };
