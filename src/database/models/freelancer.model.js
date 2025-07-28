@@ -24,6 +24,10 @@ const freelancerSchema = mongoose.Schema(
     //   Stripe
     stripeAccountId: String,
     onboarded: { type: Boolean, default: false },
+    totalEarning: { type: Number, default: 0 },
+    currentBalance: { type: Number, default: 0 },
+    pendingClearence: { type: Number, default: 0 },
+    tip: { type: Number, default: 0 },
 
     //   freelance profile
     profile: {

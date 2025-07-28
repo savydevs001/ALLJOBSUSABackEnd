@@ -29,6 +29,8 @@ import { stripeWebhook } from "./services/stripe.service.js";
 import StripeRouter from "./routes/stripe.routes.js";
 import JobSeekerRouter from "./routes/job-seeker.routes.js";
 import PlateformRouter from "./routes/plateform.routes.js";
+import TestimonialRouter from "./routes/testimonial.routes.js";
+import LegalContentRouter from "./routes/legalContent.routes.js";
 
 dotenv.config();
 
@@ -68,8 +70,10 @@ app.use("/reviews", reviewRouter);
 app.use("/orders", orderRouter);
 app.use("/payments", express.json(), transactionRouter);
 app.use("/subscriptions", SubscriptionRouter);
+app.use("/testimonials", TestimonialRouter);
 app.use("/upload", uploadRouter);
 app.use("/stripe", StripeRouter);
+app.use("/legal", LegalContentRouter)
 
 // admin routes
 app.use("/admin", AdminRouter);

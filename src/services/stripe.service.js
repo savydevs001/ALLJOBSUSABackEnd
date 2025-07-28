@@ -74,6 +74,16 @@ const relaseFunds = async (amount, destination) => {
   return transfer;
 };
 
+const createStripeTransfer = async (amount, destination, transfer_group) => {
+  const transfer = await stripe.transfers.create({
+    amount: amount * 100,
+    currency: "usd",
+    destination,
+    transfer_group,
+  });
+  return transfer;
+};
+
 const getStripeAccountbyId = async (stripeAccountId) => {
   const account = await stripe.accounts.retrieve(stripeAccountId);
   return account;
@@ -142,7 +152,7 @@ const stripeWebhook = async (req, res) => {
 
     if (event.type == "account.updated") {
       const account = event.data.object;
-      console.log("-------> Account: ", account);
+      console.log("-------> Account: ");
       const isReady =
         account.details_submitted &&
         account.charges_enabled &&
@@ -164,7 +174,7 @@ const stripeWebhook = async (req, res) => {
 
           return res
             .status(200)
-            .json({ message: "Subscription successfull", received: true });
+            .json({ message: "Onboading successfull", received: true });
         }
       }
       return res
@@ -442,6 +452,11 @@ const getCapturedIntent = async (intentId) => {
   return intent;
 };
 
+const retriveStripePaymentIntent = async (intentId) => {
+  const intent = await stripe.paymentIntents.retrieve(intentId);
+  return intent;
+};
+
 const getIntentById = async (intentId) => {
   const paymentIntent = await stripe.paymentIntents.retrieve(intentId);
   return paymentIntent;
@@ -594,6 +609,20 @@ const createCheckoutSession = async ({
   return session;
 };
 
+const getExternalAccounts = async (accountId) => {
+  const [bankAccounts, cardAccounts] = await Promise.all([
+    stripe.accounts.listExternalAccounts(accountId, {
+      object: "bank_account",
+      limit: 100,
+    }),
+    stripe.accounts.listExternalAccounts(accountId, {
+      object: "card",
+      limit: 100,
+    }),
+  ]);
+  return { bank: bankAccounts.data, card: cardAccounts.data };
+};
+
 export {
   createStripeExpressAcount,
   generateOnBoardingAccountLink,
@@ -613,4 +642,7 @@ export {
   getTotalIncomeAndMonthlyChange,
   updateNewPriceToStripeSubscription,
   createCheckoutSession,
+  retriveStripePaymentIntent,
+  createStripeTransfer,
+  getExternalAccounts,
 };

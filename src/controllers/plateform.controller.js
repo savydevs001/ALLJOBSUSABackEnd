@@ -9,7 +9,7 @@ const createPllateformSettings = async (req, res) => {
       },
     };
     const count = await PlatformSettings.countDocuments({});
-    if (count > 1) {
+    if (count > 0) {
       console.log("Plateform settings already present");
       return;
     }
@@ -17,10 +17,12 @@ const createPllateformSettings = async (req, res) => {
     await PlatformSettings.create(data);
     console.log("Plateform settings created successfully");
   } catch (err) {
-    console.log("Error creating settings");
+    console.log("Error creating settings: ", err);
   }
 };
-createPllateformSettings();
+setTimeout(() => {
+  createPllateformSettings();
+}, [10_000]);
 
 const updatePlateformCommision = async (req, res) => {
   try {

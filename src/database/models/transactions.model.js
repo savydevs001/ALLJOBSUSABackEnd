@@ -33,6 +33,7 @@ const transactionSchema = new Schema(
       orderId: { type: Types.ObjectId, ref: "Order" },
       freelancerId: { type: Types.ObjectId, ref: "freelancer" },
       totalAmount: Number,
+      amountToBePaid: Number,
       status: {
         type: String,
         enum: [

@@ -90,6 +90,12 @@ const createOffer = async (req, res, next) => {
         .status(400)
         .json({ message: "Suspended users cannot create offers" });
     }
+    if (user.onboarded !== true) {
+      return res.status(400).json({
+        onBoardRequired: true,
+        message: "Please complete your onboarding process in Earnings section",
+      });
+    }
 
     let job = null;
     if (jobId) {

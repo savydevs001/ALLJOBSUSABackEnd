@@ -16,6 +16,9 @@ import {
   getFreelancerList,
   likeFreelancer,
   unlikeFreelancer,
+  getFreelancerPaymentHistory,
+  getMonthlyEarningsByFreelancer,
+  getStripeFreelancerLogin,
   // addFreelanceProfile,
   // bookmarkFreelancer,
   // enableFreelancerProfile,
@@ -77,8 +80,20 @@ FreelancerRouter.get(
 FreelancerRouter.get(
   "/earnings",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["freelancer", "job-seeker"]),
+  roleBasedAuthMiddleware(["freelancer"]),
   a(getFreelancerEarnings)
+);
+FreelancerRouter.get(
+  "/earnings-history",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["freelancer"]),
+  a(getFreelancerPaymentHistory)
+);
+FreelancerRouter.get(
+  "/monthly-earnings",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["freelancer"]),
+  a(getMonthlyEarningsByFreelancer)
 );
 FreelancerRouter.get(
   "/onbaord",
@@ -109,6 +124,13 @@ FreelancerRouter.get(
   verifyTokenMiddleware(),
   a(unlikeFreelancer)
 );
+FreelancerRouter.get(
+  "/stripe-login",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["freelancer"]),
+  a(getStripeFreelancerLogin)
+);
+
 
 FreelancerRouter.post(
   "/profile",

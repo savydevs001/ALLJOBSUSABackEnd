@@ -7,8 +7,6 @@ const uploadFile = async (req, res) => {
       return res.status(400).json({ message: "No file uploaded" });
     }
     const fileUrl =  process.env.BACKEND_URL + `/${req.newName}`;
-    console.log(":::::::::")
-    console.log(fileUrl)
     return res
       .status(200)
       .json({ message: "File uploaded successfully!", url: fileUrl });

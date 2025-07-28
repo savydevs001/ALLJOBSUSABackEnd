@@ -10,8 +10,12 @@ import calculateJobMatchPercentage from "../utils/calculate-job-match.js";
 import {
   createStripeExpressAcount,
   generateOnBoardingAccountLink,
+  generateStipeLoginLink,
+  getExternalAccounts,
 } from "../services/stripe.service.js";
 import Offer from "../database/models/offers.model.js";
+import Order from "../database/models/order.model.js";
+import TRANSACTION from "../database/models/transactions.model.js";
 
 dotenv.config();
 const BACKEND_URL = process.env.BACKEND_URL;
@@ -54,7 +58,8 @@ const creatFreelancerProfile = async (req, res) => {
     freelancer.profile = data;
     freelancer.profile.freelancerWork = data.freelancerWork === "true";
     if (req.file && req.newName) {
-      freelancer.profilePictureUrl = BACKEND_URL + "/" +`${req.newName.replace(/\\/g, "/")}`;
+      freelancer.profilePictureUrl =
+        BACKEND_URL + "/" + `${req.newName.replace(/\\/g, "/")}`;
     }
 
     await freelancer.save();
@@ -286,7 +291,34 @@ const getFreelancerEarnings = async (req, res) => {
       });
     }
 
-    return res.status(200).json({ message: "need to be implemented" });
+    let withdrawlMethods;
+    try {
+      const { bank, card } = await getExternalAccounts(user.stripeAccountId);
+      withdrawlMethods = {
+        bank,
+        card,
+      };
+
+      console.log("Banks: ", bank);
+      console.log("Card: ", card);
+    } catch (err) {
+      console.log(
+        "Error getting external accounts for user: ",
+        userId,
+        " ",
+        err
+      );
+    }
+
+    const data = {
+      currentBalance: user.currentBalance.toFixed(1),
+      totalEarning: user.totalEarning.toFixed(1),
+      pending: user.pendingClearence.toFixed(1),
+      tip: user.tip.toFixed(1),
+      withdrawlMethods,
+    };
+
+    return res.status(200).json({ message: "Data Fetched", data });
   } catch (err) {
     console.error("❌ Error geeting Earning info:", err);
     return res.status(500).json({ message: "Server error" });
@@ -437,9 +469,13 @@ const getFreelanceProfileById = async (req, res) => {
       return res.status(404).json({ message: "Freelancer profile not set" });
     }
 
-    console.log("user: ", userId)
-    console.log("view: ", viewerId)
-    if (viewerId && viewerId != userId && mongoose.Types.ObjectId.isValid(viewerId)) {
+    console.log("user: ", userId);
+    console.log("view: ", viewerId);
+    if (
+      viewerId &&
+      viewerId != userId &&
+      mongoose.Types.ObjectId.isValid(viewerId)
+    ) {
       if (!user.profile.jobActivity.profileViews.includes(viewerId)) {
         user.profile.jobActivity.profileViews = [
           ...user.profile.jobActivity.profileViews,
@@ -675,6 +711,139 @@ const unlikeFreelancer = async (req, res) => {
   }
 };
 
+// Payment history for order
+const getFreelancerPaymentHistory = async (req, res) => {
+  try {
+    const freelancerId = req.user?._id;
+
+    if (!mongoose.Types.ObjectId.isValid(freelancerId)) {
+      return res.status(401).json({ message: "Invalid Freelancer" });
+    }
+
+    const orders = await Order.find({ freelancerId: freelancerId })
+      .populate("transactionId", "orderDeatils")
+      .sort({
+        createdAt: -1,
+      });
+
+    const transformed = orders.map((e) => ({
+      title: e.title,
+      status:
+        e.transactionId.orderDeatils.status == "escrow_held"
+          ? "pending"
+          : e.transactionId.orderDeatils.status == "released_to_freelancer"
+          ? "completed"
+          : null,
+      amount: e.transactionId.orderDeatils.amountToBePaid,
+      date: e.createdAt,
+    }));
+
+    return res.status(200).json({ data: transformed });
+  } catch (err) {
+    console.error("❌ Error getting payment History:", err);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
+// get Monthly Earning History
+const getMonthlyEarningsByFreelancer = async (req, res) => {
+  try {
+    const freelancerId = req.user?._id;
+
+    if (!freelancerId) {
+      return res.status(400).json({ message: "freelancerId is required" });
+    }
+
+    // Get current year
+    const year = new Date().getFullYear();
+
+    const monthlyData = await TRANSACTION.aggregate([
+      {
+        $match: {
+          "orderDeatils.freelancerId": new mongoose.Types.ObjectId(
+            freelancerId
+          ),
+          mode: "order",
+          createdAt: {
+            $gte: new Date(`${year}-01-01T00:00:00.000Z`),
+            $lte: new Date(`${year}-12-31T23:59:59.999Z`),
+          },
+        },
+      },
+      {
+        $group: {
+          _id: { $month: "$createdAt" },
+          totalAmount: { $sum: "$orderDeatils.amountToBePaid" },
+          orders: { $sum: 1 },
+        },
+      },
+      {
+        $sort: { _id: 1 },
+      },
+    ]);
+
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+
+    const result = monthNames.map((name, index) => {
+      const data = monthlyData.find((m) => m._id === index + 1);
+      return {
+        month: name,
+        totalAmount: data ? data.totalAmount : 0,
+        orders: data ? data.orders : 0,
+      };
+    });
+
+    return res.status(200).json(result);
+  } catch (err) {
+    console.error("❌ Error in getMonthlyEarningsByFreelancer:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+const getStripeFreelancerLogin = async (req, res) => {
+  try {
+    const freelancerId = req.user?._id;
+
+    if (!freelancerId) {
+      return res.status(400).json({ message: "freelancerId is required" });
+    }
+
+    const freelancer = await FREELANCER.findById(freelancerId);
+    if (!freelancer) {
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    let link;
+    try {
+      link = await generateStipeLoginLink(freelancer.stripeAccountId);
+    } catch (err) {
+      console.log("Error in generating stripe login for user: ", freelancerId);
+    }
+
+    if (!link) {
+      return res.status(500).json({ message: "Error generating link" });
+    }
+
+    return res.status(200).json({ url: link.url });
+  } catch (err) {
+    console.error("❌ Error in getting stripe login link:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
 export {
   creatFreelancerProfile,
   getFreelancerProfile,
@@ -688,4 +857,7 @@ export {
   getFreelancerList,
   likeFreelancer,
   unlikeFreelancer,
+  getFreelancerPaymentHistory,
+  getMonthlyEarningsByFreelancer,
+  getStripeFreelancerLogin
 };

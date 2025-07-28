@@ -10,10 +10,14 @@ import {
   genrateStripeCheckoutSession,
   getCapturedIntent,
   relaseFunds,
+  retriveStripePaymentIntent,
 } from "../services/stripe.service.js";
 import FREELANCER from "../database/models/freelancer.model.js";
 import TRANSACTION from "../database/models/transactions.model.js";
 import Job from "../database/models/jobs.model.js";
+import PlatformSettings from "../database/models/palteform.model.js";
+import PENDING_PAYOUT from "../database/models/pendingPayout.model.js";
+import EMPLOYER from "../database/models/employers.model.js";
 
 const FRONTEND_URL = process.env.FRONTEND_URL;
 
@@ -101,12 +105,21 @@ const createOrder = async (req, res) => {
       );
     }
 
+    const totalAmount = offer.price;
+    let companyCut = 0;
+    if (plateform.pricing.platformCommissionPercentageActive === true) {
+      companyCut = Math.round(
+        totalAmount * (plateform.pricing.platformCommissionPercentage / 100)
+      );
+    }
+
     // create transaction
     const transaction = new TRANSACTION({
       mode: "order",
       orderDeatils: {
         freelancerId: offer.senderId,
-        totalAmount: offer.price,
+        totalAmount: totalAmount,
+        amountToBePaid: totalAmount - companyCut,
       },
     });
 
@@ -195,86 +208,73 @@ const createOrder = async (req, res) => {
 };
 
 const completeOrder = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
-  try {
-    const userId = req.user?._id;
-    const orderId = req.params.id;
-
-    if (!mongoose.Types.ObjectId.isValid(orderId)) {
-      return abortSessionWithMessage(res, session, "Invalid order ID");
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return abortSessionWithMessage(res, session, "Invalid user ID");
-    }
-
-    const order = await Order.findById(orderId).session(session);
-
-    if (!order) {
-      return abortSessionWithMessage(res, session, "No order found!");
-    }
-
-    if (!order.employerId.equals(userId)) {
-      return abortSessionWithMessage(
-        res,
-        session,
-        "You are not authorized to complete this order"
-      );
-    }
-
-    if (!["delivered", "in_progress"].includes(order.status)) {
-      return abortSessionWithMessage(res, session, "Invalid order state");
-    }
-
-    if (order.status === "payment_pending") {
-      return abortSessionWithMessage(
-        res,
-        session,
-        "Payment pending for this order"
-      );
-    }
-
-    // try {
-    //   // ⚠️ Now release funds outside of DB transaction
-    //   await getCapturedIntent(order.intentId);
-    // } catch (err) {
-    //   console.error("❌ Capture intent falied", err);
-    //   return abortSessionWithMessage(
-    //     res,
-    //     session,
-    //     "Unable to capture payment",
-    //     500
-    //   );
-    // }
-
-    await FREELANCER.updateOne(
-      { _id: order.freelancerId },
-      {
-        $inc: {
-          projectsCompleted: 1,
-        },
-      }
-    ).session(session);
-
-    order.status = "completed";
-    await order.save({ session });
-
-    await session.commitTransaction();
-    session.endSession();
-
-    return res.status(200).json({
-      message: "Order marked as completed and funds released",
-    });
-  } catch (err) {
-    console.error("❌ Order completion failed:", err);
-    return abortSessionWithMessage(
-      res,
-      session,
-      "Error marking order as completed"
-    );
-  }
+  //   const session = await mongoose.startSession();
+  //   session.startTransaction();
+  //   try {
+  //     const userId = req.user?._id;
+  //     const orderId = req.params.id;
+  //     if (!mongoose.Types.ObjectId.isValid(orderId)) {
+  //       return abortSessionWithMessage(res, session, "Invalid order ID");
+  //     }
+  //     if (!mongoose.Types.ObjectId.isValid(userId)) {
+  //       return abortSessionWithMessage(res, session, "Invalid user ID");
+  //     }
+  //     const order = await Order.findById(orderId).session(session);
+  //     if (!order) {
+  //       return abortSessionWithMessage(res, session, "No order found!");
+  //     }
+  //     if (!order.employerId.equals(userId)) {
+  //       return abortSessionWithMessage(
+  //         res,
+  //         session,
+  //         "You are not authorized to complete this order"
+  //       );
+  //     }
+  //     if (!["delivered", "in_progress"].includes(order.status)) {
+  //       return abortSessionWithMessage(res, session, "Invalid order state");
+  //     }
+  //     if (order.status === "payment_pending") {
+  //       return abortSessionWithMessage(
+  //         res,
+  //         session,
+  //         "Payment pending for this order"
+  //       );
+  //     }
+  //     // try {
+  //     //   // ⚠️ Now release funds outside of DB transaction
+  //     //   await getCapturedIntent(order.intentId);
+  //     // } catch (err) {
+  //     //   console.error("❌ Capture intent falied", err);
+  //     //   return abortSessionWithMessage(
+  //     //     res,
+  //     //     session,
+  //     //     "Unable to capture payment",
+  //     //     500
+  //     //   );
+  //     // }
+  //     await FREELANCER.updateOne(
+  //       { _id: order.freelancerId },
+  //       {
+  //         $inc: {
+  //           projectsCompleted: 1,
+  //         },
+  //       }
+  //     ).session(session);
+  //     order.status = "completed";
+  //     await order.save({ session });
+  //     await session.commitTransaction();
+  //     session.endSession();
+  //     return res.status(200).json({
+  //       message: "Order marked as completed and funds released",
+  //     });
+  //   } catch (err) {
+  //     console.error("❌ Order completion failed:", err);
+  //     return abortSessionWithMessage(
+  //       res,
+  //       session,
+  //       "Error marking order as completed"
+  //     );
+  //   }
 };
 
 const getFreelancerOrders = async (req, res) => {
@@ -340,7 +340,7 @@ const getFreelancerOrders = async (req, res) => {
       completionDate: order.completionDate,
       cancelledDate: order.cancelledDate,
       createdAt: order.createdAt,
-      employer: {
+      user: {
         _id: order.employerId?._id?.toString() || "",
         profilePictureUrl: order.employerId?.profilePictureUrl || "",
         fullName: order.employerId?.fullName || "",
@@ -354,6 +354,293 @@ const getFreelancerOrders = async (req, res) => {
   }
 };
 
-export default getFreelancerOrders;
+const getClientOrders = async (req, res) => {
+  try {
+    const clientId = req.user?._id;
+    const clientModel = req.user?.role; // either "employer" or "job-seeker"
 
-export { createOrder, completeOrder, getFreelancerOrders };
+    if (
+      !clientId ||
+      !mongoose.Types.ObjectId.isValid(clientId) ||
+      !["employer", "job-seeker"].includes(clientModel)
+    ) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const { status, fromDate, freelancerName } = req.query;
+
+    // Build query
+    const tempClientModel =
+      clientModel == "employer"
+        ? "employer"
+        : clientModel == "job-seeker"
+        ? "jobSeeker"
+        : "";
+
+    if (tempClientModel == "") {
+      return res.status(400).json({ message: "Invalid Model" });
+    }
+
+    const filter = {
+      employerId: clientId,
+      employerModel: tempClientModel,
+    };
+
+    if (status) {
+      filter.status = status;
+    }
+
+    if (fromDate) {
+      const date = new Date(fromDate);
+      if (!isNaN(date.getTime())) {
+        filter.createdAt = { $gte: date };
+      }
+    }
+
+    let orders = await Order.find(filter)
+      .select(
+        "status title totalAmount deadline createdAt deliveryDate completionDate cancelledDate freelancerId"
+      )
+      .populate({
+        path: "freelancerId",
+        select: "_id profilePictureUrl fullName",
+      })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Optional filtering by freelancer name
+    if (freelancerName) {
+      const regex = new RegExp(freelancerName, "i");
+      orders = orders.filter(
+        (order) =>
+          order.freelancerId?.fullName &&
+          regex.test(order.freelancerId.fullName)
+      );
+    }
+
+    const formatted = orders.map((order) => ({
+      _id: order._id.toString(),
+      status: order.status,
+      title: order.title,
+      price: order.totalAmount,
+      deadline: order.deadline,
+      deliveryDate: order.deliveryDate,
+      completionDate: order.completionDate,
+      cancelledDate: order.cancelledDate,
+      createdAt: order.createdAt,
+      user: {
+        _id: order.freelancerId?._id?.toString() || "",
+        profilePictureUrl: order.freelancerId?.profilePictureUrl || "",
+        fullName: order.freelancerId?.fullName || "",
+      },
+    }));
+
+    return res.status(200).json({ orders: formatted });
+  } catch (err) {
+    console.error("❌ Failed to fetch client orders:", err);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+const markOrderAsComplete = async (req, res) => {
+  const mongooseSession = await mongoose.startSession();
+  mongooseSession.startTransaction();
+  try {
+    const orderId = req.params.id;
+    const employerId = req.user?._id;
+
+    if (!mongoose.Types.ObjectId.isValid(orderId)) {
+      return res.status(400).json({ message: "Invalid order ID" });
+    }
+
+    const order = await Order.findOne({ _id: orderId, employerId });
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    if (order.status === "completed") {
+      return res.status(400).json({ message: "Order already completed" });
+    }
+
+    const transaction = await TRANSACTION.findById(order.transactionId);
+    if (
+      !transaction ||
+      !transaction.orderDeatils ||
+      !transaction.orderDeatils.stripeIntentId ||
+      !transaction.orderDeatils.stripeSessionId
+    ) {
+      return res.status(404).json({ message: "Transaction not found" });
+    }
+
+    if (transaction.orderDeatils.status != "escrow_held") {
+      return res
+        .status(400)
+        .json({ message: "No Payment Held for this order" });
+    }
+
+    // let paymentIntent;
+    // try {
+    //   paymentIntent = await retriveStripePaymentIntent(
+    //     transaction.orderDeatils.stripeIntentId
+    //   );
+    // } catch (err) {
+    //   return res
+    //     .status(500)
+    //     .json({ message: "Failed to retrieve Stripe payment intent" });
+    // }
+
+    // this amount is in cents
+    // const totalAmount = paymentIntent.amount_received;
+
+    // const plateform = (await PlatformSettings.find({}))[0];
+
+    // let companyCut = 0;
+    // if (plateform.pricing.platformCommissionPercentageActive === true) {
+    //   companyCut = Math.round(
+    //     totalAmount * (plateform.pricing.platformCommissionPercentage / 100)
+    //   );
+    // }
+    // const freelancerAmount = totalAmount - companyCut;
+
+    const freelancer = await FREELANCER.findById(order.freelancerId);
+    if (!freelancer || !freelancer.stripeAccountId) {
+      return res
+        .status(404)
+        .json({ message: "Freelancer or Stripe account not found" });
+    }
+
+    // Create a pending payout record (delay 7 days)
+    const releaseDate = new Date();
+    releaseDate.setDate(releaseDate.getDate() + 7);
+
+    const pendingPayout = new PENDING_PAYOUT({
+      freelancerId: freelancer._id,
+      stripeAccountId: freelancer.stripeAccountId,
+      amount: transaction.orderDeatils.amountToBePaid,
+      transferGroup: `order_${order._id}`,
+      releaseDate,
+      orderId: order._id,
+      transactionId: transaction._id,
+    });
+
+    // update paymet of freelancer
+    freelancer.pendingClearence =
+      freelancer.pendingClearence + transaction.orderDeatils.amountToBePaid;
+    freelancer.projectsCompleted = freelancer.projectsCompleted + 1;
+    await freelancer.save({ session: mongooseSession });
+
+    //  Mark order complete
+    order.status = "completed";
+    order.completionDate = new Date();
+
+    //  set status to paid
+    // transaction.orderDeatils.status = "released_to_freelancer";
+    // await transaction.save({ session: mongooseSession });
+
+    // increment total orders for employer
+    const employer = await EMPLOYER.findById(order.employerId);
+    if (employer) {
+      employer.ordersCompleted = employer.ordersCompleted + 1;
+      await employer.save({ session: mongooseSession });
+    }
+
+    await pendingPayout.save({ session: mongooseSession });
+    await order.save({ session: mongooseSession });
+
+    await mongooseSession.commitTransaction();
+    mongooseSession.endSession();
+
+    return res.status(200).json({
+      message: "Order marked as complete. Payout scheduled after 7 days.",
+      success: true,
+    });
+  } catch (err) {
+    console.error("❌ Error completing order:", err);
+    await mongooseSession.abortTransaction();
+    mongooseSession.endSession();
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
+const delieverOrderForRevsions = async (req, res) => {
+  try {
+    const orderId = req.params.id;
+    const freelancerId = req.user?._id;
+
+    if (!mongoose.Types.ObjectId.isValid(orderId)) {
+      return res.status(400).json({ message: "Invalid order ID" });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(freelancerId)) {
+      return res.status(400).json({ message: "Invalid freelancerId ID" });
+    }
+
+    const freelancer = await FREELANCER.findById(freelancerId);
+    if (!freelancer) {
+      return res.status(404).json({ message: "Freelancer not found" });
+    }
+
+    const order = await Order.findOne({ _id: orderId, freelancerId });
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    if (order.status != "in_progress") {
+      return res
+        .status(400)
+        .json({ message: "Only In Progress orders can be delievered" });
+    }
+
+    order.status = "in_revision";
+    await order.save();
+
+    return res.status(200).json({
+      message: "Order Pending for revesion",
+      success: true,
+    });
+  } catch (err) {
+    console.error("❌ Error updating order:", err);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
+const markAsDelieverd = async (req, res) => {
+  try {
+    const orderId = req.params.id;
+    const employerId = req.user?._id;
+
+    if (!mongoose.Types.ObjectId.isValid(orderId)) {
+      return res.status(400).json({ message: "Invalid order ID" });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(employerId)) {
+      return res.status(400).json({ message: "Invalid freelancerId ID" });
+    }
+
+    const order = await Order.findOne({ _id: orderId, employerId: employerId });
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    if (order.status != "in_revision") {
+      return res
+        .status(400)
+        .json({ message: "Only In Revision orders can be mrked " });
+    }
+
+    order.status = "delivered";
+    await order.save();
+
+    return res.status(200).json({
+      message: "Order mark as delieverd ",
+      success: true,
+    });
+  } catch (err) {
+    console.error("❌ Error updating order:", err);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
+export {
+  createOrder,
+  completeOrder,
+  getFreelancerOrders,
+  getClientOrders,
+  markOrderAsComplete,
+  delieverOrderForRevsions,
+  markAsDelieverd,
+};
