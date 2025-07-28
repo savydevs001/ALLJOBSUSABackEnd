@@ -3,7 +3,7 @@ import LEGAL_CONTENT from "../database/models/legalContent.model.js";
 let lagalContent = {
   privacy: undefined,
   terms: undefined,
-  careers: undefined,
+  transparency: undefined,
 };
 
 const getPrivacy = async () => {
@@ -36,22 +36,22 @@ const getTerms = async () => {
 
 const getCareer = async () => {
   try {
-    if (!lagalContent.careers) {
-      const data = await LEGAL_CONTENT.findOne({ type: "careers" });
-      lagalContent.careers = data;
+    if (!lagalContent.transparency) {
+      const data = await LEGAL_CONTENT.findOne({ type: "transparency" });
+      lagalContent.transparency = data;
       return data;
     } else {
-      return lagalContent.careers;
+      return lagalContent.transparency;
     }
   } catch (err) {
-    console.log("❌ Error Loading Careers from database");
+    console.log("❌ Error Loading transparency from database");
   }
 };
 
 const getLegalContent = async (req, res) => {
   try {
-    const { type } = req.params; // "privacy", "terms", "careers"
-    if (!["privacy", "terms", "careers"].includes(type)) {
+    const { type } = req.params; // "privacy", "terms", "transparency"
+    if (!["privacy", "terms", "transparency"].includes(type)) {
       return res.status(400).json({ message: "Invalid Type" });
     }
 
@@ -64,7 +64,7 @@ const getLegalContent = async (req, res) => {
       case "terms":
         data = await getTerms();
         break;
-      case "careers":
+      case "transparency":
         data = await getCareer();
         break;
       default:
@@ -87,7 +87,7 @@ const updateContent = async (req, res) => {
     const { type } = req.params;
     const { content } = req.body;
 
-    if (!["privacy", "terms", "careers"].includes(type)) {
+    if (!["privacy", "terms", "transparency"].includes(type)) {
       return res.status(400).json({ message: "Invalid Type" });
     }
 
@@ -104,8 +104,8 @@ const updateContent = async (req, res) => {
       case "terms":
         lagalContent.terms = undefined;
         break;
-      case "careers":
-        lagalContent.careers = undefined;
+      case "transparency":
+        lagalContent.transparency = undefined;
         break;
       default:
         break;
