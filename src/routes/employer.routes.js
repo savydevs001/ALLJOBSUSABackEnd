@@ -1,6 +1,10 @@
 import { Router } from "express";
 import roleBasedAuthMiddleware from "../middlewares/roleBasedAuth.middleware.js";
-import { getEmployerDashboardData } from "../controllers/employer.controler.js";
+import {
+  editEmployerProfile,
+  getEmployerDashboardData,
+  getEmployerProfile,
+} from "../controllers/employer.controler.js";
 import a from "../utils/a.js";
 import verifyTokenMiddleware from "../middlewares/verifyToken.middleware.js";
 
@@ -11,6 +15,19 @@ EmployerRouter.get(
   verifyTokenMiddleware(),
   roleBasedAuthMiddleware(["employer"]),
   a(getEmployerDashboardData)
+);
+EmployerRouter.get(
+  "/profile",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["employer"]),
+  a(getEmployerProfile)
+);
+
+EmployerRouter.put(
+  "/profile/edit",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["employer"]),
+  a(editEmployerProfile)
 );
 
 // EmployerRouter.get("/", a(getEmployerProfile));

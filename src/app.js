@@ -31,6 +31,7 @@ import JobSeekerRouter from "./routes/job-seeker.routes.js";
 import PlateformRouter from "./routes/plateform.routes.js";
 import TestimonialRouter from "./routes/testimonial.routes.js";
 import LegalContentRouter from "./routes/legalContent.routes.js";
+import ContactRouter from "./routes/contact.route.js";
 
 dotenv.config();
 
@@ -74,6 +75,7 @@ app.use("/testimonials", TestimonialRouter);
 app.use("/upload", uploadRouter);
 app.use("/stripe", StripeRouter);
 app.use("/legal", LegalContentRouter)
+app.use("/contact", ContactRouter)
 
 // admin routes
 app.use("/admin", AdminRouter);

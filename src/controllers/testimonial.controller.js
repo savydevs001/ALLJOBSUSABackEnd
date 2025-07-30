@@ -34,7 +34,15 @@ const createTestimonial = async (req, res) => {
 
 const getAllTestimonials = async (req, res) => {
   try {
-    const testimonials = await Testimonial.find().sort({ createdAt: -1 });
+    let filter = { status: "published" };
+    if (req.user && req.user.role === "admin") {
+      filter = {};
+    }
+
+    // if admin send all, otherwise send published only
+    const testimonials = await Testimonial.find(filter).sort({
+      createdAt: -1,
+    });
     res.status(200).json({ testimonials });
   } catch (error) {
     res.status(500).json({ message: "Error fetching testimonials", error });

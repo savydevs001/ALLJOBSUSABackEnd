@@ -12,7 +12,7 @@ import {
 
 const TestimonialRouter = new Router();
 
-TestimonialRouter.get("/all", a(getAllTestimonials));
+TestimonialRouter.get("/all",verifyTokenMiddleware("weak") ,a(getAllTestimonials));
 
 TestimonialRouter.get("/:id", a(getTestimonialById));
 

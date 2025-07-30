@@ -6,6 +6,7 @@ import EMPLOYER from "../database/models/employers.model.js";
 import FREELANCER from "../database/models/freelancer.model.js";
 import JOBSEEKER from "../database/models/job-seeker.model.js";
 import Job from "../database/models/jobs.model.js";
+import { getTotalIncomeAndMonthlyChange } from "../services/stripe.service.js";
 
 // create admin
 const PASSWORD_REGEX =
@@ -99,47 +100,176 @@ const adminDashboardData = async (req, res) => {
   try {
     const now = new Date();
     const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const firstOfPreviousMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() - 1,
+      1
+    );
+    const lastOfPreviousMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+
+    // Helper to extract counts from aggregation result
+    const extractCount = (facetArray) => facetArray[0]?.count || 0;
 
     const [
-      allEmployers,
-      allFreelancers,
-      allJobseekers,
-      thisMonthEmployers,
-      thisMonthFreelancers,
-      thisMonthJobseekers,
-      allJobs,
-      thisMonthJobs,
+      subscriptionEarning,
+      employerAgg,
+      freelancerAgg,
+      jobseekerAgg,
+      jobAgg,
     ] = await Promise.all([
-      EMPLOYER.countDocuments({}),
-      FREELANCER.countDocuments({}),
-      JOBSEEKER.countDocuments({}),
-      EMPLOYER.countDocuments({
-        createdAt: { $gte: firstOfMonth },
-      }),
-      FREELANCER.countDocuments({
-        createdAt: { $gte: firstOfMonth },
-      }),
-      JOBSEEKER.countDocuments({
-        createdAt: { $gte: firstOfMonth },
-      }),
-      Job.countDocuments({}),
-      Job.countDocuments({
-        createdAt: { $gte: firstOfMonth },
-      }),
+      getTotalIncomeAndMonthlyChange(),
+      EMPLOYER.aggregate([
+        {
+          $facet: {
+            allTime: [{ $count: "count" }],
+            thisMonth: [
+              { $match: { createdAt: { $gte: firstOfMonth } } },
+              { $count: "count" },
+            ],
+            previousMonth: [
+              {
+                $match: {
+                  createdAt: {
+                    $gte: firstOfPreviousMonth,
+                    $lte: lastOfPreviousMonth,
+                  },
+                },
+              },
+              { $count: "count" },
+            ],
+          },
+        },
+      ]),
+      FREELANCER.aggregate([
+        {
+          $facet: {
+            allTime: [{ $count: "count" }],
+            thisMonth: [
+              { $match: { createdAt: { $gte: firstOfMonth } } },
+              { $count: "count" },
+            ],
+            previousMonth: [
+              {
+                $match: {
+                  createdAt: {
+                    $gte: firstOfPreviousMonth,
+                    $lte: lastOfPreviousMonth,
+                  },
+                },
+              },
+              { $count: "count" },
+            ],
+          },
+        },
+      ]),
+      JOBSEEKER.aggregate([
+        {
+          $facet: {
+            allTime: [{ $count: "count" }],
+            thisMonth: [
+              { $match: { createdAt: { $gte: firstOfMonth } } },
+              { $count: "count" },
+            ],
+            previousMonth: [
+              {
+                $match: {
+                  createdAt: {
+                    $gte: firstOfPreviousMonth,
+                    $lte: lastOfPreviousMonth,
+                  },
+                },
+              },
+              { $count: "count" },
+            ],
+          },
+        },
+      ]),
+      Job.aggregate([
+        {
+          $facet: {
+            allTime: [{ $count: "count" }],
+            thisMonth: [
+              { $match: { createdAt: { $gte: firstOfMonth } } },
+              { $count: "count" },
+            ],
+            previousMonth: [
+              {
+                $match: {
+                  createdAt: {
+                    $gte: firstOfPreviousMonth,
+                    $lte: lastOfPreviousMonth,
+                  },
+                },
+              },
+              { $count: "count" },
+            ],
+          },
+        },
+      ]),
     ]);
 
+    // Extract counts
+    const allEmployers = extractCount(employerAgg[0].allTime);
+    const thisMonthEmployers = extractCount(employerAgg[0].thisMonth);
+    const previousMonthEmployers = extractCount(employerAgg[0].previousMonth);
+
+    const allFreelancers = extractCount(freelancerAgg[0].allTime);
+    const thisMonthFreelancers = extractCount(freelancerAgg[0].thisMonth);
+    const previousMonthFreelancers = extractCount(
+      freelancerAgg[0].previousMonth
+    );
+
+    const allJobseekers = extractCount(jobseekerAgg[0].allTime);
+    const thisMonthJobseekers = extractCount(jobseekerAgg[0].thisMonth);
+    const previousMonthJobseekers = extractCount(jobseekerAgg[0].previousMonth);
+
+    const allJobs = extractCount(jobAgg[0].allTime);
+    const thisMonthJobs = extractCount(jobAgg[0].thisMonth);
+    const previousMonthJobs = extractCount(jobAgg[0].previousMonth);
+
+    // Combine counts
     const allTimeUsers = allEmployers + allFreelancers + allJobseekers;
     const thisMonthUsers =
-      thisMonthJobseekers + thisMonthEmployers + thisMonthFreelancers;
+      thisMonthEmployers + thisMonthFreelancers + thisMonthJobseekers;
+    const previousMonthUsers =
+      previousMonthEmployers +
+      previousMonthFreelancers +
+      previousMonthJobseekers;
+
+    const usersPercentChange =
+      previousMonthUsers === 0
+        ? thisMonthUsers === 0
+          ? 0
+          : 100 // handle division by 0
+        : ((thisMonthUsers - previousMonthUsers) / previousMonthUsers) * 100;
+
+    const freelancersPercentageChange =
+      previousMonthFreelancers === 0
+        ? thisMonthFreelancers === 0
+          ? 0
+          : 100
+        : ((thisMonthFreelancers - previousMonthFreelancers) /
+            previousMonthFreelancers) *
+          100;
+
+    const jobsPercentChange =
+      previousMonthJobs === 0
+        ? thisMonthJobs === 0
+          ? 0
+          : 100
+        : ((thisMonthJobs - previousMonthJobs) / previousMonthJobs) * 100;
 
     return res.status(200).json({
+      subscriptionEarning,
       allTimeUsers,
-      thisMonthUsers,
+      usersPercentChange: Math.round(usersPercentChange),
+      allTimeFreelancers: allFreelancers,
+      freelancersPercentageChange,
       allJobs,
-      thisMonthJobs,
+      jobsPercentChange: Math.round(jobsPercentChange),
     });
   } catch (err) {
-    console.log("❌ Error getting data: ", err);
+    console.error("❌ Error getting admin dashboard data:", err);
     return res.status(500).json({ message: "Server Error" });
   }
 };

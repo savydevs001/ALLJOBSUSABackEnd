@@ -7,6 +7,7 @@ import {
   delieverOrderForRevsions,
   getClientOrders,
   getFreelancerOrders,
+  getRecentOrders,
   markAsDelieverd,
   markOrderAsComplete,
 } from "../controllers/order.controller.js";
@@ -25,6 +26,13 @@ orderRouter.get(
   verifyTokenMiddleware(),
   roleBasedAuthMiddleware(["employer", "job-seeker"]),
   getClientOrders
+);
+
+orderRouter.get(
+  "/recent-orders",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["admin"]),
+  getRecentOrders
 );
 
 orderRouter.get(

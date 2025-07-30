@@ -21,20 +21,6 @@ dotenv.config();
 //   autoRenew: z.boolean().optional(),
 // });
 
-// const employerDetailsZodSchema = z.object({
-//   companyName: z.string().min(1),
-//   industry: z.string().min(1),
-//   website: z.string().url(),
-//   companySize: z.string().min(1),
-//   description: z.string().min(10),
-//   subscription: subscriptionZodSchema.optional(),
-//   bookmarkedFreelancers: z
-//     .array(z.string().regex(/^[a-f\d]{24}$/i, "Invalid ObjectId"))
-//     .optional(),
-// });
-
-// const updateEmployerDetailsZodSchema = employerDetailsZodSchema.partial();
-
 // Controllers
 // const enableEmployerProfile = async (req, res) => {
 //   const userId = req.user?._id;
@@ -100,64 +86,116 @@ dotenv.config();
 //     .json({ message: "Only Employer can add Employer details" });
 // };
 
-// const editEmployerProfile = async (req, res) => {
-//   const updates = updateEmployerDetailsZodSchema.parse(req.body);
+// Edit employer
+const editEmployerProfileSchema = z.object({
+  fullName: z
+    .string()
+    .trim()
+    .min(2, "Full name must be at least 2 characters long"),
 
-//   const userId = req.user?._id;
-//   const user = await User.findOne({
-//     _id: userId,
-//     status: { $nin: ["suspended", "deleted"] },
-//   });
+  about: z
+    .string()
+    .trim()
+    .max(1000, "About section can be up to 1000 characters")
+    .optional()
+    .or(z.literal("")),
 
-//   if (!user) {
-//     return res.status(404).json({ message: "User not found" });
-//   }
+  location: z
+    .string()
+    .trim()
+    .max(255, "Location is too long")
+    .optional()
+    .or(z.literal("")),
 
-//   if (!user.role.includes("employer")) {
-//     return res
-//       .status(403)
-//       .json({ message: "Only Employer can update Employer details" });
-//   }
+  website: z.string().trim().optional().or(z.literal("")),
 
-//   // Update only provided fields
-//   await User.updateOne(
-//     { _id: userId },
-//     {
-//       $set: {
-//         freelancerDetails: { ...user.freelancerDetails.toObject(), ...updates },
-//       },
-//     }
-//   );
+  phoneNumber: z
+    .string()
+    .trim()
+    .min(5, "Phone number is too short")
+    .max(20, "Phone number is too long")
+    .optional()
+    .or(z.literal("")),
 
-//   return res
-//     .status(200)
-//     .json({ message: "Employer profile updated successfully" });
-// };
+  profilePictureUrl: z
+    .string()
+    .trim()
+    .url("Invalid logo URL")
+    .optional()
+    .or(z.literal("")),
 
-// const getEmployerProfile = async (req, res) => {
-//   const userId = req.user?._id;
-//   const user = await User.findOne(
-//     { _id: userId, status: { $nin: ["deleted"] } },
-//     {
-//       email: 1,
-//       status: 1,
-//       profile: 1,
-//       employerDetails: 1,
-//     }
-//   );
+  bannerUrl: z
+    .string()
+    .trim()
+    .url("Invalid banner URL")
+    .optional()
+    .or(z.literal("")),
+});
+const editEmployerProfile = async (req, res) => {
+  const updates = editEmployerProfileSchema.parse(req.body);
+  try {
+    const userId = req.user?._id;
 
-//   if (!user) {
-//     return res.status(404).json({ message: "User not found" });
-//   }
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(401).json({ message: "Invalid User Id" });
+    }
 
-//   if (!user.employerDetails) {
-//     return res.status(404).json({ message: "Employer profile not set" });
-//   }
+    const user = await EMPLOYER.findOne({
+      _id: userId,
+      status: { $nin: ["suspended", "deleted"] },
+    });
 
-//   return res.status(200).json({
-//     user: user,
-//   });
-// };
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    user.fullName = updates.fullName;
+    user.profilePictureUrl = updates.profilePictureUrl;
+    user.bannerUrl = updates.bannerUrl;
+    user.location = updates.location;
+    user.website = updates.website;
+    user.about = updates.about;
+    user.phoneNumber = updates.phoneNumber;
+
+    await user.save();
+
+    return res
+      .status(200)
+      .json({ message: "Employer profile updated successfully" });
+  } catch (err) {
+    console.log("Error upding employer profile: ", err);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
+const getEmployerProfile = async (req, res) => {
+  const userId = req.user?._id;
+  const user = await EMPLOYER.findOne(
+    { _id: userId, status: { $nin: ["deleted"] } },
+    {
+      email: 1,
+      fullName: 1,
+      profilePictureUrl: 1,
+      status: 1,
+      about: 1,
+      location: 1,
+      website: 1,
+      phoneNumber: 1,
+      bannerUrl: 1,
+      jobsCreated: 1,
+      ordersCompleted: 1,
+      createdAt: 1,
+    }
+  );
+
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  return res.status(200).json({
+    user: user,
+  });
+};
 
 // const getEmployerProfileById = async (req, res) => {
 //   const { id } = req.params;
@@ -289,8 +327,8 @@ export {
   getEmployerDashboardData,
   // enableEmployerProfile,
   // addEmployerProfile,
-  // editEmployerProfile,
-  // getEmployerProfile,
+  editEmployerProfile,
+  getEmployerProfile,
   // getEmployerProfileById,
   // getAllEmployers,
 };

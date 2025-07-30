@@ -635,6 +635,29 @@ const markAsDelieverd = async (req, res) => {
   }
 };
 
+// Admin get recent orders
+const getRecentOrders = async (req, res) => {
+  try {
+    const orders = await Order.find({})
+      .sort({ updatedAt: -1 })
+      .populate("freelancerId", "fullName")
+      .limit(5);
+    const transformedOrders = orders.map((e) => ({
+      _id: e._id,
+      freelancer: {
+        _id: e.freelancerId._id,
+        fullName: e.freelancerId.fullName,
+      },
+      createdAt: e.createdAt,
+      status: e.status,
+    }));
+
+    return res.status(200).json({ orders: transformedOrders });
+  } catch (err) {
+    console.log("❌ Error getting recent orders");
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
 export {
   createOrder,
   completeOrder,
@@ -643,4 +666,5 @@ export {
   markOrderAsComplete,
   delieverOrderForRevsions,
   markAsDelieverd,
+  getRecentOrders
 };

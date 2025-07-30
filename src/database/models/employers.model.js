@@ -19,6 +19,11 @@ const employerSchema = mongoose.Schema(
       enum: ["active", "suspended", "deleted"],
       default: "active",
     },
+    about: String,
+    location: String,
+    website: String,
+    phoneNumber: String,
+    bannerUrl: String,
 
     // jobs
     jobsCreated: { type: Number, default: 0 },

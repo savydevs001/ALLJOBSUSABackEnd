@@ -7,12 +7,12 @@ import { calculateTotalSubscriptionEarning } from "../controllers/stripe.control
 
 const StripeRouter = Router();
 
-StripeRouter.get(
-  "/subscription-earnings",
-  verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["admin"]),
-  a(calculateTotalSubscriptionEarning)
-);
+// StripeRouter.get(
+//   "/subscription-earnings",
+//   verifyTokenMiddleware(),
+//   roleBasedAuthMiddleware(["admin"]),
+//   a(calculateTotalSubscriptionEarning)
+// );
 
 StripeRouter.post("/verify-session", verifyStripeSession);
 

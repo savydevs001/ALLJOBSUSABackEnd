@@ -547,15 +547,14 @@ const getTotalIncomeAndMonthlyChange = async () => {
 
     const percentChange =
       lastMonthIncome === 0
-        ? 0
+        ? currentMonthIncome === 0
+          ? 0
+          : 100
         : ((currentMonthIncome - lastMonthIncome) / lastMonthIncome) * 100;
 
     return {
-      totalIncome: totalIncome.toFixed(2),
-      currentMonthIncome: currentMonthIncome.toFixed(2),
-      lastMonthIncome: lastMonthIncome.toFixed(2),
-      percentChange:
-        percentChange !== null ? percentChange.toFixed(2) + "%" : "N/A",
+      totalIncome: totalIncome,
+      percentChange,
     };
   } catch (err) {
     console.log("Error calculation payments: ", err);

@@ -263,14 +263,17 @@ const getAllJobs = async (req, res) => {
       category,
       tags,
       status = "empty",
-      job = "simple",
+      job,
       jobType,
       employerId,
       location,
       text,
     } = req.query;
 
-    const filters = { job: job };
+    const filters = {};
+    if (job) {
+      filters.job = job;
+    }
 
     // get user to check if he had saved this job
     const user = await FREELANCER.findById(req.user?._id).select("savedJobs");
@@ -409,7 +412,7 @@ const getAllJobs = async (req, res) => {
       jobs: transformedJobs,
     });
   } catch (err) {
-    console.log("❌ Error creating job: ", err);
+    console.log("❌ Error getting job: ", err);
     return res.status(500).json({ message: "Server Error" });
   }
 };
@@ -564,7 +567,7 @@ const getAllSavedJobs = async (req, res) => {
     } else if (role == "job-seeker") {
       user = await JOBSEEKER.findById(userId).select("savedJobs");
     }
-    console.log("role: ", user)
+    console.log("role: ", user);
 
     if (!user) {
       return res.status(401).json({ message: "User not found" });
