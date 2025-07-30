@@ -7,6 +7,9 @@ import FREELANCER from "../database/models/freelancer.model.js";
 import JOBSEEKER from "../database/models/job-seeker.model.js";
 import Job from "../database/models/jobs.model.js";
 import { getTotalIncomeAndMonthlyChange } from "../services/stripe.service.js";
+import mongoose from "mongoose";
+import Application from "../database/models/applications.model.js";
+import Offer from "../database/models/offers.model.js";
 
 // create admin
 const PASSWORD_REGEX =
@@ -336,9 +339,424 @@ const getMonthlyJobStats = async (req, res) => {
   }
 };
 
+// active users stats
+const getTotalUserStats = async (req, res) => {
+  try {
+    const [employerStats, freelancerStats, jobseekerStats] = await Promise.all([
+      EMPLOYER.aggregate([
+        {
+          $facet: {
+            total: [{ $count: "count" }],
+            active: [{ $match: { status: "active" } }, { $count: "count" }],
+            suspended: [
+              { $match: { status: "suspended" } },
+              { $count: "count" },
+            ],
+            deleted: [{ $match: { status: "deleted" } }, { $count: "count" }],
+          },
+        },
+      ]),
+      FREELANCER.aggregate([
+        {
+          $facet: {
+            total: [{ $count: "count" }],
+            active: [{ $match: { status: "active" } }, { $count: "count" }],
+            suspended: [
+              { $match: { status: "suspended" } },
+              { $count: "count" },
+            ],
+            deleted: [{ $match: { status: "deleted" } }, { $count: "count" }],
+          },
+        },
+      ]),
+      JOBSEEKER.aggregate([
+        {
+          $facet: {
+            total: [{ $count: "count" }],
+            active: [{ $match: { status: "active" } }, { $count: "count" }],
+            suspended: [
+              { $match: { status: "suspended" } },
+              { $count: "count" },
+            ],
+            deleted: [{ $match: { status: "deleted" } }, { $count: "count" }],
+          },
+        },
+      ]),
+    ]);
+
+    // Helper
+    const extract = (result, key) => result[0][key]?.[0]?.count || 0;
+
+    const totalUsers =
+      extract(employerStats, "total") +
+      extract(freelancerStats, "total") +
+      extract(jobseekerStats, "total");
+
+    const activeUsers =
+      extract(employerStats, "active") +
+      extract(freelancerStats, "active") +
+      extract(jobseekerStats, "active");
+
+    const suspendedUsers =
+      extract(employerStats, "suspended") +
+      extract(freelancerStats, "suspended") +
+      extract(jobseekerStats, "suspended");
+
+    const deletedUsers =
+      extract(employerStats, "deleted") +
+      extract(freelancerStats, "deleted") +
+      extract(jobseekerStats, "deleted");
+
+    return res.status(200).json({
+      totalUsers,
+      activeUsers,
+      suspendedUsers,
+      deletedUsers,
+    });
+  } catch (err) {
+    console.error("❌ Error getting user stats:", err);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
+// get users
+const getUsers = async (req, res) => {
+  try {
+    const { status, text, role = "employer", skip = 0, limit = 10 } = req.query;
+
+    // Validate role
+    if (!["employer", "freelancer", "job-seeker"].includes(role)) {
+      return res.status(400).json({
+        message:
+          "Invalid role provided. Either employer, freelancer, job-seeker",
+      });
+    }
+
+    // Pick the appropriate model
+    let Model;
+    if (role === "employer") Model = EMPLOYER;
+    else if (role === "freelancer") Model = FREELANCER;
+    else Model = JOBSEEKER;
+
+    // Build query
+    const query = {};
+    if (status && status != "") query.status = status;
+    if (text && text != "") {
+      if (mongoose.Types.ObjectId.isValid(text)) {
+        console.log("id: ok");
+        query._id = new mongoose.Types.ObjectId(text);
+      } else {
+        query.$or = [
+          { fullName: { $regex: text, $options: "i" } },
+          { email: { $regex: text, $options: "i" } },
+          ,
+        ];
+      }
+    }
+
+    const [users, total] = await Promise.all([
+      Model.find(query)
+        .select("_id fullName createdAt email status")
+        .sort({ createdAt: -1 })
+        .skip(Number(skip))
+        .limit(Number(limit)),
+      Model.countDocuments(query),
+    ]);
+
+    return res.status(200).json({
+      users,
+      total,
+      skip: Number(skip),
+      limit: Number(limit),
+    });
+  } catch (err) {
+    console.error("❌ Error getting users for admin:", err);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
+// job stats
+const getJobsStats = async (req, res) => {
+  try {
+    const [jobStats] = await Job.aggregate([
+      {
+        $facet: {
+          total: [{ $count: "count" }],
+          emptyStatus: [{ $match: { status: "empty" } }, { $count: "count" }],
+          featured: [{ $match: { isFeatured: true } }, { $count: "count" }],
+        },
+      },
+    ]);
+
+    const formatCount = (arr) => arr[0]?.count || 0;
+
+    return res.status(200).json({
+      totalJobs: formatCount(jobStats.total),
+      activeJobs: formatCount(jobStats.emptyStatus),
+      featuredJobs: formatCount(jobStats.featured),
+    });
+  } catch (err) {
+    console.error("❌ Error getting job stats:", err);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
+// get jobs
+const getJobs = async (req, res) => {
+  try {
+    const { status, text, skip = 0, limit = 10 } = req.query;
+
+    // Build base match query
+    const matchStage = {};
+    if (status && status !== "") {
+      matchStage.status = status;
+    }
+
+    // Initial pipeline
+    const pipeline = [
+      { $match: matchStage },
+      {
+        $lookup: {
+          from: "employers", // collection name (lowercase plural)
+          localField: "employerId",
+          foreignField: "_id",
+          as: "employer",
+        },
+      },
+      { $unwind: "$employer" },
+    ];
+
+    // Text filter
+    if (text && text.trim() !== "") {
+      const isValidObjectId = mongoose.Types.ObjectId.isValid(text);
+      const textMatch = {
+        $or: [
+          ...(isValidObjectId
+            ? [{ _id: new mongoose.Types.ObjectId(text) }]
+            : []),
+          { "employer.fullName": { $regex: text, $options: "i" } },
+          { "employer.email": { $regex: text, $options: "i" } },
+        ],
+      };
+      pipeline.push({ $match: textMatch });
+    }
+
+    // Count pipeline for total documents
+    const countPipeline = [...pipeline, { $count: "total" }];
+
+    // Project only required fields
+    pipeline.push(
+      {
+        $project: {
+          _id: 1,
+          title: 1,
+          status: 1,
+          createdAt: 1,
+          isFeatured: 1,
+          locationCity: "$simpleJobDetails.locationCity",
+          locationState: "$simpleJobDetails.locationState",
+          employer: {
+            _id: "$employer._id",
+            fullName: "$employer.fullName",
+            email: "$employer.email",
+          },
+        },
+      },
+      { $sort: { createdAt: -1 } },
+      { $skip: Number(skip) },
+      { $limit: Number(limit) }
+    );
+
+    // Execute both count and data queries
+    const [results, totalResult] = await Promise.all([
+      Job.aggregate(pipeline),
+      Job.aggregate(countPipeline),
+    ]);
+
+    const transformData = results.map((e) => ({
+      _id: e._id,
+      title: e.title,
+      status: e.status,
+      createdAt: e.createdAt,
+      employer: e.employer,
+      isFeatured: e.isFeatured === true ? true : false,
+      location:
+        e.locationCity && e.locationState
+          ? e.locationCity + ", " + e.locationState
+          : "Remote",
+    }));
+
+    return res.status(200).json({
+      jobs: transformData,
+      total: totalResult[0]?.total || 0,
+      skip: Number(skip),
+      limit: Number(limit),
+    });
+  } catch (err) {
+    console.error("❌ Error getting jobs for admin:", err);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
+const getTrendingJobs = async (req, res) => {
+  try {
+    const { skip = 0, limit = 10, text, status } = req.query;
+
+    const DAYS = 30;
+    const APPLICATION_THRESHOLD = 0;
+    const OFFER_THRESHOLD = 0;
+
+    const fromDate = new Date();
+    fromDate.setDate(fromDate.getDate() - DAYS);
+
+    // Run aggregations in parallel
+    const [applicationAgg, offerAgg] = await Promise.all([
+      Application.aggregate([
+        { $match: { createdAt: { $gte: fromDate } } },
+        {
+          $group: {
+            _id: "$jobId",
+            count: { $sum: 1 },
+            earliest: { $min: "$createdAt" },
+          },
+        },
+        { $match: { count: { $gte: APPLICATION_THRESHOLD } } },
+      ]),
+      Offer.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: fromDate },
+            jobId: { $ne: null },
+          },
+        },
+        {
+          $group: {
+            _id: "$jobId",
+            count: { $sum: 1 },
+            earliest: { $min: "$createdAt" },
+          },
+        },
+        { $match: { count: { $gte: OFFER_THRESHOLD } } },
+      ]),
+    ]);
+
+    // Merge job IDs and determine earliest trending date
+    const jobTrendingMap = new Map();
+    for (const entry of [...applicationAgg, ...offerAgg]) {
+      const jobId = entry._id.toString();
+      const existingDate = jobTrendingMap.get(jobId);
+      if (!existingDate || entry.earliest < existingDate) {
+        jobTrendingMap.set(jobId, entry.earliest);
+      }
+    }
+
+    const uniqueJobIds = Array.from(jobTrendingMap.keys());
+
+    // Build dynamic filters
+    const jobFilter = {
+      _id: { $in: uniqueJobIds },
+    };
+
+    if (text) {
+      jobFilter.title = { $regex: text, $options: "i" };
+    }
+
+    if (status) {
+      jobFilter.status = status;
+    }
+
+    // Query trending jobs
+    const trendingJobs = await Job.find(jobFilter)
+      .select(
+        "_id title createdAt isFeatured status simpleJobDetails.locationCity simpleJobDetails.locationState employerId"
+      )
+      .populate("employerId", "_id fullName email")
+      .skip(Number(skip))
+      .limit(Number(limit));
+
+    const now = new Date();
+
+    const transformData = trendingJobs.map((e) => {
+      const jobId = e._id.toString();
+      const trendingSince = new Date(jobTrendingMap.get(jobId));
+      const diffTime = Math.abs(now - trendingSince);
+      const trendingDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+      return {
+        _id: e._id,
+        title: e.title,
+        status: e.status,
+        createdAt: e.createdAt,
+        trendingDays,
+        employer: {
+          _id: e.employerId._id,
+          fullName: e.employerId.fullName,
+          email: e.employerId.email,
+        },
+        isFeatured: e.isFeatured === true,
+        location:
+          e.simpleJobDetails?.locationCity && e.simpleJobDetails?.locationState
+            ? e.simpleJobDetails.locationCity +
+              ", " +
+              e.simpleJobDetails.locationState
+            : "Remote",
+      };
+    });
+
+    return res.status(200).json({
+      jobs: transformData,
+      total: uniqueJobIds.length,
+      skip: Number(skip),
+      limit: Number(limit),
+    });
+  } catch (error) {
+    console.error("Error getting trending jobs:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+const getFreelancerStats = async (req, res) => {
+  try {
+    const freelancerStats = await FREELANCER.aggregate([
+      {
+        $facet: {
+          total: [{ $count: "count" }],
+          active: [{ $match: { status: "active" } }, { $count: "count" }],
+          suspended: [{ $match: { status: "suspended" } }, { $count: "count" }],
+          deleted: [{ $match: { status: "deleted" } }, { $count: "count" }],
+        },
+      },
+    ]);
+
+    const extract = (result, key) => result[0][key]?.[0]?.count || 0;
+    const totalFreelancers = extract(freelancerStats, "total");
+    const activeFreelancers = extract(freelancerStats, "active");
+    const suspendedFreelancers = extract(freelancerStats, "suspended");
+    const deletedFreelancers = extract(freelancerStats, "deleted");
+
+    return res
+      .status(200)
+      .json({
+        totalFreelancers,
+        activeFreelancers,
+        suspendedFreelancers,
+        deletedFreelancers,
+      });
+  } catch (err) {
+    console.log("❌ Error getting freelancer stats");
+    return res.status(200).json({ message: "Server Error" });
+  }
+};
+
 export {
   createAdminAccount,
   loginAdminAccount,
   adminDashboardData,
   getMonthlyJobStats,
+  getTotalUserStats,
+  getUsers,
+  getJobsStats,
+  getJobs,
+  getTrendingJobs,
+  getFreelancerStats
 };

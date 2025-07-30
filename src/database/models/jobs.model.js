@@ -71,6 +71,8 @@ const jobSchema = new Schema(
       files: { type: [{ name: String, url: String, _id: false }], default: [] },
     },
 
+    isFeatured: { type: Boolean, default: false },
+
     // deadline for job delisting
     deadline: { type: Date, required: true },
     applicants: [{ type: Types.ObjectId, ref: "freelancer" }],
