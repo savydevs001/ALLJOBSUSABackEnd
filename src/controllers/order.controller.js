@@ -97,16 +97,20 @@ const createOrder = async (req, res) => {
     // Prevent duplicate order for same offer
     const existingOrder = await Order.findOne({ offerId }).session(session);
     if (existingOrder) {
-      return abortSessionWithMessage(
-        res,
-        session,
-        "Order already exists for this offer",
-        409
-      );
+      if (existingOrder.status == "") {
+      } else {
+        return abortSessionWithMessage(
+          res,
+          session,
+          "Order already exists for this offer",
+          409
+        );
+      }
     }
 
     const totalAmount = offer.price;
     let companyCut = 0;
+    const plateform = (await PlatformSettings.find({}))[0];
     if (plateform.pricing.platformCommissionPercentageActive === true) {
       companyCut = Math.round(
         totalAmount * (plateform.pricing.platformCommissionPercentage / 100)
@@ -461,12 +465,7 @@ const markOrderAsComplete = async (req, res) => {
     }
 
     const transaction = await TRANSACTION.findById(order.transactionId);
-    if (
-      !transaction ||
-      !transaction.orderDeatils ||
-      !transaction.orderDeatils.stripeIntentId ||
-      !transaction.orderDeatils.stripeSessionId
-    ) {
+    if (!transaction || !transaction.orderDeatils) {
       return res.status(404).json({ message: "Transaction not found" });
     }
 
@@ -476,29 +475,6 @@ const markOrderAsComplete = async (req, res) => {
         .json({ message: "No Payment Held for this order" });
     }
 
-    // let paymentIntent;
-    // try {
-    //   paymentIntent = await retriveStripePaymentIntent(
-    //     transaction.orderDeatils.stripeIntentId
-    //   );
-    // } catch (err) {
-    //   return res
-    //     .status(500)
-    //     .json({ message: "Failed to retrieve Stripe payment intent" });
-    // }
-
-    // this amount is in cents
-    // const totalAmount = paymentIntent.amount_received;
-
-    // const plateform = (await PlatformSettings.find({}))[0];
-
-    // let companyCut = 0;
-    // if (plateform.pricing.platformCommissionPercentageActive === true) {
-    //   companyCut = Math.round(
-    //     totalAmount * (plateform.pricing.platformCommissionPercentage / 100)
-    //   );
-    // }
-    // const freelancerAmount = totalAmount - companyCut;
 
     const freelancer = await FREELANCER.findById(order.freelancerId);
     if (!freelancer || !freelancer.stripeAccountId) {
@@ -666,5 +642,5 @@ export {
   markOrderAsComplete,
   delieverOrderForRevsions,
   markAsDelieverd,
-  getRecentOrders
+  getRecentOrders,
 };

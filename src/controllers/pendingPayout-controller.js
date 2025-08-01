@@ -30,10 +30,10 @@ const runScheduledPayouts = async () => {
         await TRANSACTION.updateOne(
           {
             _id: payout.transactionId,
-            status: "escrow_held",
+            "orderDeatils.status": "escrow_held",
           },
           {
-            status: "released_to_freelancer",
+            "orderDeatils.status": "released_to_freelancer",
           }
         );
 

@@ -75,7 +75,17 @@ const jobSchema = new Schema(
 
     // deadline for job delisting
     deadline: { type: Date, required: true },
-    applicants: [{ type: Types.ObjectId, ref: "freelancer" }],
+    applicants: [
+      {
+        userId: { type: Types.ObjectId, refPath: "applicants.role" },
+        role: {
+          type: String,
+          required: true,
+          enum: ["freelancer", "jobSeeker"],
+        },
+      },
+      { _id: false },
+    ],
 
     // analytics
     views: { type: Number, default: 0 },

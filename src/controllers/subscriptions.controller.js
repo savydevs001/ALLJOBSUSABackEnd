@@ -311,8 +311,7 @@ const enableProfileSubscription = async (req, res) => {
       );
       url = checkout.url;
     } else if (requestedSubscription.mode == "oneTime") {
-      console.log("--------------> Requested subscription");
-      console.log(requestedSubscription);
+
       const checkout = await genrateStripeCheckoutSession(
         user.email,
         requestedSubscription.stripePriceId,

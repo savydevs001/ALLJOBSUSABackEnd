@@ -1,7 +1,9 @@
 import { Router } from "express";
 import {
   adminDashboardData,
+  changeFreelancerBadge,
   createAdminAccount,
+  getFreelancers,
   getFreelancerStats,
   getJobs,
   getJobsStats,
@@ -65,9 +67,21 @@ AdminRouter.get(
   roleBasedAuthMiddleware(["admin"]),
   a(getFreelancerStats)
 );
-
+AdminRouter.get(
+  "/freelancers",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["admin"]),
+  a(getFreelancers)
+);
 
 AdminRouter.post("/signup", createAdminAccount);
 AdminRouter.post("/signin", loginAdminAccount);
+
+AdminRouter.put(
+  "/freelancers/change-badge",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["admin"]),
+  a(changeFreelancerBadge)
+);
 
 export default AdminRouter;

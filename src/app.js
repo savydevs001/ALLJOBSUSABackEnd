@@ -32,6 +32,7 @@ import PlateformRouter from "./routes/plateform.routes.js";
 import TestimonialRouter from "./routes/testimonial.routes.js";
 import LegalContentRouter from "./routes/legalContent.routes.js";
 import ContactRouter from "./routes/contact.route.js";
+import ApplicationRouter from "./routes/applications.routes.js";
 
 dotenv.config();
 
@@ -65,6 +66,7 @@ app.use("/job-seekers", JobSeekerRouter);
 app.use("/jobs", verifyTokenMiddleware(), JobRouter);
 app.use("/notifications", NotificationRouter);
 app.use("/offers", OfferRouter);
+app.use("/applications", ApplicationRouter);
 app.use("/messages", MessageRouter);
 app.use("/conversation", ConversationRouter);
 app.use("/reviews", reviewRouter);

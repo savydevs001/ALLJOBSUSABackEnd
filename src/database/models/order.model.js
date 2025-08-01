@@ -95,5 +95,7 @@ const orderSchema = new Schema(
   }
 );
 
+orderSchema.index({ offerId: 1 }, { unique: true });
+
 const Order = model("Order", orderSchema);
 export default Order;

@@ -162,19 +162,27 @@ const createOffer = async (req, res, next) => {
 
       // Update job applicants
       if (job) {
-        if (!job.applicants.includes(user._id)) {
-          job.applicants.push(user._id);
+        if (!job.applicants.includes({ id: user._id, role: req.user.role })) {
+          job.applicants.push({
+            role: req.user.role,
+            id: user._id,
+          });
         }
       }
 
       // Add to recent activity
-      user.activity.unshift({
-        title: job
-          ? `Applied to ${job.title}`
-          : `Created Custom Offer ${offer.title}`,
-        subTitle: employer.fullName,
-        at: new Date(),
-      });
+      const alreadyApplied = job.applicants.some(
+        (app) =>
+          app.userId?.toString() === user._id.toString() &&
+          app.role === "freelancer"
+      );
+
+      if (!alreadyApplied) {
+        job.applicants.push({
+          userId: user._id,
+          role: "freelancer",
+        });
+      }
 
       if (user.activity.length > 3) {
         user.activity.splice(3);
@@ -220,17 +228,30 @@ const getUserOffers = async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
-      .select(
-        "_id jobId senderId receiverId title description price duration status interviewDetails acceptedAt createdAt"
-      )
-      .populate("receiverId", "fullName")
       .lean();
 
+    // Manually populate receiverId based on receiverModel
+    const populatedOffers = await Promise.all(
+      offers.map(async (offer) => {
+        if (offer.receiverId) {
+          const Model = mongoose.model(offer.receiverModel);
+          const receiver = await Model.findById(offer.receiverId)
+            .select("fullName")
+            .lean();
+          return {
+            ...offer,
+            receiverId: receiver, // This replaces the ObjectId with the full document
+          };
+        }
+        return offer;
+      })
+    );
+
     return res.status(200).json({
-      offers,
+      offers: populatedOffers,
     });
   } catch (err) {
-    console.log("❌ Error creating Offer: ", err);
+    console.log("❌ Error fetching Offers: ", err);
     return res.status(500).json({ message: "Server Error" });
   }
 };
@@ -263,11 +284,7 @@ const getReceivedOffers = async (req, res) => {
       initialFilter.status = status;
     }
 
-    const matchStages = [
-      {
-        ...initialFilter,
-      },
-    ];
+    const matchStages = [{ ...initialFilter }];
 
     if (textTerms.length > 0) {
       const orConditions = textTerms.map((term) => {
@@ -277,6 +294,7 @@ const getReceivedOffers = async (req, res) => {
             { title: { $regex: regex } },
             { description: { $regex: regex } },
             { "sender.fullName": { $regex: regex } },
+            { "job.title": { $regex: regex } }, // added job title filtering
           ],
         };
       });
@@ -284,9 +302,7 @@ const getReceivedOffers = async (req, res) => {
     }
 
     const offers = await Offer.aggregate([
-      {
-        $match: initialFilter,
-      },
+      { $match: initialFilter },
       {
         $lookup: {
           from: "freelancers",
@@ -296,6 +312,15 @@ const getReceivedOffers = async (req, res) => {
         },
       },
       { $unwind: "$sender" },
+      {
+        $lookup: {
+          from: "jobs",
+          localField: "jobId",
+          foreignField: "_id",
+          as: "job",
+        },
+      },
+      { $unwind: "$job" },
       ...(textTerms.length > 0 ? [{ $match: { $and: matchStages } }] : []),
       { $sort: { createdAt: -1 } },
       { $skip: skip },
@@ -304,9 +329,9 @@ const getReceivedOffers = async (req, res) => {
         $project: {
           _id: 1,
           jobId: 1,
-          title: 1,
           status: 1,
           createdAt: 1,
+          jobTitle: "$job.title",
           sender: {
             _id: "$sender._id",
             fullName: "$sender.fullName",
@@ -338,7 +363,7 @@ const getReceivedOffers = async (req, res) => {
       return {
         _id: e._id,
         jobId: e.jobId,
-        appliedTo: e.title,
+        appliedTo: e.jobTitle, // ✅ now using actual job title
         status: e.status,
         createdAt: e.createdAt,
         sender: {
@@ -493,7 +518,10 @@ const getOfferById = async (req, res) => {
     }
 
     // Mark as reviewed if currently pending
-    if (offer.status === "pending") {
+    if (
+      offer.status === "pending" &&
+      req.user?._id.toString() == offer.receiverId.toString()
+    ) {
       offer.status = "reviewed";
       transformedData.status = "reviewed";
       await offer.save();

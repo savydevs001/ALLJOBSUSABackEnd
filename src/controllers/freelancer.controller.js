@@ -299,8 +299,6 @@ const getFreelancerEarnings = async (req, res) => {
         card,
       };
 
-      console.log("Banks: ", bank);
-      console.log("Card: ", card);
     } catch (err) {
       console.log(
         "Error getting external accounts for user: ",
@@ -326,7 +324,33 @@ const getFreelancerEarnings = async (req, res) => {
 };
 
 // start onboarding
+
+const onboardConnectedAccountSchema = z.object({
+  phone: z.string().min(8),
+  ssn_last_4: z
+    .string()
+    .length(4)
+    .regex(/^\d{4}$/),
+  business_type: z.enum(["individual", "company"]),
+  firstName: z.string().min(1),
+  lastName: z.string().min(1),
+  dob: z.object({
+    day: z.coerce.number().min(1).max(31),
+    month: z.coerce.number().min(1).max(12),
+    year: z.coerce.number().min(1900).max(new Date().getFullYear()),
+  }),
+  address: z.object({
+    line1: z.string().min(1),
+    line2: z.string().optional(),
+    city: z.string().min(1),
+    state: z.string().min(1),
+    postal_code: z.string().min(4),
+    country: z.string().length(2),
+  }),
+});
+
 const startFreelancerOnboarding = async (req, res) => {
+  const data = onboardConnectedAccountSchema.parse(req.body);
   try {
     const userId = req.user?._id;
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
@@ -352,7 +376,26 @@ const startFreelancerOnboarding = async (req, res) => {
 
     try {
       if (!user.stripeAccountId) {
-        const account = await createStripeExpressAcount(user.email);
+        const individual = {
+          first_name: data.firstName,
+          last_name: data.lastName,
+          phone: data.phone,
+          dob: data.dob,
+          email: user.email,
+          address: data.address,
+          ssn_last_4: data.ssn_last_4,
+        };
+        const tos_acceptance = {
+          date: Math.floor(Date.now() / 1000),
+          ip: req.ip, // IP address of the user
+        };
+
+        const account = await createStripeExpressAcount({
+          email: user.email,
+          business_type: data.business_type,
+          individual: individual,
+          tos_acceptance: tos_acceptance,
+        });
         user.stripeAccountId = account.id;
         await user.save();
       }
@@ -720,7 +763,18 @@ const getFreelancerPaymentHistory = async (req, res) => {
       return res.status(401).json({ message: "Invalid Freelancer" });
     }
 
-    const orders = await Order.find({ freelancerId: freelancerId })
+    const freelancer = await FREELANCER.findById(freelancerId);
+    if (!freelancer || freelancer.status === "deleted") {
+      return res.status(401).json({ message: "User not found!" });
+    }
+    if (freelancer.onboarded !== true) {
+      return res.status(200).json({ onboardRequired: true });
+    }
+
+    const orders = await Order.find({
+      freelancerId: freelancerId,
+      status: { $in: ["completed", "in_progress", "in_revision", "delivered"] },
+    })
       .populate("transactionId", "orderDeatils")
       .sort({
         createdAt: -1,
@@ -750,8 +804,16 @@ const getMonthlyEarningsByFreelancer = async (req, res) => {
   try {
     const freelancerId = req.user?._id;
 
-    if (!freelancerId) {
-      return res.status(400).json({ message: "freelancerId is required" });
+    if (!mongoose.Types.ObjectId.isValid(freelancerId)) {
+      return res.status(401).json({ message: "Invalid Freelancer" });
+    }
+
+    const freelancer = await FREELANCER.findById(freelancerId);
+    if (!freelancer || freelancer.status === "deleted") {
+      return res.status(401).json({ message: "User not found!" });
+    }
+    if (freelancer.onboarded !== true) {
+      return res.status(200).json({ onboardRequired: true });
     }
 
     // Get current year
@@ -806,7 +868,7 @@ const getMonthlyEarningsByFreelancer = async (req, res) => {
       };
     });
 
-    return res.status(200).json(result);
+    return res.status(200).json({ data: result });
   } catch (err) {
     console.error("❌ Error in getMonthlyEarningsByFreelancer:", err);
     return res.status(500).json({ message: "Server error" });
@@ -859,5 +921,5 @@ export {
   unlikeFreelancer,
   getFreelancerPaymentHistory,
   getMonthlyEarningsByFreelancer,
-  getStripeFreelancerLogin
+  getStripeFreelancerLogin,
 };

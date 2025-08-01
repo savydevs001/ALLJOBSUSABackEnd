@@ -13,11 +13,18 @@ dotenv.config();
 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
-const createStripeExpressAcount = async (email) => {
+const createStripeExpressAcount = async ({
+  email,
+  country,
+  business_type,
+  individual,
+  tos_acceptance,
+}) => {
   const account = await stripe.accounts.create({
     type: "express",
-    country: "US",
+    country: country,
     email: email,
+    business_type,
     capabilities: {
       card_payments: {
         requested: true,
@@ -26,6 +33,8 @@ const createStripeExpressAcount = async (email) => {
         requested: true,
       },
     },
+    individual,
+    // tos_acceptance,
   });
   return account;
 };
@@ -208,87 +217,272 @@ const stripeWebhook = async (req, res) => {
       // handle later
     }
 
-    if (
-      event.type === "checkout.session.completed" &&
-      event.data.object.payment_status === "paid"
-    ) {
-      const session = event.data.object;
-      const sessionId = session.id;
-      const metadata = session.metadata;
+    // if (event.type === "payment_intent.succeeded") {
+    //   const session = event.data.object;
+    //   const sessionId = session.id;
+    //   const metadata = session.metadata;
+    //   const purpose = metadata.purpose;
+    //   const stripeSubscriptionId =
+    //     session?.subscription ||
+    //     session?.parent?.subscription_details?.subscription;
+
+    //   // confirm subscription
+    //   if (purpose === "profile-subscription") {
+    //     const transactionId = metadata.transactionId;
+    //     if (!transactionId) {
+    //       console.error("🚫 Missing transactionId in metadata");
+    //       return res.status(200).json({ received: true });
+    //     }
+
+    //     // check for transaction
+    //     const transaction = await TRANSACTION.findById(transactionId);
+    //     if (!transaction) {
+    //       console.error("❌ Transaction not found");
+    //       return res.status(200).json({ received: true });
+    //     }
+    //     if (transaction.subscriptionDetails.sessionId === sessionId) {
+    //       console.log("⚠️ Session already processed");
+    //       return res.status(200).json({ received: true });
+    //     }
+    //     transaction.subscriptionDetails.status = "completed";
+    //     transaction.subscriptionDetails.sessionId = sessionId;
+    //     transaction.stripeSubscriptionId = stripeSubscriptionId;
+    //     await transaction.save();
+
+    //     // get susbscription
+    //     const subscriptionId = metadata.subscriptionId;
+    //     const subscriptions = await getMemorySubscriptionns();
+    //     const requestedSubscription = subscriptions.find(
+    //       (e) => e._id.toString() === subscriptionId
+    //     );
+    //     if (!requestedSubscription) {
+    //       console.error("❌ Local Subscription not found");
+    //       return res.status(200).json({ received: true });
+    //     }
+
+    //     // validate user
+    //     const userId = transaction.subscriptionDetails.userId;
+    //     const user = await EMPLOYER.findById(userId);
+    //     if (!user) {
+    //       console.error("❌ User not found!");
+    //       return res.status(200).json({ received: true });
+    //     }
+
+    //     // add subsription to user
+    //     if (requestedSubscription.mode == "subscription") {
+    //       const now = new Date();
+    //       const tempSub = {
+    //         subId: stripeSubscriptionId,
+    //         start: now,
+    //         end: new Date(
+    //           now.getTime() +
+    //             requestedSubscription.totalDays * 24 * 60 * 60 * 1000
+    //         ),
+    //       };
+    //       user.currentSubscription = tempSub;
+    //       user.usedSessions = [...user.usedSessions, sessionId];
+    //       user.pastSubscriptions = [...user.pastSubscriptions, tempSub];
+    //     }
+    //     // update oneTimeCreate in user when susbscription mode is oneTime
+    //     else if (requestedSubscription.mode == "oneTime") {
+    //       user.oneTimeCreate = true;
+    //     }
+    //     user.stripeCustomerId = session.customer;
+    //     user.stripeProfileSubscriptionId = session.subscription;
+    //     await user.save();
+
+    //     return res
+    //       .status(200)
+    //       .json({ message: "Subscription successfull", received: true });
+    //   } else if (purpose === "order-payment") {
+    //     const {
+    //       offerId,
+    //       transactionId,
+    //       employerId,
+    //       jobId,
+    //       orderId,
+    //       freelancerId,
+    //     } = metadata;
+
+    //     if (
+    //       !offerId ||
+    //       !transactionId ||
+    //       !employerId ||
+    //       !orderId ||
+    //       !freelancerId
+    //     ) {
+    //       throw new Error("Missing metadata in Stripe session");
+    //     }
+
+    //     const mongooseSession = await mongoose.startSession();
+    //     mongooseSession.startTransaction();
+
+    //     try {
+    //       // update offer to accepted
+    //       await Offer.findByIdAndUpdate(
+    //         offerId,
+    //         {
+    //           status: "accepted",
+    //         },
+    //         { session: mongooseSession }
+    //       );
+
+    //       // job to filled
+    //       if (jobId) {
+    //         await Job.findByIdAndUpdate(
+    //           jobId,
+    //           {
+    //             status: "filled",
+    //           },
+    //           { session: mongooseSession }
+    //         );
+    //       }
+
+    //       // update order to in_progress
+    //       await Order.findByIdAndUpdate(
+    //         orderId,
+    //         {
+    //           status: "in_progress",
+    //         },
+    //         { session: mongooseSession }
+    //       );
+
+    //       // update transaction to success and save stripe session and intent
+    //       await TRANSACTION.findByIdAndUpdate(
+    //         transactionId,
+    //         {
+    //           $set: {
+    //             "orderDeatils.status": "escrow_held",
+    //             "orderDeatils.stripeSessionId": session.id,
+    //             "orderDeatils.stripeIntentId": session.payment_intent,
+    //           },
+    //         },
+    //         { session: mongooseSession }
+    //       );
+
+    //       //
+    //       await mongooseSession.commitTransaction();
+    //     } catch (err) {
+    //       console.log("❌ Error on making paymet for order: ", err);
+    //       await mongooseSession.abortTransaction();
+    //     } finally {
+    //       mongooseSession.endSession();
+    //       return res.status(200).json({ received: true });
+    //     }
+    //   }
+    // }
+
+    if (event.type === "payment_intent.succeeded") {
+      const paymentIntent = event.data.object;
+      const metadata = paymentIntent.metadata;
       const purpose = metadata.purpose;
+
+      // Create session-like object for backward compatibility
+      const session = {
+        id: paymentIntent.id, // Using payment intent ID as session ID
+        metadata: paymentIntent.metadata,
+        subscription:
+          paymentIntent.invoice?.subscription || metadata.subscriptionId,
+        customer: paymentIntent.customer,
+        payment_intent: paymentIntent.id,
+        payment_status: "paid",
+        parent: paymentIntent.last_payment_error?.payment_method?.id
+          ? {
+              subscription_details: {
+                subscription: paymentIntent.invoice?.subscription,
+              },
+            }
+          : undefined,
+      };
+
+      const sessionId = session.id;
       const stripeSubscriptionId =
-        session?.subscription ||
-        session?.parent?.subscription_details?.subscription;
+        session.subscription ||
+        session.parent?.subscription_details?.subscription;
 
-      // confirm subscription
+      // Handle subscription payments
       if (purpose === "profile-subscription") {
-        const transactionId = metadata.transactionId;
-        if (!transactionId) {
-          console.error("🚫 Missing transactionId in metadata");
-          return res.status(200).json({ received: true });
-        }
+        try {
+          const transactionId = metadata.transactionId;
+          if (!transactionId) {
+            console.error("🚫 Missing transactionId in metadata");
+            return res.status(200).json({ received: true });
+          }
 
-        // check for transaction
-        const transaction = await TRANSACTION.findById(transactionId);
-        if (!transaction) {
-          console.error("❌ Transaction not found");
-          return res.status(200).json({ received: true });
-        }
-        if (transaction.subscriptionDetails.sessionId === sessionId) {
-          console.log("⚠️ Session already processed");
-          return res.status(200).json({ received: true });
-        }
-        transaction.subscriptionDetails.status = "completed";
-        transaction.subscriptionDetails.sessionId = sessionId;
-        transaction.stripeSubscriptionId = stripeSubscriptionId;
-        await transaction.save();
+          // Check for existing transaction
+          const transaction = await TRANSACTION.findById(transactionId);
+          if (!transaction) {
+            console.error("❌ Transaction not found");
+            return res.status(200).json({ received: true });
+          }
 
-        // get susbscription
-        const subscriptionId = metadata.subscriptionId;
-        const subscriptions = await getMemorySubscriptionns();
-        const requestedSubscription = subscriptions.find(
-          (e) => e._id.toString() === subscriptionId
-        );
-        if (!requestedSubscription) {
-          console.error("❌ Local Subscription not found");
-          return res.status(200).json({ received: true });
-        }
+          // Prevent duplicate processing
+          if (
+            transaction.subscriptionDetails.paymentIntentId === paymentIntent.id
+          ) {
+            console.log("⚠️ Payment already processed");
+            return res.status(200).json({ received: true });
+          }
 
-        // validate user
-        const userId = transaction.subscriptionDetails.userId;
-        const user = await EMPLOYER.findById(userId);
-        if (!user) {
-          console.error("❌ User not found!");
-          return res.status(200).json({ received: true });
-        }
+          // Update transaction record
+          transaction.subscriptionDetails.status = "completed";
+          transaction.subscriptionDetails.sessionId = sessionId;
+          transaction.subscriptionDetails.paymentIntentId = paymentIntent.id;
+          transaction.stripeSubscriptionId = stripeSubscriptionId;
+          await transaction.save();
 
-        // add subsription to user
-        if (requestedSubscription.mode == "subscription") {
-          const now = new Date();
-          const tempSub = {
-            subId: stripeSubscriptionId,
-            start: now,
-            end: new Date(
-              now.getTime() +
-                requestedSubscription.totalDays * 24 * 60 * 60 * 1000
-            ),
-          };
-          user.currentSubscription = tempSub;
-          user.usedSessions = [...user.usedSessions, sessionId];
-          user.pastSubscriptions = [...user.pastSubscriptions, tempSub];
-        }
-        // update oneTimeCreate in user when susbscription mode is oneTime
-        else if (requestedSubscription.mode == "oneTime") {
-          user.oneTimeCreate = true;
-        }
-        user.stripeCustomerId = session.customer;
-        user.stripeProfileSubscriptionId = session.subscription;
-        await user.save();
+          // Get subscription details
+          const subscriptionId = metadata.subscriptionId;
+          const subscriptions = await getMemorySubscriptionns(); // Your existing function
+          const requestedSubscription = subscriptions.find(
+            (e) => e._id.toString() === subscriptionId
+          );
 
-        return res
-          .status(200)
-          .json({ message: "Subscription successfull", received: true });
-      } else if (purpose === "order-payment") {
+          if (!requestedSubscription) {
+            console.error("❌ Local Subscription not found");
+            return res.status(200).json({ received: true });
+          }
+
+          // Update user record
+          const userId = transaction.subscriptionDetails.userId;
+          const user = await EMPLOYER.findById(userId);
+          if (!user) {
+            console.error("❌ User not found!");
+            return res.status(200).json({ received: true });
+          }
+
+          if (requestedSubscription.mode === "subscription") {
+            const now = new Date();
+            const tempSub = {
+              subId: stripeSubscriptionId,
+              start: now,
+              end: new Date(
+                now.getTime() +
+                  requestedSubscription.totalDays * 24 * 60 * 60 * 1000
+              ),
+            };
+            user.currentSubscription = tempSub;
+            user.usedSessions = [...user.usedSessions, sessionId];
+            user.pastSubscriptions = [...user.pastSubscriptions, tempSub];
+          } else if (requestedSubscription.mode === "oneTime") {
+            user.oneTimeCreate = true;
+          }
+
+          user.stripeCustomerId = session.customer;
+          user.stripeProfileSubscriptionId = session.subscription;
+          await user.save();
+
+          return res
+            .status(200)
+            .json({ message: "Subscription successful", received: true });
+        } catch (err) {
+          console.error("❌ Error processing subscription:", err);
+          return res.status(500).json({ error: "Internal server error" });
+        }
+      }
+
+      // Handle order payments
+      else if (purpose === "order-payment") {
         const {
           offerId,
           transactionId,
@@ -305,63 +499,60 @@ const stripeWebhook = async (req, res) => {
           !orderId ||
           !freelancerId
         ) {
-          throw new Error("Missing metadata in Stripe session");
+          console.error("❌ Missing required metadata");
+          return res.status(400).json({ error: "Missing metadata" });
         }
 
         const mongooseSession = await mongoose.startSession();
         mongooseSession.startTransaction();
 
         try {
-          // update offer to accepted
+          // Update offer status
           await Offer.findByIdAndUpdate(
             offerId,
-            {
-              status: "accepted",
-            },
+            { status: "accepted" },
             { session: mongooseSession }
           );
 
-          // job to filled
+          // Update job status if exists
           if (jobId) {
             await Job.findByIdAndUpdate(
               jobId,
-              {
-                status: "filled",
-              },
+              { status: "filled" },
               { session: mongooseSession }
             );
           }
 
-          // update order to in_progress
+          // Update order status
           await Order.findByIdAndUpdate(
             orderId,
-            {
-              status: "in_progress",
-            },
+            { status: "in_progress" },
             { session: mongooseSession }
           );
 
-          // update transaction to success and save stripe session and intent
-          await TRANSACTION.findByIdAndUpdate(
+          // Update transaction record
+          const aa = await TRANSACTION.findByIdAndUpdate(
             transactionId,
             {
               $set: {
                 "orderDeatils.status": "escrow_held",
                 "orderDeatils.stripeSessionId": session.id,
-                "orderDeatils.stripeIntentId": session.payment_intent,
+                "orderDeatils.stripeIntentId": paymentIntent.id,
               },
             },
             { session: mongooseSession }
           );
 
-          //
           await mongooseSession.commitTransaction();
-        } catch (err) {
-          console.log("❌ Error on making paymet for order: ", err);
-          await mongooseSession.abortTransaction();
-        } finally {
           mongooseSession.endSession();
+          console.log("ok: ", session);
+          console.log("trasba ",aa);
           return res.status(200).json({ received: true });
+        } catch (err) {
+          await mongooseSession.abortTransaction();
+          mongooseSession.endSession();
+          console.error("❌ Error processing order payment:", err);
+          return res.status(500).json({ error: "Payment processing failed" });
         }
       }
     }
@@ -622,6 +813,35 @@ const getExternalAccounts = async (accountId) => {
   return { bank: bankAccounts.data, card: cardAccounts.data };
 };
 
+const createStripePaymentIntent = async (params) => {
+  const intent = await stripe.paymentIntents.create({
+    ...params,
+    currency: "usd",
+    automatic_payment_methods: {
+      enabled: true,
+    },
+  });
+  return intent;
+};
+
+const findOrCreateCustomer = async (email) => {
+  const existingCustomers = await stripe.customers.list({
+    email,
+    limit: 1,
+  });
+
+  if (existingCustomers.data.length > 0) {
+    return existingCustomers.data[0].id; // ✅ Found existing
+  }
+
+  // Step 2: Create new customer if not found
+  const newCustomer = await stripe.customers.create({
+    email,
+  });
+
+  return newCustomer.id; // ✅ Newly created
+};
+
 export {
   createStripeExpressAcount,
   generateOnBoardingAccountLink,
@@ -644,4 +864,6 @@ export {
   retriveStripePaymentIntent,
   createStripeTransfer,
   getExternalAccounts,
+  createStripePaymentIntent,
+  findOrCreateCustomer,
 };

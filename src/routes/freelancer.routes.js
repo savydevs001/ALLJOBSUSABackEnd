@@ -96,12 +96,6 @@ FreelancerRouter.get(
   a(getMonthlyEarningsByFreelancer)
 );
 FreelancerRouter.get(
-  "/onbaord",
-  verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["freelancer", "job-seeker"]),
-  a(startFreelancerOnboarding)
-);
-FreelancerRouter.get(
   "/onboarding-completed",
   verifyTokenMiddleware(),
   roleBasedAuthMiddleware(["freelancer", "job-seeker"]),
@@ -131,13 +125,18 @@ FreelancerRouter.get(
   a(getStripeFreelancerLogin)
 );
 
-
 FreelancerRouter.post(
   "/profile",
   verifyTokenMiddleware(),
   roleBasedAuthMiddleware(["freelancer"]),
   uploadProfilePictureMiddleware.single("file"),
   a(creatFreelancerProfile)
+);
+FreelancerRouter.post(
+  "/onbaord",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["freelancer"]),
+  a(startFreelancerOnboarding)
 );
 
 FreelancerRouter.put(

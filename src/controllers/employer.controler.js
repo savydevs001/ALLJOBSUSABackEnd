@@ -6,6 +6,7 @@ import { jwtToken } from "../utils/jwt.js";
 import Job from "../database/models/jobs.model.js";
 import EMPLOYER from "../database/models/employers.model.js";
 import Offer from "../database/models/offers.model.js";
+import Application from "../database/models/applications.model.js";
 
 dotenv.config();
 
@@ -281,9 +282,12 @@ const getEmployerDashboardData = async (req, res) => {
       "senderId",
       "fullName profilePictureUrl profile.professionalTitle profile.resumeUrl"
     );
+
     const jobs = await Job.find({ employerId: userId });
 
-    const newApplications = offers.filter((e) => e.status === "pending").length;
+    const applications = await Application.countDocuments({employerId: userId, status: "pending"})
+
+    const newApplications = offers.filter((e) => e.status === "pending").length + applications;
 
     const activeJobs = jobs.filter((e) => e.status === "filled").length;
     const completedJobs = jobs.filter((e) => e.status === "completed").length;

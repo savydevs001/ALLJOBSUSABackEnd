@@ -443,7 +443,6 @@ const getUsers = async (req, res) => {
     if (status && status != "") query.status = status;
     if (text && text != "") {
       if (mongoose.Types.ObjectId.isValid(text)) {
-        console.log("id: ok");
         query._id = new mongoose.Types.ObjectId(text);
       } else {
         query.$or = [
@@ -715,6 +714,7 @@ const getTrendingJobs = async (req, res) => {
   }
 };
 
+// freelancer stats
 const getFreelancerStats = async (req, res) => {
   try {
     const freelancerStats = await FREELANCER.aggregate([
@@ -734,17 +734,109 @@ const getFreelancerStats = async (req, res) => {
     const suspendedFreelancers = extract(freelancerStats, "suspended");
     const deletedFreelancers = extract(freelancerStats, "deleted");
 
-    return res
-      .status(200)
-      .json({
-        totalFreelancers,
-        activeFreelancers,
-        suspendedFreelancers,
-        deletedFreelancers,
-      });
+    return res.status(200).json({
+      totalFreelancers,
+      activeFreelancers,
+      suspendedFreelancers,
+      deletedFreelancers,
+    });
   } catch (err) {
     console.log("❌ Error getting freelancer stats");
     return res.status(200).json({ message: "Server Error" });
+  }
+};
+
+// freelancers
+const getFreelancers = async (req, res) => {
+  try {
+    const { text, status, skip = 0, limit = 10 } = req.query;
+
+    const filter = {};
+    if (status && status != "") {
+      filter.status = status;
+    }
+    if (text && text != "") {
+      if (mongoose.Types.ObjectId.isValid(text)) {
+        filter._id = new mongoose.Types.ObjectId(text);
+      } else {
+        filter.$or = [
+          { fullName: { $regex: text, $options: "i" } },
+          { email: { $regex: text, $options: "i" } },
+        ];
+      }
+    }
+
+    const [users, total] = await Promise.all([
+      FREELANCER.find(filter)
+        .select(
+          "_id fullName email profilePictureUrl rating status profile.badge"
+        )
+        .sort({ createdAt: -1 })
+        .skip(Number(skip))
+        .limit(Number(limit)),
+      FREELANCER.countDocuments(filter),
+    ]);
+
+    const transformed = users.map((e) => ({
+      _id: e._id,
+      fullName: e.fullName,
+      email: e.email,
+      profilePictureUrl: e.profilePictureUrl,
+      status: e.status,
+      badge: e.profile.badge,
+      rating: e.rating,
+    }));
+
+    return res.status(200).json({
+      users: transformed,
+      total,
+      skip: Number(skip),
+      limit: Number(limit),
+    });
+  } catch (err) {
+    console.log("❌ Error getting freelancer profiles");
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
+// change Freelancer Badge
+const changeFreelancerBadge = async (req, res) => {
+  try {
+    const reqBody = req.body;
+    if (!reqBody) {
+      return res.status(400).json({ message: "Invlaid request data" });
+    }
+    const { freelancerId, newBadge } = reqBody;
+
+    if (!freelancerId || !mongoose.Types.ObjectId.isValid(freelancerId)) {
+      return res.status(400).json({ message: "Invalid freelancer" });
+    }
+    if (
+      !newBadge ||
+      ![
+        "New",
+        "Level-1",
+        "Level-2",
+        "Top-rated",
+        "New-talent",
+        "Fast-response",
+        "Pro",
+      ].includes(newBadge)
+    ) {
+      return res.status(400).json({ message: "Invalid newBadge" });
+    }
+
+    const freelancer = await FREELANCER.findByIdAndUpdate(freelancerId, {
+      "profile.badge": newBadge,
+    });
+
+    if (!freelancer) {
+      return res.status(400).json({ message: "Freelancer not found" });
+    }
+    return res.status(200).json({ message: "Badge Updated" });
+  } catch (err) {
+    console.log("❌ Error changing freelancer newBadge: ", err);
+    return res.status(500).json({ message: "Server Error" });
   }
 };
 
@@ -758,5 +850,7 @@ export {
   getJobsStats,
   getJobs,
   getTrendingJobs,
-  getFreelancerStats
+  getFreelancerStats,
+  getFreelancers,
+  changeFreelancerBadge,
 };
