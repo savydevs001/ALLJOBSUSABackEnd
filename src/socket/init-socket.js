@@ -144,7 +144,7 @@ const initSocket = (httpServer) => {
           const details = {
             ticketId: ticketId,
             message,
-            seen: false
+            seen: true
           };
           if (fileName && fileUrl) {
             details.attachments = {
@@ -163,29 +163,31 @@ const initSocket = (httpServer) => {
           }
 
           const supportMessage = new SupportMessage(details);
-          await supportMessage.save()
+          await supportMessage.save();
 
           const sender = getOnlineUser(userId);
           if (sender && sender.socketId) {
-            console.log("sent to sender")
+            console.log("sent to sender");
             io.to(sender.socketId).emit("support-message", supportMessage);
           }
 
           let tempReceiverId;
           if (mode === "from_user_to_support") {
             tempReceiverId = await getSupportAdminId();
-            tempReceiverId = tempReceiverId.toString()
-            console.log("tempReceiverId: ", tempReceiverId)
+            tempReceiverId = tempReceiverId.toString();
+            console.log("tempReceiverId: ", tempReceiverId);
           } else {
             tempReceiverId = receiverId;
           }
           const receiver = getOnlineUser(tempReceiverId);
           if (receiver && receiver.socketId) {
             io.to(receiver.socketId).emit("support-message", supportMessage);
-            console.log("sent to reciver")
+            console.log("sent to reciver");
           } else {
-            // supportMessage.seen = false;
-            // await supportMessage.save();
+            if (role != "admin") {
+              supportMessage.seen = false;
+              await supportMessage.save();
+            }
           }
         } catch (err) {
           console.log("Error Sending support message: ", err);
