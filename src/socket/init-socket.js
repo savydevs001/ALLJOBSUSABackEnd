@@ -144,6 +144,7 @@ const initSocket = (httpServer) => {
           const details = {
             ticketId: ticketId,
             message,
+            seen: false
           };
           if (fileName && fileUrl) {
             details.attachments = {
@@ -183,8 +184,8 @@ const initSocket = (httpServer) => {
             io.to(receiver.socketId).emit("support-message", supportMessage);
             console.log("sent to reciver")
           } else {
-            supportMessage.seen = false;
-            await supportMessage.save();
+            // supportMessage.seen = false;
+            // await supportMessage.save();
           }
         } catch (err) {
           console.log("Error Sending support message: ", err);
