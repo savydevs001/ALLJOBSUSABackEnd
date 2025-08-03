@@ -1,6 +1,6 @@
 // models/Message.js
 import mongoose from "mongoose";
-const { Schema, model, Types } = mongoose;
+const { Schema, model } = mongoose;
 
 // Attachment Sub-schema
 const attachmentSchema = new Schema(
@@ -12,13 +12,13 @@ const attachmentSchema = new Schema(
 );
 
 // Message Schema
-const messageSchema = new Schema(
+const supportMessageSchema = new Schema(
   {
-    senderId: { type: String, required: true },
-    receiverId: { type: String, required: true },
+    senderId: String,
+    receiverId: String,
+    ticketId: { type: String, required: true },
 
     message: { type: String, required: true },
-    isSupoprt: Boolean,
 
     sentAt: { type: Date, default: Date.now },
     seen: { type: Boolean, default: true },
@@ -29,5 +29,5 @@ const messageSchema = new Schema(
   }
 );
 
-const Message = model("Message", messageSchema);
-export default Message;
+const SupportMessage = model("SupportMessage", supportMessageSchema);
+export default SupportMessage;

@@ -33,6 +33,7 @@ import TestimonialRouter from "./routes/testimonial.routes.js";
 import LegalContentRouter from "./routes/legalContent.routes.js";
 import ContactRouter from "./routes/contact.route.js";
 import ApplicationRouter from "./routes/applications.routes.js";
+import SupportRouter from "./routes/support.routes.js";
 
 dotenv.config();
 
@@ -76,12 +77,13 @@ app.use("/subscriptions", SubscriptionRouter);
 app.use("/testimonials", TestimonialRouter);
 app.use("/upload", uploadRouter);
 app.use("/stripe", StripeRouter);
-app.use("/legal", LegalContentRouter)
-app.use("/contact", ContactRouter)
+app.use("/support", SupportRouter);
+app.use("/legal", LegalContentRouter);
+app.use("/contact", ContactRouter);
 
 // admin routes
 app.use("/admin", AdminRouter);
-app.use("/plateform", PlateformRouter)
+app.use("/plateform", PlateformRouter);
 
 // End Middlewares
 app.use(errorHandlerMiddleware);
