@@ -20,24 +20,63 @@ const createStripeExpressAcount = async ({
   individual,
   tos_acceptance,
 }) => {
+  // Determine appropriate service agreement based on country
+  const needsRecipientAgreement = !["US"].includes(country);
+
+  // Set up capabilities based on service agreement type
+  let capabilities = { transfers: { requested: true } };
+  // if (needsRecipientAgreement) {
+  //   capabilities = {
+  //     transfers: { requested: true },
+  //   };
+  // } else {
+  //   capabilities = {
+  //     card_payments: { requested: true },
+  //     transfers: { requested: true },
+  //   };
+  // }
+
+  // Create the account with appropriate settings
   const account = await stripe.accounts.create({
     type: "express",
     country: country,
     email: email,
     business_type,
-    capabilities: {
-      card_payments: {
-        requested: true,
-      },
-      transfers: {
-        requested: true,
-      },
-    },
+    capabilities,
     individual,
-    // tos_acceptance,
+    tos_acceptance: {
+      // ...tos_acceptance,
+      service_agreement: needsRecipientAgreement ? "recipient" : "full",
+    },
   });
   return account;
 };
+
+// const createStripeExpressAcount = async ({
+//   email,
+//   country,
+//   business_type,
+//   individual,
+//   tos_acceptance,
+// }) => {
+//   const account = await stripe.accounts.create({
+//     type: "express",
+//     country: country,
+//     email: email,
+//     business_type,
+//     capabilities: {
+//       // card_payments: {
+//       //   requested: true,
+//       // },
+//       transfers: {
+//         requested: true,
+//       },
+//     },
+//     individual,
+//     // tos_acceptance,
+//   });
+//   return account;
+// };
 
 const generateOnBoardingAccountLink = async (
   account,
@@ -546,7 +585,7 @@ const stripeWebhook = async (req, res) => {
           await mongooseSession.commitTransaction();
           mongooseSession.endSession();
           console.log("ok: ", session);
-          console.log("trasba ",aa);
+          console.log("trasba ", aa);
           return res.status(200).json({ received: true });
         } catch (err) {
           await mongooseSession.abortTransaction();

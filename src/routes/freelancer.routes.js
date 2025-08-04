@@ -133,7 +133,7 @@ FreelancerRouter.post(
   a(creatFreelancerProfile)
 );
 FreelancerRouter.post(
-  "/onbaord",
+  "/onboard",
   verifyTokenMiddleware(),
   roleBasedAuthMiddleware(["freelancer"]),
   a(startFreelancerOnboarding)

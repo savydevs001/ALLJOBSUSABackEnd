@@ -298,7 +298,6 @@ const getFreelancerEarnings = async (req, res) => {
         bank,
         card,
       };
-
     } catch (err) {
       console.log(
         "Error getting external accounts for user: ",
@@ -327,11 +326,12 @@ const getFreelancerEarnings = async (req, res) => {
 
 const onboardConnectedAccountSchema = z.object({
   phone: z.string().min(8),
-  ssn_last_4: z
-    .string()
-    .length(4)
-    .regex(/^\d{4}$/),
-  business_type: z.enum(["individual", "company"]),
+  // id_number: z
+  //   .string()
+  //   .min(4, "ID must be at least 4 characters")
+  //   .max(20, "ID cannot exceed 20 characters")
+  //   .regex(/^[a-zA-Z0-9]+$/, "ID can only contain letters and numbers"),
+  // business_type: z.enum(["individual", "company"]),
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   dob: z.object({
@@ -383,7 +383,7 @@ const startFreelancerOnboarding = async (req, res) => {
           dob: data.dob,
           email: user.email,
           address: data.address,
-          ssn_last_4: data.ssn_last_4,
+          // ssn_last_4: data.ssn_last_4,
         };
         const tos_acceptance = {
           date: Math.floor(Date.now() / 1000),
@@ -392,9 +392,10 @@ const startFreelancerOnboarding = async (req, res) => {
 
         const account = await createStripeExpressAcount({
           email: user.email,
-          business_type: data.business_type,
+          business_type: "individual",
           individual: individual,
           tos_acceptance: tos_acceptance,
+          country: data.address.country,
         });
         user.stripeAccountId = account.id;
         await user.save();
@@ -409,15 +410,18 @@ const startFreelancerOnboarding = async (req, res) => {
       return res.status(200).json({ url: link.url });
     } catch (err) {
       console.log("❌ Error creating stripe account: " + err);
-      return res.status(400).json({ message: "Error creating stripe account" });
+      return res
+        .status(400)
+        .json({ message: "Error creating stripe account " + err });
     }
   } catch (err) {
     console.error("❌ Error geting Earning info:", err);
-    return res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Error creating account: " + err });
   }
 };
 
 // check onboarding
+
 const checkOnboared = async (req, res) => {
   try {
     const userId = req.user?._id;
