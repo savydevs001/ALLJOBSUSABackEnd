@@ -475,7 +475,6 @@ const markOrderAsComplete = async (req, res) => {
         .json({ message: "No Payment Held for this order" });
     }
 
-
     const freelancer = await FREELANCER.findById(order.freelancerId);
     if (!freelancer || !freelancer.stripeAccountId) {
       return res
@@ -611,6 +610,50 @@ const markAsDelieverd = async (req, res) => {
   }
 };
 
+// get order by id
+const getOrderById = async (req, res) => {
+  try {
+    const orderId = req.params.id;
+    if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+      return res.status(400).json({ message: "Invalid Order Id" });
+    }
+
+    const order = await Order.findById(orderId)
+      .populate("freelancerId")
+      .populate("jobId");
+    if (!order) {
+      return res.status(404).json({ message: "Order not found!" });
+    }
+
+    const transformed = {
+      _id: order._id,
+      title: order.title,
+      description: order.description,
+      status: order.status,
+      budget: order.totalAmount,
+      budgetType:
+        order.jobId?.freelanceJobDetails?.budget?.budgetType || "Fixed",
+      startDate: order.createdAt,
+      deadline: order.deadline,
+      attachedFiles: order.attachedFiles || [],
+      delieveryFiles: order.delieveryFiles || [],
+      freelancer: {
+        _id: order.freelancerId._id,
+        fullName: order.freelancerId.fullName,
+        profilePictureUrl: order.freelancerId.profilePictureUrl,
+        location: order.freelancerId.profile?.loaction,
+        isRated: order.freelancerId.rating?.isRated,
+        rating: order.freelancerId.rating?.value || 0,
+      },
+    };
+
+    return res.status(200).json({ order: transformed });
+  } catch (err) {
+    console.error("❌ Error getting order:", err);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
 // Admin get recent orders
 const getRecentOrders = async (req, res) => {
   try {
@@ -643,4 +686,5 @@ export {
   delieverOrderForRevsions,
   markAsDelieverd,
   getRecentOrders,
+  getOrderById,
 };

@@ -168,21 +168,22 @@ const createOffer = async (req, res, next) => {
             id: user._id,
           });
         }
+
+        const alreadyApplied = job.applicants.some(
+          (app) =>
+            app.userId?.toString() === user._id.toString() &&
+            app.role === "freelancer"
+        );
+
+        if (!alreadyApplied) {
+          job.applicants.push({
+            userId: user._id,
+            role: "freelancer",
+          });
+        }
       }
 
       // Add to recent activity
-      const alreadyApplied = job.applicants.some(
-        (app) =>
-          app.userId?.toString() === user._id.toString() &&
-          app.role === "freelancer"
-      );
-
-      if (!alreadyApplied) {
-        job.applicants.push({
-          userId: user._id,
-          role: "freelancer",
-        });
-      }
 
       if (user.activity.length > 3) {
         user.activity.splice(3);

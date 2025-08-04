@@ -7,6 +7,7 @@ import {
   delieverOrderForRevsions,
   getClientOrders,
   getFreelancerOrders,
+  getOrderById,
   getRecentOrders,
   markAsDelieverd,
   markOrderAsComplete,
@@ -58,6 +59,12 @@ orderRouter.get(
   verifyTokenMiddleware(),
   roleBasedAuthMiddleware(["employer", "job-seeker"]),
   markAsDelieverd
+);
+orderRouter.get(
+  "/:id",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["employer", "job-seeker"]),
+  getOrderById
 );
 
 orderRouter.post(

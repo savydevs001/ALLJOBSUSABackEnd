@@ -89,6 +89,26 @@ const orderSchema = new Schema(
         return this.status === "disputed";
       },
     },
+
+    attachedFiles: [
+      {
+        fileUrl: String,
+        fileName: String,
+        size: Number,
+        dated: Date,
+      },
+      { _id: false },
+    ],
+
+    delieveryFiles: [
+      {
+        fileUrl: String,
+        fileName: String,
+        size: Number,
+        dated: Date,
+      },
+      { _id: false },
+    ],
   },
   {
     timestamps: true, // adds createdAt and updatedAt
