@@ -25,16 +25,16 @@ const createStripeExpressAcount = async ({
 
   // Set up capabilities based on service agreement type
   let capabilities = { transfers: { requested: true } };
-  // if (needsRecipientAgreement) {
-  //   capabilities = {
-  //     transfers: { requested: true },
-  //   };
-  // } else {
-  //   capabilities = {
-  //     card_payments: { requested: true },
-  //     transfers: { requested: true },
-  //   };
-  // }
+  if (needsRecipientAgreement) {
+    capabilities = {
+      transfers: { requested: true },
+    };
+  } else {
+    capabilities = {
+      card_payments: { requested: true },
+      transfers: { requested: true },
+    };
+  }
 
   // Create the account with appropriate settings
   const account = await stripe.accounts.create({
@@ -187,12 +187,14 @@ const stripeWebhook = async (req, res) => {
     const sig = req.headers["stripe-signature"];
     let event;
 
+    const isConnect = req.query.is_connect;
+    console.log("isConnect: ", isConnect);
+    const WEB_HOOK_SECRET = isConnect
+      ? process.env.STRIPE_CONNECT_ACCOUNT_WEBHOOK_SECRET
+      : process.env.STRIPE_WEBHOOK_SECRET;
+
     try {
-      event = stripe.webhooks.constructEvent(
-        req.body,
-        sig,
-        process.env.STRIPE_WEBHOOK_SECRET
-      );
+      event = stripe.webhooks.constructEvent(req.body, sig, WEB_HOOK_SECRET);
     } catch (err) {
       console.error("❌ Webhook signature verification failed:", err.message);
       return res.status(400).send(`Webhook Error: ${err.message}`);
