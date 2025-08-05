@@ -19,6 +19,10 @@ import {
   getFreelancerPaymentHistory,
   getMonthlyEarningsByFreelancer,
   getStripeFreelancerLogin,
+  checkPaidForResume,
+  downLoadResume,
+  checkPaidForCoverLetter,
+  downLoadCover,
   // addFreelanceProfile,
   // bookmarkFreelancer,
   // enableFreelancerProfile,
@@ -124,7 +128,37 @@ FreelancerRouter.get(
   roleBasedAuthMiddleware(["freelancer"]),
   a(getStripeFreelancerLogin)
 );
+FreelancerRouter.get(
+  "/resume",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["freelancer"]),
+  a(checkPaidForResume)
+);
+FreelancerRouter.get(
+  "/cover-letter",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["freelancer"]),
+  a(checkPaidForCoverLetter)
+);
+// FreelancerRouter.get(
+//   "/pay-for-resume",
+//   verifyTokenMiddleware(),
+//   roleBasedAuthMiddleware(["freelancer"]),
+//   a(checkPaidForResume)
+// );
 
+FreelancerRouter.post(
+  "/resume-download",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["freelancer"]),
+  a(downLoadResume)
+);
+FreelancerRouter.post(
+  "/cover-letter-download",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["freelancer"]),
+  a(downLoadCover)
+);
 FreelancerRouter.post(
   "/profile",
   verifyTokenMiddleware(),

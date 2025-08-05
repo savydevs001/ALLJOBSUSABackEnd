@@ -596,6 +596,54 @@ const stripeWebhook = async (req, res) => {
           return res.status(500).json({ error: "Payment processing failed" });
         }
       }
+
+      // Hnadle resume
+      else if (purpose === "resume-payment") {
+        const { freelancerId } = metadata;
+        console.log("metadata: ", metadata);
+
+        try {
+          // Update user to allow download resume
+          await FREELANCER.updateOne(
+            { _id: freelancerId },
+            {
+              canDownloadResume: true,
+            }
+          );
+
+          console.log("ok: ", session);
+          return res.status(200).json({ received: true });
+        } catch (err) {
+          await mongooseSession.abortTransaction();
+          mongooseSession.endSession();
+          console.error("❌ Error processing resume payment:", err);
+          return res.status(500).json({ error: "Payment processing failed" });
+        }
+      }
+
+      // Handle Cover
+      else if (purpose === "cover-payment") {
+        const { freelancerId } = metadata;
+        console.log("metadata: ", metadata);
+
+        try {
+          // Update user to allow download resume
+          await FREELANCER.updateOne(
+            { _id: freelancerId },
+            {
+              canDownloadCover: true,
+            }
+          );
+
+          console.log("ok: ", session);
+          return res.status(200).json({ received: true });
+        } catch (err) {
+          await mongooseSession.abortTransaction();
+          mongooseSession.endSession();
+          console.error("❌ Error processing resume payment:", err);
+          return res.status(500).json({ error: "Payment processing failed" });
+        }
+      }
     }
 
     if (event.type === "invoice.payment_succeeded") {
@@ -883,6 +931,27 @@ const findOrCreateCustomer = async (email) => {
   return newCustomer.id; // ✅ Newly created
 };
 
+const getStripeBalanceByAccountId = async (accountId) => {
+  const balance = await stripe.balance.retrieve({
+    stripeAccount: accountId,
+  });
+  return balance;
+};
+
+const createStripeTransferToPlatform = async (amount, accountId) => {
+  const transfer = await stripe.transfers.create(
+    {
+      amount: amount * 100,
+      currency: "usd",
+      destination: process.env.PLATFORM_STRIPE_ACCOUNT_ID,
+    },
+    {
+      stripeAccount: accountId, // acts as the source account
+    }
+  );
+  return transfer;
+};
+
 export {
   createStripeExpressAcount,
   generateOnBoardingAccountLink,
@@ -907,4 +976,6 @@ export {
   getExternalAccounts,
   createStripePaymentIntent,
   findOrCreateCustomer,
+  getStripeBalanceByAccountId,
+  createStripeTransferToPlatform,
 };

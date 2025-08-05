@@ -12,10 +12,13 @@ import {
   generateOnBoardingAccountLink,
   generateStipeLoginLink,
   getExternalAccounts,
+  getStripeBalanceByAccountId,
 } from "../services/stripe.service.js";
 import Offer from "../database/models/offers.model.js";
 import Order from "../database/models/order.model.js";
 import TRANSACTION from "../database/models/transactions.model.js";
+import { getMemorySubscriptionns } from "./subscriptions.controller.js";
+import puppeteer from "puppeteer";
 
 dotenv.config();
 const BACKEND_URL = process.env.BACKEND_URL;
@@ -910,6 +913,232 @@ const getStripeFreelancerLogin = async (req, res) => {
   }
 };
 
+// check if paid for resume
+const checkPaidForResume = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid User Id" });
+    }
+
+    const user = await FREELANCER.findById(userId);
+    if (user.status != "active") {
+      return res.status(400).json({
+        message: "Only Active Freelancers are allowed to build resumes",
+      });
+    }
+
+    const hasPaid = user.canDownloadResume === true;
+    if (hasPaid) {
+      return res.status(200).json({ hasPaid, amount: null });
+    }
+
+    const allPlans = await getMemorySubscriptionns();
+    const plan = allPlans.find((e) => e.mode === "resume");
+    if (!plan) {
+      return res.status(400).json({ message: "No Plan Avaiable" });
+    }
+    if (!plan.isActive) {
+      return res.status(400).json({ message: "Resume downloads are paused" });
+    }
+
+    const balance = await getStripeBalanceByAccountId(user.stripeAccountId);
+    const availableBalance =
+      balance.available.find((b) => b.currency === "usd")?.amount || 0;
+    const canPay = availableBalance >= plan.price * 100;
+
+    return res.status(200).json({ hasPaid, amount: plan.price, canPay });
+  } catch (err) {
+    console.log("❌ Erro checking if user has paid for resume: ", err);
+    return res.status(500).json({ message: err });
+  }
+};
+
+// pay for resume from freelancer balance
+const downLoadResume = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    const { html } = req.body;
+
+    if (!html || !userId) {
+      return res.status(400).json({ message: "Missing data" });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid User" });
+    }
+
+    const user = await FREELANCER.findById(userId).select(
+      "status canDownloadResume"
+    );
+    if (!user || user.status !== "active") {
+      return res.status(400).json({ message: "Invalid User" });
+    }
+
+    if (user.canDownloadResume === true) {
+      // user.canDownloadResume = false;
+      // await user.save();
+      const browser = await puppeteer.launch({
+        headless: "new",
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      });
+      const page = await browser.newPage();
+      const tailwindCDN = `<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">`;
+
+      await page.setContent(
+        `
+        <!DOCTYPE html>
+        <html>
+          <head>${tailwindCDN}</head>
+           <body style="height: 100%; margin: 0;">
+              ${html}
+            </body>
+        </html>
+        `,
+        {
+          waitUntil: "networkidle0",
+        }
+      );
+      const pdfBuffer = await page.pdf({
+        format: "A4",
+        printBackground: true,
+        // margin: { top: "20px", bottom: "20px", left: "20px", right: "20px" },
+      });
+      await browser.close();
+
+      // ✅ Send PDF buffer as response
+      res.set({
+        "Content-Type": "application/pdf",
+        "Content-Disposition": 'attachment; filename="resume.pdf"',
+      });
+
+      return res.send(pdfBuffer);
+    } else {
+      return res
+        .status(400)
+        .json({ message: "Resume can be downloaded after payment" });
+    }
+  } catch (err) {
+    console.log("❌ Error paying from freelancer balance: ", err);
+    return res
+      .status(500)
+      .json({ message: "Error paying from freelancer balance: " + err });
+  }
+};
+
+// check paid for cover letter
+const checkPaidForCoverLetter = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid User Id" });
+    }
+
+    const user = await FREELANCER.findById(userId);
+    if (user.status != "active") {
+      return res.status(400).json({
+        message: "Only Active Freelancers are allowed to build resumes",
+      });
+    }
+
+    const hasPaid = user.canDownloadCover === true;
+    if (hasPaid) {
+      return res.status(200).json({ hasPaid, amount: null });
+    }
+
+    const allPlans = await getMemorySubscriptionns();
+    const plan = allPlans.find((e) => e.mode === "cover");
+    if (!plan) {
+      return res.status(400).json({ message: "No Plan Avaiable" });
+    }
+    if (!plan.isActive) {
+      return res.status(400).json({ message: "Cover downloads are paused" });
+    }
+
+    const balance = await getStripeBalanceByAccountId(user.stripeAccountId);
+    const availableBalance =
+      balance.available.find((b) => b.currency === "usd")?.amount || 0;
+    const canPay = availableBalance >= plan.price * 100;
+
+    return res.status(200).json({ hasPaid, amount: plan.price, canPay });
+  } catch (err) {
+    console.log("❌ Erro checking if user has paid for cover: ", err);
+    return res.status(500).json({ message: err });
+  }
+};
+
+
+// downlaod cover
+const downLoadCover = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    const { html } = req.body;
+
+    if (!html || !userId) {
+      return res.status(400).json({ message: "Missing data" });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid User" });
+    }
+
+    const user = await FREELANCER.findById(userId).select(
+      "status canDownloadCover"
+    );
+    if (!user || user.status !== "active") {
+      return res.status(400).json({ message: "Invalid User" });
+    }
+
+    if (user.canDownloadCover === true) {
+      // user.canDownloadResume = false;
+      // await user.save();
+      const browser = await puppeteer.launch({
+        headless: "new",
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      });
+      const page = await browser.newPage();
+      const tailwindCDN = `<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">`;
+
+      await page.setContent(
+        `
+        <!DOCTYPE html>
+        <html>
+          <head>${tailwindCDN}</head>
+           <body style="height: 100%; margin: 0;">
+              ${html}
+            </body>
+        </html>
+        `,
+        {
+          waitUntil: "networkidle0",
+        }
+      );
+      const pdfBuffer = await page.pdf({
+        format: "A4",
+        printBackground: true,
+        // margin: { top: "20px", bottom: "20px", left: "20px", right: "20px" },
+      });
+      await browser.close();
+
+      res.set({
+        "Content-Type": "application/pdf",
+        "Content-Disposition": 'attachment; filename="cover_letter.pdf"',
+      });
+
+      return res.send(pdfBuffer);
+    } else {
+      return res
+        .status(400)
+        .json({ message: "Cover Letter can be downloaded after payment" });
+    }
+  } catch (err) {
+    console.log("❌ Error paying from freelancer balance: ", err);
+    return res
+      .status(500)
+      .json({ message: "Error paying from freelancer balance: " + err });
+  }
+};
+
 export {
   creatFreelancerProfile,
   getFreelancerProfile,
@@ -926,4 +1155,8 @@ export {
   getFreelancerPaymentHistory,
   getMonthlyEarningsByFreelancer,
   getStripeFreelancerLogin,
+  checkPaidForResume,
+  downLoadResume,
+  checkPaidForCoverLetter,
+  downLoadCover
 };

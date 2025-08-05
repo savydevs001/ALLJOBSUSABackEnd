@@ -1,7 +1,9 @@
 import mongoose from "mongoose";
 import {
   createStripePaymentIntent,
+  createStripeTransferToPlatform,
   findOrCreateCustomer,
+  getStripeBalanceByAccountId,
   getTotalIncomeAndMonthlyChange,
   retriveStripePaymentIntent,
 } from "../services/stripe.service.js";
@@ -495,6 +497,164 @@ const createPaymentIntents = async (req, res) => {
           return res.status(500).json({ message: "Error creating order" });
         }
       }
+
+      case "resume":
+        try {
+          if (req.user.role !== "freelancer") {
+            return res.status(400).json({
+              message: "Only freelancers are allowed to pay for resumes",
+            });
+          }
+
+          const user = await FREELANCER.findById(userId).select(
+            "status stripeAccountId currentBalance"
+          );
+          if (!user || user.status !== "active") {
+            return res.status(400).json({ message: "Invalid User", paid });
+          }
+          // plans
+          const allPlans = await getMemorySubscriptionns();
+          const plan = allPlans.find((e) => e.mode === "resume");
+          if (!plan) {
+            return res.status(400).json({ message: "No Plan Avaiable" });
+          }
+          if (!plan.isActive) {
+            return res
+              .status(400)
+              .json({ message: "Resume downloads are paused" });
+          }
+
+          if (user.stripeAccountId) {
+            const balance = await getStripeBalanceByAccountId(
+              user.stripeAccountId
+            );
+            const availableBalance =
+              balance.available.find((b) => b.currency === "usd")?.amount || 0;
+
+            if (availableBalance >= plan.price * 100) {
+              // create transfer
+              const transfer = await createStripeTransferToPlatform(
+                plan.price,
+                user.stripeAccountId
+              );
+
+              if (transfer) {
+
+                user.currentBalance = Number(user.currentBalance - plan.price);
+                user.canDownloadResume = true;
+                await user.save();
+                return res.status(200).json({
+                  message: "Tranfer done from user account",
+                  paid: true,
+                  clientSecret: "",
+                  price: plan.price,
+                });
+              }
+            }
+          }
+
+          // create intent
+          const stripeIntentParams = {
+            amount: plan.price * 100,
+            description: "Resume for user: " + user._id,
+            metadata: {
+              purpose: "resume-payment",
+              freelancerId: user._id.toString(),
+            },
+          };
+
+          const paymentIntent = await createStripePaymentIntent(
+            stripeIntentParams
+          );
+          return res.json({
+            clientSecret: paymentIntent.client_secret,
+            price: plan.price,
+          });
+        } catch (err) {
+          console.log("❌ Error processing payment: " + err )
+          return res
+            .status(500)
+            .json({ message: "Error processing payment: " + err });
+        }
+
+      case "cover":
+        try {
+          if (req.user.role !== "freelancer") {
+            return res.status(400).json({
+              message: "Only freelancers are allowed to pay for cover letters",
+            });
+          }
+
+          const user = await FREELANCER.findById(userId).select(
+            "status stripeAccountId currentBalance"
+          );
+          if (!user || user.status !== "active") {
+            return res.status(400).json({ message: "Invalid User", paid });
+          }
+          // plans
+          const allPlans = await getMemorySubscriptionns();
+          const plan = allPlans.find((e) => e.mode === "cover");
+          if (!plan) {
+            return res.status(400).json({ message: "No Plan Avaiable" });
+          }
+          if (!plan.isActive) {
+            return res
+              .status(400)
+              .json({ message: "Cover Letter downloads are paused" });
+          }
+
+          if (user.stripeAccountId) {
+            const balance = await getStripeBalanceByAccountId(
+              user.stripeAccountId
+            );
+            const availableBalance =
+              balance.available.find((b) => b.currency === "usd")?.amount || 0;
+
+            if (availableBalance >= plan.price * 100) {
+              // create transfer
+              const transfer = await createStripeTransferToPlatform(
+                plan.price,
+                user.stripeAccountId
+              );
+              
+              if (transfer) {
+
+                user.currentBalance = Number(user.currentBalance - plan.price);
+                user.canDownloadCover = true;
+                await user.save();
+                return res.status(200).json({
+                  message: "Tranfer done from user account",
+                  paid: true,
+                  clientSecret: "",
+                  price: plan.price,
+                });
+              }
+            }
+          }
+
+          // create intent
+          const stripeIntentParams = {
+            amount: plan.price * 100,
+            description: "Cover Letter for user: " + user._id,
+            metadata: {
+              purpose: "cover-payment",
+              freelancerId: user._id.toString(),
+            },
+          };
+
+          const paymentIntent = await createStripePaymentIntent(
+            stripeIntentParams
+          );
+          return res.json({
+            clientSecret: paymentIntent.client_secret,
+            price: plan.price,
+          });
+        } catch (err) {
+          console.log("❌ Error processing payment: " + err )
+          return res
+            .status(500)
+            .json({ message: "Error processing payment: " + err });
+        }
 
       default:
         return res.status(400).json({ message: "Invalid purpose" });

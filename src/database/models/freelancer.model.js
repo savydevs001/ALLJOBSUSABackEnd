@@ -29,6 +29,12 @@ const freelancerSchema = mongoose.Schema(
     pendingClearence: { type: Number, default: 0 },
     tip: { type: Number, default: 0 },
 
+    // resume and cover
+    canDownloadResume: { type: Boolean, default: false },
+    canDownloadCover: { type: Boolean, default: false },
+
+    stripeIntentForResume: String,
+
     //   freelance profile
     profile: {
       professionalTitle: String,
