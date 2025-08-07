@@ -23,46 +23,12 @@ import {
   downLoadResume,
   checkPaidForCoverLetter,
   downLoadCover,
-  // addFreelanceProfile,
-  // bookmarkFreelancer,
-  // enableFreelancerProfile,
-  // getAllFreelancers,
-  // getFreelancerProfileById,
-  // unbookmarkFreelancer,
+  createFreelacneStripeAccount,
+  createFreelacneStripeAccountOnBoardSession,
+  checkFreelancerStripeAccountStatus,
 } from "../controllers/freelancer.controller.js";
 
 const FreelancerRouter = Router();
-
-// FreelancerRouter.get("/", a(getFreelancerProfile));
-// FreelancerRouter.get("/all", a(getAllFreelancers));
-// FreelancerRouter.get("/:id", a(getFreelancerProfileById));
-
-// FreelancerRouter.post("/", a(addFreelanceProfile));
-// FreelancerRouter.post(
-//   "/activate",
-//   verifyTokenMiddleware(),
-//   roleBasedAuthMiddleware(["freelancer"]),
-//   a(enableFreelancerProfile)
-// );
-// FreelancerRouter.post(
-//   "/:id/bookmark",
-//   verifyTokenMiddleware(),
-//   roleBasedAuthMiddleware(["employer"]),
-//   a(bookmarkFreelancer)
-// );
-// FreelancerRouter.post(
-//   "/:id/remove-bookmark",
-//   verifyTokenMiddleware(),
-//   roleBasedAuthMiddleware(["employer"]),
-//   a(unbookmarkFreelancer)
-// );
-
-// FreelancerRouter.put(
-//   "/",
-//   verifyTokenMiddleware(),
-//   roleBasedAuthMiddleware(["freelancer"]),
-//   a(editFreelanceProfile)
-// );
 
 FreelancerRouter.get(
   "/profile",
@@ -140,11 +106,18 @@ FreelancerRouter.get(
   roleBasedAuthMiddleware(["freelancer"]),
   a(checkPaidForCoverLetter)
 );
+
 // FreelancerRouter.get(
-//   "/pay-for-resume",
+//   "/create-connect-account",
 //   verifyTokenMiddleware(),
 //   roleBasedAuthMiddleware(["freelancer"]),
-//   a(checkPaidForResume)
+//   a(createFreelacneStripeAccount)
+// );
+// FreelancerRouter.get(
+//   "/check-account-status",
+//   verifyTokenMiddleware(),
+//   roleBasedAuthMiddleware(["freelancer"]),
+//   a(checkFreelancerStripeAccountStatus)
 // );
 
 FreelancerRouter.post(
@@ -172,6 +145,12 @@ FreelancerRouter.post(
   roleBasedAuthMiddleware(["freelancer"]),
   a(startFreelancerOnboarding)
 );
+// FreelancerRouter.post(
+//   "/create-onboarding-session",
+//   verifyTokenMiddleware(),
+//   roleBasedAuthMiddleware(["freelancer"]),
+//   a(createFreelacneStripeAccountOnBoardSession)
+// );
 
 FreelancerRouter.put(
   "/profile",

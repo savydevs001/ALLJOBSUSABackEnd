@@ -2,6 +2,7 @@ import { Router } from "express";
 import verifyTokenMiddleware from "../middlewares/verifyToken.middleware.js";
 import roleBasedAuthMiddleware from "../middlewares/roleBasedAuth.middleware.js";
 import {
+  attachNewFilesToOrder,
   // completeOrder,
   createOrder,
   delieverOrderForRevsions,
@@ -49,12 +50,6 @@ orderRouter.get(
 //   completeOrder
 // );
 orderRouter.get(
-  "/:id/mark-revision",
-  verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["freelancer"]),
-  delieverOrderForRevsions
-);
-orderRouter.get(
   "/:id/mark-delievered",
   verifyTokenMiddleware(),
   roleBasedAuthMiddleware(["employer", "job-seeker"]),
@@ -63,7 +58,7 @@ orderRouter.get(
 orderRouter.get(
   "/:id",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["employer", "job-seeker"]),
+  roleBasedAuthMiddleware(["employer", "job-seeker", "freelancer"]),
   getOrderById
 );
 
@@ -72,6 +67,18 @@ orderRouter.post(
   verifyTokenMiddleware(),
   roleBasedAuthMiddleware(["employer", "job-seeker"]),
   createOrder
+);
+orderRouter.post(
+  "/:id/mark-revision",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["freelancer"]),
+  delieverOrderForRevsions
+);
+orderRouter.post(
+  "/:id/new-files",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["freelancer"]),
+  attachNewFilesToOrder
 );
 
 export default orderRouter;

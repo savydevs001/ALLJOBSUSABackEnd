@@ -7,6 +7,7 @@ import Job from "../database/models/jobs.model.js";
 import EMPLOYER from "../database/models/employers.model.js";
 import Offer from "../database/models/offers.model.js";
 import Application from "../database/models/applications.model.js";
+import { getMemorySubscriptionns } from "./subscriptions.controller.js";
 
 dotenv.config();
 
@@ -186,6 +187,8 @@ const getEmployerProfile = async (req, res) => {
       jobsCreated: 1,
       ordersCompleted: 1,
       createdAt: 1,
+      currentSubscription: 1,
+      susbscriptionRenew: 1,
     }
   );
 
@@ -193,8 +196,46 @@ const getEmployerProfile = async (req, res) => {
     return res.status(404).json({ message: "User not found" });
   }
 
+  let currentSusbscription;
+  if (
+    user.currentSubscription &&
+    new Date(user.currentSubscription.end) > new Date()
+  ) {
+    const memorySusbcriptions = await getMemorySubscriptionns();
+    const sub = memorySusbcriptions.find(
+      (e) => e._id == user.currentSubscription.subId
+    );
+
+    if (sub) {
+      currentSusbscription = {
+        autoRenew: user.susbscriptionRenew,
+        title: sub.name,
+        description: sub.description,
+        start: user.currentSubscription.start,
+        end: user.currentSubscription.end,
+      };
+    }
+  }
+
+  const tempUser = {
+    _id: user.id,
+    fullName: user.fullName,
+    email: user.email,
+    profilePictureUrl: user.profilePictureUrl,
+    status: user.status,
+    bannerUrl: user.bannerUrl,
+    about: user.about,
+    location: user.location,
+    website: user.website,
+    phoneNumber: user.phoneNumber,
+    jobsCreated: user.jobsCreated,
+    ordersCompleted: user.ordersCompleted,
+    createdAt: user.createdAt,
+    currentSusbscription,
+  };
+
   return res.status(200).json({
-    user: user,
+    user: tempUser,
   });
 };
 
@@ -285,9 +326,13 @@ const getEmployerDashboardData = async (req, res) => {
 
     const jobs = await Job.find({ employerId: userId });
 
-    const applications = await Application.countDocuments({employerId: userId, status: "pending"})
+    const applications = await Application.countDocuments({
+      employerId: userId,
+      status: "pending",
+    });
 
-    const newApplications = offers.filter((e) => e.status === "pending").length + applications;
+    const newApplications =
+      offers.filter((e) => e.status === "pending").length + applications;
 
     const activeJobs = jobs.filter((e) => e.status === "filled").length;
     const completedJobs = jobs.filter((e) => e.status === "completed").length;

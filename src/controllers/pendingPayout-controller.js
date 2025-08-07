@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import FREELANCER from "../database/models/freelancer.model.js";
 import PENDING_PAYOUT from "../database/models/pendingPayout.model.js";
 import TRANSACTION from "../database/models/transactions.model.js";
@@ -22,28 +23,38 @@ const runScheduledPayouts = async () => {
           payout.transferGroup
         );
 
+        if (!trasnfer) {
+          continue;
+        }
+
         await PENDING_PAYOUT.updateOne(
           { _id: payout._id },
           { transferred: true, transferId: trasnfer.id }
         );
 
-        await TRANSACTION.updateOne(
+        if (payout.transactionId) {
+          await TRANSACTION.findOneAndUpdate(
+            {
+              _id: payout.transactionId,
+              "orderDeatils.status": "escrow_held",
+            },
+            {
+              "orderDeatils.status": "released_to_freelancer",
+            }
+          );
+        }
+
+        await FREELANCER.updateOne(
+          { _id: payout.freelancerId },
           {
-            _id: payout.transactionId,
-            "orderDeatils.status": "escrow_held",
-          },
-          {
-            "orderDeatils.status": "released_to_freelancer",
+            $inc: {
+              totalEarning: payout.amount,
+              currentBalance: payout.amount,
+              tip: payout.amount || 0,
+              pendingClearence: -payout.amount,
+            },
           }
         );
-
-        await FREELANCER.findByIdAndUpdate(payout.freelancerId, {
-          $inc: {
-            totalEarning: payout.amount,
-            currentBalance: payout.amount,
-            pendingClearence: -payout.amount,
-          },
-        });
 
         console.log(
           `✅ Transferred $${payout.amount} to freelancer ${payout.freelancerId}`

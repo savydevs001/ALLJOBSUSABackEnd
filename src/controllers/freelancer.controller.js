@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { mongo } from "mongoose";
 import User from "../database/models/users.model.js";
 import dotenv from "dotenv";
 import { z } from "zod";
@@ -8,11 +8,14 @@ import uploadProfile from "../utils/files/uploadProfile.js";
 import Job from "../database/models/jobs.model.js";
 import calculateJobMatchPercentage from "../utils/calculate-job-match.js";
 import {
+  createAccountOnbaordSession2,
+  createStripeAccount2,
   createStripeExpressAcount,
   generateOnBoardingAccountLink,
   generateStipeLoginLink,
   getExternalAccounts,
   getStripeBalanceByAccountId,
+  retriveStripeAccount,
 } from "../services/stripe.service.js";
 import Offer from "../database/models/offers.model.js";
 import Order from "../database/models/order.model.js";
@@ -329,12 +332,7 @@ const getFreelancerEarnings = async (req, res) => {
 
 const onboardConnectedAccountSchema = z.object({
   phone: z.string().min(8),
-  // id_number: z
-  //   .string()
-  //   .min(4, "ID must be at least 4 characters")
-  //   .max(20, "ID cannot exceed 20 characters")
-  //   .regex(/^[a-zA-Z0-9]+$/, "ID can only contain letters and numbers"),
-  // business_type: z.enum(["individual", "company"]),
+  ssn: z.string().length(4, "SSN number is of 4 chracters only").optional(),
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   dob: z.object({
@@ -386,12 +384,16 @@ const startFreelancerOnboarding = async (req, res) => {
           dob: data.dob,
           email: user.email,
           address: data.address,
-          // ssn_last_4: data.ssn_last_4,
         };
+        if (data.address.country == "US") {
+          individual.ssn_last_4 = data.ssn;
+        }
         const tos_acceptance = {
           date: Math.floor(Date.now() / 1000),
           ip: req.ip, // IP address of the user
         };
+
+        // console.log("individual: ", individual)
 
         const account = await createStripeExpressAcount({
           email: user.email,
@@ -796,6 +798,7 @@ const getFreelancerPaymentHistory = async (req, res) => {
           ? "completed"
           : null,
       amount: e.transactionId.orderDeatils.amountToBePaid,
+      tip: e.transactionId.orderDeatils.tip,
       date: e.createdAt,
     }));
 
@@ -969,15 +972,13 @@ const downLoadResume = async (req, res) => {
     }
 
     const user = await FREELANCER.findById(userId).select(
-      "status canDownloadResume"
+      "status canDownloadResume createdResumes"
     );
     if (!user || user.status !== "active") {
       return res.status(400).json({ message: "Invalid User" });
     }
 
     if (user.canDownloadResume === true) {
-      // user.canDownloadResume = false;
-      // await user.save();
       const browser = await puppeteer.launch({
         headless: "new",
         args: ["--no-sandbox", "--disable-setuid-sandbox"],
@@ -1006,6 +1007,15 @@ const downLoadResume = async (req, res) => {
       });
       await browser.close();
 
+      // TO-DO save resume to user
+      if (!user.createdResumes) user.createdResumes = [];
+      user.createdResumes.push({
+        title: `${Date.now()}-${user._id}-resume.pdf`,
+        url: "",
+      });
+      user.canDownloadResume = false;
+      await user.save();
+
       // ✅ Send PDF buffer as response
       res.set({
         "Content-Type": "application/pdf",
@@ -1019,10 +1029,8 @@ const downLoadResume = async (req, res) => {
         .json({ message: "Resume can be downloaded after payment" });
     }
   } catch (err) {
-    console.log("❌ Error paying from freelancer balance: ", err);
-    return res
-      .status(500)
-      .json({ message: "Error paying from freelancer balance: " + err });
+    console.log("❌ Error downloading: ", err);
+    return res.status(500).json({ message: "Error downloading " + err });
   }
 };
 
@@ -1067,7 +1075,6 @@ const checkPaidForCoverLetter = async (req, res) => {
   }
 };
 
-
 // downlaod cover
 const downLoadCover = async (req, res) => {
   try {
@@ -1083,15 +1090,13 @@ const downLoadCover = async (req, res) => {
     }
 
     const user = await FREELANCER.findById(userId).select(
-      "status canDownloadCover"
+      "status canDownloadCover createdCovers"
     );
     if (!user || user.status !== "active") {
       return res.status(400).json({ message: "Invalid User" });
     }
 
     if (user.canDownloadCover === true) {
-      // user.canDownloadResume = false;
-      // await user.save();
       const browser = await puppeteer.launch({
         headless: "new",
         args: ["--no-sandbox", "--disable-setuid-sandbox"],
@@ -1120,6 +1125,18 @@ const downLoadCover = async (req, res) => {
       });
       await browser.close();
 
+      // TO-DO upload file and get url
+      user.canDownloadCover = false;
+      user.createdCovers = [
+        ...(user.createdCovers || []),
+        {
+          title: `${Date.now()}-${user._id}-cover.pdf`,
+          url: "no",
+        },
+      ];
+      user.markModified("createdCovers");
+      await user.save();
+
       res.set({
         "Content-Type": "application/pdf",
         "Content-Disposition": 'attachment; filename="cover_letter.pdf"',
@@ -1132,11 +1149,93 @@ const downLoadCover = async (req, res) => {
         .json({ message: "Cover Letter can be downloaded after payment" });
     }
   } catch (err) {
-    console.log("❌ Error paying from freelancer balance: ", err);
-    return res
-      .status(500)
-      .json({ message: "Error paying from freelancer balance: " + err });
+    console.log("❌ Error downloading: ", err);
+    return res.status(500).json({ message: "Error downloading : " + err });
   }
+};
+
+// create connected account
+const createFreelacneStripeAccount = async (req, res) => {
+  // try {
+  //   const userId = req.user._id;
+  //   if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+  //     return res.status(400).json({ message: "Invalid user ID" });
+  //   }
+  //   const user = await FREELANCER.findById(userId);
+  //   if (!user || user.status == "deleted") {
+  //     return res.status(401).json({ message: "User not found1" });
+  //   }
+  //   if (user.status == "suspended") {
+  //     return res
+  //       .status(400)
+  //       .json({ message: "Suspended Accounts cannot be onboarded" });
+  //   }
+  //   if (user.onboarded === true) {
+  //     return res
+  //       .status(400)
+  //       .json({ message: "User has completed onboarding process" });
+  //   }
+  //   if (user.stripeAccountId) {
+  //     return res.status(200).json({ accountId: user.stripeAccountId });
+  //   } else {
+  //     const account = await createStripeAccount2(user.email);
+  //     user.stripeAccountId = account.id;
+  //     await user.save();
+  //     return res.status(200).json({ accountId: account.id });
+  //   }
+  // } catch (err) {
+  //   console.log("❌ Error creating account for user: " + err);
+  //   return res
+  //     .status(500)
+  //     .json({ message: "Error creating stripe account", err });
+  // }
+};
+
+// create onboarding session secret
+const createFreelacneStripeAccountOnBoardSession = async (req, res) => {
+  // try {
+  //   const userId = req.user._id;
+  //   if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+  //     return res.status(400).json({ message: "Invalid user ID" });
+  //   }
+  //   const { accountId } = req.body;
+  //   if (!accountId) {
+  //     return res.status(400).json({ error: "Account ID is required" });
+  //   }
+  //   const session = await createAccountOnbaordSession2(accountId);
+  //   res.status(200).json({ clientSecret: session.client_secret });
+  // } catch (err) {
+  //   console.log("❌ Error creating session for user: " + err);
+  //   return res
+  //     .status(500)
+  //     .json({ message: "Error creating stripe account session", err });
+  // }
+};
+
+// check acount status
+const checkFreelancerStripeAccountStatus = async (req, res) => {
+  // try {
+  //   const userId = req.user._id;
+  //   if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+  //     return res.status(400).json({ message: "Invalid user ID" });
+  //   }
+  //   const { accountId } = req.query;
+  //   if (!accountId) {
+  //     return res.status(400).json({ error: "Account ID is required" });
+  //   }
+  //   const account = await retriveStripeAccount(accountId);
+  //   res.status(200).json({
+  //     detailsSubmitted: account.details_submitted,
+  //     payoutsEnabled: account.payouts_enabled,
+  //     chargesEnabled: account.charges_enabled,
+  //     requirements: account.requirements,
+  //   });
+  // } catch (err) {
+  //   console.log("❌ Error retriveing stripe account for user: " + err);
+  //   return res
+  //     .status(500)
+  //     .json({ message: "Error retriveing stripe account", err });
+  // }
 };
 
 export {
@@ -1158,5 +1257,8 @@ export {
   checkPaidForResume,
   downLoadResume,
   checkPaidForCoverLetter,
-  downLoadCover
+  downLoadCover,
+  createFreelacneStripeAccount,
+  createFreelacneStripeAccountOnBoardSession,
+  checkFreelancerStripeAccountStatus,
 };

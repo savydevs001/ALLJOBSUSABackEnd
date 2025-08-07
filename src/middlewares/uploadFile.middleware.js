@@ -32,11 +32,14 @@ const allowedTypes = [
   "image/png",
   "application/zip",
   "application/x-zip-compressed", // Windows-specific ZIP
-  "multipart/x-zip", // Some other ZIP
+  "multipart/x-zip",              // Some other ZIP
   "application/x-rar-compressed",
-  "application/vnd.rar", // Alternate RAR MIME
+  "application/vnd.rar",          // Alternate RAR MIME
   "application/pdf",
+  "application/msword",           // .doc
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
 ];
+
 
 const fileFilter = (req, file, cb) => {
   if (allowedTypes.includes(file.mimetype)) {
@@ -49,6 +52,6 @@ const fileFilter = (req, file, cb) => {
 const uploadFileMiddleware = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: 25 * 1024 * 1024 },
 });
 export default uploadFileMiddleware;

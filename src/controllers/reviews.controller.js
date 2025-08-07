@@ -4,8 +4,8 @@ import Order from "../database/models/order.model.js";
 
 import { z } from "zod";
 import mongoose from "mongoose";
-import User from "../database/models/users.model.js";
 import abortSessionWithMessage from "../utils/abortSession.js";
+import FREELANCER from "../database/models/freelancer.model.js";
 
 // ZOD Schemas
 
@@ -13,30 +13,33 @@ const createReviewSchema = z.object({
   orderId: z.string().refine((val) => mongoose.Types.ObjectId.isValid(val), {
     message: "Invalid order ID",
   }),
-  revieweeId: z.string().refine((val) => mongoose.Types.ObjectId.isValid(val), {
-    message: "Invalid reviewee ID",
-  }),
+  freelancerId: z
+    .string()
+    .refine((val) => mongoose.Types.ObjectId.isValid(val), {
+      message: "Invalid freelancer ID",
+    }),
   rating: z
     .number()
     .min(1, "Rating must be at least 1")
     .max(5, "Rating must be at most 5"),
-  comment: z.string().min(1, "Comment is required"),
+  comment: z.string().optional(),
 });
 
 const createReview = async (req, res) => {
+  const data = createReviewSchema.parse(req.body);
+
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    const reviewerId = req.user?._id;
+    const employerId = req.user?._id;
+    const role = req.user.role;
 
-    if (!req.user?.role.includes("employer")) {
+    if (!["employer", "job-seeker"].includes(role)) {
       return res
         .status(403)
-        .json({ message: "Only employers can post reviews" });
+        .json({ message: "Only employers or job Seeker can post reviews" });
     }
-
-    const data = createReviewSchema.parse(req.body);
 
     // Check if order exists and is completed
     const order = await Order.findById(data.orderId).session(session);
@@ -48,19 +51,10 @@ const createReview = async (req, res) => {
       );
     }
 
-    // Prevent reviewing oneself
-    if (data.revieweeId === reviewerId.toString()) {
-      return abortSessionWithMessage(
-        res,
-        session,
-        "You cannot review yourself"
-      );
-    }
-
     // Check if review already exists for this order from this user
     const existingReview = await Review.findOne({
       orderId: data.orderId,
-      reviewerId,
+      freelancerId: data.freelancerId,
     }).session(session);
 
     if (existingReview) {
@@ -71,10 +65,7 @@ const createReview = async (req, res) => {
       );
     }
 
-    const user = await User.findOne({
-      _id: data.revieweeId,
-      role: { $in: ["freelancer"] },
-    }).session(session);
+    const user = await FREELANCER.findById(data.freelancerId).session(session);
 
     if (!user) {
       return abortSessionWithMessage(
@@ -86,23 +77,33 @@ const createReview = async (req, res) => {
     }
 
     const review = new Review({
-      ...data,
-      reviewerId,
+      orderId: data.orderId,
+      employerId: employerId,
+      employerModel:
+        role == "employer"
+          ? "employer"
+          : role == "job-seeker"
+          ? "jobSeeker"
+          : "",
+      freelancerId: data.freelancerId,
+      rating: data.rating,
+      comment: data.comment,
     });
 
     // Update freelancer stats
-    if (!user.freelancerDetails) {
-      user.freelancerDetails = {
-        rating: review.rating,
-        totalRatingSum: review.rating,
+    if (!user.rating || user.rating.isRated == false) {
+      user.rating = {
+        isRated: true,
+        totalRatings: 1,
+        totalRatingsSum: data.rating,
+        value: data.rating,
       };
     } else {
-      user.freelancerDetails.totalRatingSum =
-        (user.freelancerDetails.totalRatingSum || 0) + review.rating;
-
-      user.freelancerDetails.rating =
-        user.freelancerDetails.totalRatingSum /
-        user.freelancerDetails.projectsCompleted;
+      user.rating.totalRatings = user.rating.totalRatings + 1;
+      user.rating.totalRatingsSum = user.rating.totalRatingsSum + data.rating;
+      user.rating.value = Number(
+        user.rating.totalRatingsSum / (user.rating.totalRatings || 1)
+      );
     }
 
     await user.save({ session });

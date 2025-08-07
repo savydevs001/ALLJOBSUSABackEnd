@@ -17,6 +17,16 @@ const milestoneSchema = new Schema(
   { _id: false }
 );
 
+const attachedFileSchema = new Schema(
+  {
+    fileUrl: String,
+    fileName: String,
+    size: Number,
+    dated: Date,
+  },
+  { _id: false }
+);
+
 // Dispute Details Sub-schema
 const disputeSchema = new Schema(
   {
@@ -59,6 +69,7 @@ const orderSchema = new Schema(
     description: { type: String, required: true },
 
     totalAmount: { type: Number, required: true },
+    tip: Number,
 
     status: {
       type: String,
@@ -90,25 +101,9 @@ const orderSchema = new Schema(
       },
     },
 
-    attachedFiles: [
-      {
-        fileUrl: String,
-        fileName: String,
-        size: Number,
-        dated: Date,
-      },
-      { _id: false },
-    ],
+    attachedFiles: [attachedFileSchema],
 
-    delieveryFiles: [
-      {
-        fileUrl: String,
-        fileName: String,
-        size: Number,
-        dated: Date,
-      },
-      { _id: false },
-    ],
+    delieveryFiles: [attachedFileSchema],
   },
   {
     timestamps: true, // adds createdAt and updatedAt

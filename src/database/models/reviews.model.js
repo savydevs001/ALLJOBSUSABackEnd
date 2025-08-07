@@ -1,4 +1,3 @@
-// models/Review.js
 import mongoose from "mongoose";
 const { Schema, model, Types } = mongoose;
 
@@ -6,8 +5,17 @@ const reviewSchema = new Schema(
   {
     orderId: { type: Types.ObjectId, ref: "Order", required: true },
 
-    reviewerId: { type: Types.ObjectId, ref: "User", required: true },
-    revieweeId: { type: Types.ObjectId, ref: "User", required: true },
+    employerId: {
+      type: Types.ObjectId,
+      refPath: "employerModel",
+      required: true,
+    },
+    freelancerId: { type: Types.ObjectId, ref: "freelancer", required: true },
+    employerModel: {
+      type: String,
+      required: true,
+      enum: ["employer", "jobSeeker"],
+    },
 
     rating: {
       type: Number,
@@ -16,7 +24,7 @@ const reviewSchema = new Schema(
       required: true,
     },
 
-    comment: { type: String, required: true },
+    comment: String,
     createdAt: {
       type: Date,
       default: Date.now,
@@ -26,6 +34,8 @@ const reviewSchema = new Schema(
     timestamps: false, // We already have createdAt
   }
 );
+
+reviewSchema.index({ orderId: 1, freelancerId: 1 }, { unique: true });
 
 const Review = model("Review", reviewSchema);
 export default Review;

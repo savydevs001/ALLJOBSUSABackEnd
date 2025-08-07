@@ -8,6 +8,8 @@ import FREELANCER from "../database/models/freelancer.model.js";
 import mongoose from "mongoose";
 import Offer from "../database/models/offers.model.js";
 import Job from "../database/models/jobs.model.js";
+import PlatformSettings from "../database/models/palteform.model.js";
+import PENDING_PAYOUT from "../database/models/pendingPayout.model.js";
 
 dotenv.config();
 
@@ -437,6 +439,7 @@ const stripeWebhook = async (req, res) => {
       };
 
       const sessionId = session.id;
+      // console.log("inetet:", paymentIntent);
       const stripeSubscriptionId =
         session.subscription ||
         session.parent?.subscription_details?.subscription;
@@ -493,6 +496,16 @@ const stripeWebhook = async (req, res) => {
           }
 
           if (requestedSubscription.mode === "subscription") {
+            // create subscription only when user selected to subscribe
+            if (user.susbscriptionRenew == true) {
+              const newStripeSubscription = await createStripeSubscription2({
+                customerId: paymentIntent.customer,
+                priceId: requestedSubscription.stripePriceId,
+                paymentMethodId: paymentIntent.payment_method,
+                metadata: paymentIntent.metadata,
+              });
+              user.stripeProfileSubscriptionId = newStripeSubscription.id;
+            }
             const now = new Date();
             const tempSub = {
               subId: stripeSubscriptionId,
@@ -502,6 +515,7 @@ const stripeWebhook = async (req, res) => {
                   requestedSubscription.totalDays * 24 * 60 * 60 * 1000
               ),
             };
+            // console.log("newStripeSubscription: ", newStripeSubscription);
             user.currentSubscription = tempSub;
             user.usedSessions = [...user.usedSessions, sessionId];
             user.pastSubscriptions = [...user.pastSubscriptions, tempSub];
@@ -509,8 +523,9 @@ const stripeWebhook = async (req, res) => {
             user.oneTimeCreate = true;
           }
 
-          user.stripeCustomerId = session.customer;
-          user.stripeProfileSubscriptionId = session.subscription;
+          if (!user.stripeCustomerId) {
+            user.stripeCustomerId = session.customer;
+          }
           await user.save();
 
           return res
@@ -597,10 +612,112 @@ const stripeWebhook = async (req, res) => {
         }
       }
 
+      // Handle bonus/tip on order
+      else if (purpose === "order-bonus") {
+        const { freelancerId, orderId, amount } = metadata;
+        console.log("metadata: ", metadata);
+
+        if (!amount) {
+          return res.status(200).json({
+            message: "Missing amount metadata",
+            received: true,
+          });
+        }
+
+        if (
+          !mongoose.Types.ObjectId.isValid(freelancerId) ||
+          !mongoose.Types.ObjectId.isValid(orderId)
+        ) {
+          return res.status(200).json({
+            message: "Invalid order or freelancer id",
+            received: true,
+          });
+        }
+
+        try {
+          const [freelancer, transaction] = await Promise.all([
+            FREELANCER.findById(freelancerId),
+            TRANSACTION.findOne({ "orderDeatils.orderId": orderId }),
+          ]);
+
+          if (!freelancer || !transaction) {
+            return res.status(200).json({
+              message: "transaction or freelancer not found",
+              received: true,
+            });
+          }
+
+          const mongooseSession = await mongoose.startSession();
+          mongooseSession.startTransaction();
+
+          try {
+            const totalAmount = amount;
+            let companyCut = 0;
+            const platformSettings = await PlatformSettings.findOne();
+
+            if (platformSettings?.pricing?.platformCommissionPercentageActive) {
+              companyCut = Math.round(
+                totalAmount *
+                  (platformSettings.pricing.platformCommissionPercentage / 100)
+              );
+            }
+
+            // Create a pending payout record (delay 7 days)
+            const releaseDate = new Date();
+            releaseDate.setDate(releaseDate.getDate() + 7);
+
+            const pendingPayout = new PENDING_PAYOUT({
+              freelancerId: freelancer._id,
+              stripeAccountId: freelancer.stripeAccountId,
+              amount: totalAmount - companyCut,
+              transferGroup: `order_${orderId}`,
+              releaseDate,
+              orderId: orderId,
+            });
+
+            // freelancer.tip = freelancer.tip + (totalAmount - companyCut);
+            freelancer.pendingClearence =
+              freelancer.pendingClearence + (totalAmount - companyCut);
+
+            transaction.orderDeatils.tip = totalAmount - companyCut;
+
+            await pendingPayout.save({ session: mongooseSession });
+            await freelancer.save({ session: mongooseSession });
+            await transaction.save({ session: mongooseSession });
+
+            await mongooseSession.commitTransaction();
+            mongooseSession.endSession();
+
+            return res.status(200).json({
+              message: "Bonus processed successfully",
+              received: true,
+            });
+          } catch (err) {
+            console.log(
+              "Error updating data while updating bonus for order: ",
+              orderId
+            );
+            await mongooseSession.abortTransaction();
+            mongooseSession.endSession();
+            return res.status(200).json({
+              message:
+                "Payment for bonus processing failed during updating data",
+              received: true,
+            });
+          }
+          // create a pending payout
+        } catch (err) {
+          console.error("❌ Error processing order bonus payment:", err);
+          return res.status(200).json({
+            message: "Payment for bonus processing failed",
+            received: true,
+          });
+        }
+      }
+
       // Hnadle resume
       else if (purpose === "resume-payment") {
         const { freelancerId } = metadata;
-        console.log("metadata: ", metadata);
 
         try {
           // Update user to allow download resume
@@ -611,20 +728,18 @@ const stripeWebhook = async (req, res) => {
             }
           );
 
-          console.log("ok: ", session);
           return res.status(200).json({ received: true });
         } catch (err) {
-          await mongooseSession.abortTransaction();
-          mongooseSession.endSession();
           console.error("❌ Error processing resume payment:", err);
-          return res.status(500).json({ error: "Payment processing failed" });
+          return res
+            .status(200)
+            .json({ message: "Payment processing failed", received: true });
         }
       }
 
       // Handle Cover
       else if (purpose === "cover-payment") {
         const { freelancerId } = metadata;
-        console.log("metadata: ", metadata);
 
         try {
           // Update user to allow download resume
@@ -638,15 +753,16 @@ const stripeWebhook = async (req, res) => {
           console.log("ok: ", session);
           return res.status(200).json({ received: true });
         } catch (err) {
-          await mongooseSession.abortTransaction();
-          mongooseSession.endSession();
           console.error("❌ Error processing resume payment:", err);
-          return res.status(500).json({ error: "Payment processing failed" });
+          return res
+            .status(200)
+            .json({ message: "Payment processing failed", received: true });
         }
       }
     }
 
     if (event.type === "invoice.payment_succeeded") {
+      console.log("Invoice created")
       const invoice = event.data.object;
       if (invoice.billing_reason === "subscription_create") {
         console.log("📦 Skipping initial subscription creation invoice");
@@ -696,7 +812,7 @@ const stripeWebhook = async (req, res) => {
         if (requestedSubscription.mode === "subscription") {
           const now = new Date();
           const tempSub = {
-            subId: subscriptionId,
+            subId: requestedSubscription._id,
             start: now,
             end: new Date(
               now.getTime() +
@@ -714,7 +830,6 @@ const stripeWebhook = async (req, res) => {
             received: true,
           });
         }
-        console.log("------------------- Failed ----------------");
 
         return res
           .status(200)
@@ -952,6 +1067,62 @@ const createStripeTransferToPlatform = async (amount, accountId) => {
   return transfer;
 };
 
+const createStripeAccount2 = async (email) => {
+  const account = await stripe.accounts.create({
+    type: "express",
+    capabilities: {
+      card_payments: { requested: true },
+      transfers: { requested: true },
+    },
+    email: email,
+  });
+  return account;
+};
+
+const createAccountOnbaordSession2 = async (accountId) => {
+  const accountSession = await stripe.accountSessions.create({
+    account: accountId,
+    components: {
+      account_onboarding: {
+        enabled: true,
+      },
+    },
+  });
+  return accountSession;
+};
+
+const retriveStripeAccount = async (accountId) => {
+  const account = await stripe.accounts.retrieve(accountId);
+  return account;
+};
+
+const createStripeSubscription2 = async ({
+  customerId,
+  priceId,
+  paymentMethodId,
+  metadata,
+}) => {
+  const subscription = await stripe.subscriptions.create({
+    customer: customerId,
+    items: [{ price: priceId }],
+    default_payment_method: paymentMethodId, // From the successful payment
+    metadata,
+  });
+  return subscription;
+};
+
+const retriveSubscription = async (subId) => {
+  const subsscription = await stripe.subscriptions.retrieve(subId);
+  return subsscription;
+};
+
+const cancelStripeSubscription = async (subId) => {
+  const canceledSubscription = await stripe.subscriptions.update(subId, {
+    cancel_at_period_end: true,
+  });
+  return canceledSubscription;
+};
+
 export {
   createStripeExpressAcount,
   generateOnBoardingAccountLink,
@@ -978,4 +1149,10 @@ export {
   findOrCreateCustomer,
   getStripeBalanceByAccountId,
   createStripeTransferToPlatform,
+  createStripeAccount2,
+  createAccountOnbaordSession2,
+  retriveStripeAccount,
+  createStripeSubscription2,
+  retriveSubscription,
+  cancelStripeSubscription,
 };

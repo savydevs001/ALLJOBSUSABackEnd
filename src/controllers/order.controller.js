@@ -129,6 +129,17 @@ const createOrder = async (req, res) => {
 
     // Create Order
     const now = new Date();
+    // let tempAttachedFiles = [];
+    // if (job) {
+    //   console.log("freelanceJobDetails: ",  job.freelanceJobDetails)
+    //   tempAttachedFiles = [...(job.freelanceJobDetails?.files || [])].map(
+    //     (e) => ({
+    //       fileUrl: e.url,
+    //       fileName: e.name,
+    //     })
+    //   );
+    // }
+    // console.log("tempAttachedFiles: ", tempAttachedFiles)
     const order = new Order({
       offerId: offer._id,
       jobId: job ? job._id : null,
@@ -151,6 +162,7 @@ const createOrder = async (req, res) => {
       deadline: now.setDate(now.getDate() + offer.duration),
       milestones: offer.milestones || [],
       transactionId: transaction.id,
+      attachedFiles: tempAttachedFiles,
     });
     transaction.orderDeatils.orderId = order.id;
 
@@ -534,8 +546,20 @@ const markOrderAsComplete = async (req, res) => {
     return res.status(500).json({ message: "Server Error" });
   }
 };
+const deliverZodSchema = z.object({
+  files: z
+    .array(
+      z.object({
+        fileUrl: z.string().url(),
+        fileName: z.string(),
+        size: z.number(), // file size in MB
+      })
+    )
+    .optional(),
+});
 
 const delieverOrderForRevsions = async (req, res) => {
+  const data = deliverZodSchema.parse(req.body);
   try {
     const orderId = req.params.id;
     const freelancerId = req.user?._id;
@@ -563,6 +587,16 @@ const delieverOrderForRevsions = async (req, res) => {
     }
 
     order.status = "in_revision";
+    if (data.files && data.files.length > 0) {
+      const tempFile = data.files.map((e) => ({
+        fileUrl: e.fileUrl,
+        fileName: e.fileName,
+        size: e.size,
+        dated: new Date(),
+      }));
+      order.delieveryFiles = [...(order.delieveryFiles || []), ...tempFile];
+    }
+    order.deliveryDate = new Date();
     await order.save();
 
     return res.status(200).json({
@@ -610,6 +644,52 @@ const markAsDelieverd = async (req, res) => {
   }
 };
 
+const attachFileZODSchema = z.object({
+  files: z.array(
+    z.object({
+      fileUrl: z.string().url(),
+      fileName: z.string(),
+      size: z.number(), // file size in MB
+    })
+  ),
+});
+const attachNewFilesToOrder = async (req, res) => {
+  const data = attachFileZODSchema.parse(req.body);
+  try {
+    const orderId = req.params.id;
+    const freelancerId = req.user?._id;
+
+    if (!mongoose.Types.ObjectId.isValid(orderId)) {
+      return res.status(400).json({ message: "Invalid order ID" });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(freelancerId)) {
+      return res.status(400).json({ message: "Invalid freelancerId ID" });
+    }
+
+    const order = await Order.findOne({ _id: orderId, freelancerId });
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    const tempFile = data.files.map((e) => ({
+      fileUrl: e.fileUrl,
+      fileName: e.fileName,
+      size: e.size,
+      dated: new Date(),
+    }));
+    order.delieveryFiles = [[...(order.delieveryFiles || []), ...tempFile]];
+
+    await order.save();
+
+    return res.status(200).json({
+      message: "Added new files to order",
+      success: true,
+    });
+  } catch (err) {
+    console.error("❌ Error updating order:", err);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
 // get order by id
 const getOrderById = async (req, res) => {
   try {
@@ -625,6 +705,15 @@ const getOrderById = async (req, res) => {
       return res.status(404).json({ message: "Order not found!" });
     }
 
+    let attachedFiles = [];
+    if (order.jobId) {
+      const temp = order.jobId?.freelanceJobDetails?.files || [];
+      attachedFiles = temp.map((e) => ({
+        fileUrl: e.url,
+        fileName: e.name,
+      }));
+    }
+
     const transformed = {
       _id: order._id,
       title: order.title,
@@ -635,7 +724,8 @@ const getOrderById = async (req, res) => {
         order.jobId?.freelanceJobDetails?.budget?.budgetType || "Fixed",
       startDate: order.createdAt,
       deadline: order.deadline,
-      attachedFiles: order.attachedFiles || [],
+      completionDate: order.completionDate,
+      attachedFiles: attachedFiles,
       delieveryFiles: order.delieveryFiles || [],
       freelancer: {
         _id: order.freelancerId._id,
@@ -687,4 +777,5 @@ export {
   markAsDelieverd,
   getRecentOrders,
   getOrderById,
+  attachNewFilesToOrder,
 };

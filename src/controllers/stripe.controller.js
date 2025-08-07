@@ -1,11 +1,13 @@
 import mongoose from "mongoose";
 import {
+  cancelStripeSubscription,
   createStripePaymentIntent,
   createStripeTransferToPlatform,
   findOrCreateCustomer,
   getStripeBalanceByAccountId,
   getTotalIncomeAndMonthlyChange,
   retriveStripePaymentIntent,
+  retriveSubscription,
 } from "../services/stripe.service.js";
 import EMPLOYER from "../database/models/employers.model.js";
 import FREELANCER from "../database/models/freelancer.model.js";
@@ -31,6 +33,63 @@ const calculateTotalSubscriptionEarning = async (req, res) => {
   }
 };
 
+const cancelAutoRenewl = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const userRole = req.user.role;
+    if (userRole != "employer") {
+      return res.status(400).json({
+        message: "Only employer can cancel a job posting subscription",
+      });
+    }
+
+    const employer = await EMPLOYER.findById(userId);
+    if (!employer) {
+      return res.status(400).json({ message: "USer not found" });
+    }
+
+    if (employer.susbscriptionRenew === false) {
+      return res
+        .status(400)
+        .json({ message: "Subscription renewal already stoppped" });
+    }
+
+    const stripeSubscription = await retriveSubscription(
+      employer.stripeProfileSubscriptionId
+    );
+    if (
+      stripeSubscription.status !== "active" &&
+      stripeSubscription.status !== "trialing"
+    ) {
+      return res.status(400).json({
+        error: `Subscription is not active or trialing (status: ${stripeSubscription.status})`,
+      });
+    }
+
+    const cancelled = await cancelStripeSubscription(
+      employer.stripeProfileSubscriptionId
+    );
+
+    employer.susbscriptionRenew = false;
+    await employer.save();
+
+    return res.status(200).json({
+      message: "Auto-renewal cancelled. Subscription will end at period end.",
+      subscription: {
+        id: cancelled.id,
+        status: cancelled.status,
+        cancel_at_period_end: cancelled.cancel_at_period_end,
+        current_period_end: cancelled.current_period_end,
+      },
+    });
+  } catch (err) {
+    console.log("❌ Error cancelling subscription: ", err);
+    return res
+      .status(500)
+      .json({ message: "Error cancelling subscription:", err });
+  }
+};
+
 /***
  *
  * Prupose: "subscription"  | "resume" | "cover" | "order_payment"
@@ -41,7 +100,13 @@ const createPaymentIntents = async (req, res) => {
     if (
       !purpose ||
       purpose == "" ||
-      !["subscription", "resume", "cover", "order_payment"].includes(purpose)
+      ![
+        "subscription",
+        "resume",
+        "cover",
+        "order_payment",
+        "order_bonus",
+      ].includes(purpose)
     ) {
       return res.status(400).json({ message: "Invalid Purpose" });
     }
@@ -115,8 +180,11 @@ const createPaymentIntents = async (req, res) => {
             transactionId: transaction._id.toString(),
           },
         };
+        // console.log("stripeIntentParams: ", stripeIntentParams);
 
         if (requestedSubscription.mode == "subscription") {
+          const { renew } = req.body;
+
           // get or create a customer for recurring
           let customerId = user.stripeCustomerId;
           if (!customerId) {
@@ -128,12 +196,14 @@ const createPaymentIntents = async (req, res) => {
                 .json({ message: "No Customer for stripe" });
             }
             user.stripeCustomerId = customerId;
-            await user.save();
           }
+          user.susbscriptionRenew = Boolean(renew);
+          await user.save();
           stripeIntentParams.customer = customerId;
           stripeIntentParams.setup_future_usage = "off_session"; // Critical for recurring
           stripeIntentParams.description = `Recurring payment for Subscription ${requestedSubscription._id}`;
         }
+
         const paymentIntent = await createStripePaymentIntent(
           stripeIntentParams
         );
@@ -498,6 +568,48 @@ const createPaymentIntents = async (req, res) => {
         }
       }
 
+      case "order_bonus":
+        try {
+          const { amount } = req.body;
+          if (!amount || Number.isNaN(Number(amount)) || Number(amount) < 5) {
+            return res
+              .status(400)
+              .json({ message: "Invalid amount, It should be at least $5" });
+          }
+
+          // validate order
+          if (!mongoose.Types.ObjectId.isValid(itemId)) {
+            return res.status(400).json({ message: "Invalid Order" });
+          }
+          const order = await Order.findById(itemId);
+          if (!order) {
+            return res.status(404).json({ message: "Order not found!" });
+          }
+
+          const stripeIntentParams = {
+            amount: Number(amount) * 100,
+            metadata: {
+              purpose: "order-bonus",
+              orderId: order._id.toString(),
+              freelancerId: order.freelancerId._id.toString(),
+              amount: Number(amount),
+            },
+          };
+
+          const paymentIntent = await createStripePaymentIntent(
+            stripeIntentParams
+          );
+          return res.json({
+            clientSecret: paymentIntent.client_secret,
+            price: Number(amount),
+          });
+        } catch (err) {
+          console.error("❌ Error processing bonus for order:", err);
+          return res
+            .status(500)
+            .json({ message: "Error processing bonus for order" });
+        }
+
       case "resume":
         try {
           if (req.user.role !== "freelancer") {
@@ -539,7 +651,6 @@ const createPaymentIntents = async (req, res) => {
               );
 
               if (transfer) {
-
                 user.currentBalance = Number(user.currentBalance - plan.price);
                 user.canDownloadResume = true;
                 await user.save();
@@ -571,7 +682,7 @@ const createPaymentIntents = async (req, res) => {
             price: plan.price,
           });
         } catch (err) {
-          console.log("❌ Error processing payment: " + err )
+          console.log("❌ Error processing payment: " + err);
           return res
             .status(500)
             .json({ message: "Error processing payment: " + err });
@@ -616,9 +727,8 @@ const createPaymentIntents = async (req, res) => {
                 plan.price,
                 user.stripeAccountId
               );
-              
-              if (transfer) {
 
+              if (transfer) {
                 user.currentBalance = Number(user.currentBalance - plan.price);
                 user.canDownloadCover = true;
                 await user.save();
@@ -650,7 +760,7 @@ const createPaymentIntents = async (req, res) => {
             price: plan.price,
           });
         } catch (err) {
-          console.log("❌ Error processing payment: " + err )
+          console.log("❌ Error processing payment: " + err);
           return res
             .status(500)
             .json({ message: "Error processing payment: " + err });
@@ -665,4 +775,8 @@ const createPaymentIntents = async (req, res) => {
   }
 };
 
-export { calculateTotalSubscriptionEarning, createPaymentIntents };
+export {
+  calculateTotalSubscriptionEarning,
+  createPaymentIntents,
+  cancelAutoRenewl,
+};

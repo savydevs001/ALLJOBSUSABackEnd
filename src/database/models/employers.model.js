@@ -39,6 +39,7 @@ const employerSchema = mongoose.Schema(
 
     // subscriptions
     usedSessions: { type: [String], default: [] },
+    susbscriptionRenew: Boolean,
     currentSubscription: {
       type: {
         subId: String,

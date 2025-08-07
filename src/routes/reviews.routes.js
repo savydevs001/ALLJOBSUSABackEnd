@@ -9,7 +9,7 @@ const reviewRouter = Router();
 reviewRouter.post(
   "/",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["employer"]),
+  roleBasedAuthMiddleware(["employer", "job-seeker"]),
   a(createReview)
 );
 

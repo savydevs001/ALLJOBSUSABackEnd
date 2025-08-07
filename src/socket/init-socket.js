@@ -128,7 +128,6 @@ const initSocket = (httpServer) => {
          * mode = "from_support_to_user"
          */
         try {
-          console.log("ok supppport");
           if (mode === "from_user_to_support") {
             if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
               console.log("Invalid userId");

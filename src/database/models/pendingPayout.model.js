@@ -18,7 +18,7 @@ const pendingPayoutSchema = new mongoose.Schema({
   transactionId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Transaction",
-    required: true,
+
   },
   transferred: { type: Boolean, default: false },
   transferId: String,

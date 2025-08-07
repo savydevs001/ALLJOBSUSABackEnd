@@ -5,6 +5,7 @@ import roleBasedAuthMiddleware from "../middlewares/roleBasedAuth.middleware.js"
 import a from "../utils/a.js";
 import {
   calculateTotalSubscriptionEarning,
+  cancelAutoRenewl,
   createPaymentIntents,
 } from "../controllers/stripe.controller.js";
 
@@ -18,6 +19,13 @@ const StripeRouter = Router();
 // );
 
 StripeRouter.post("/verify-session", verifyStripeSession);
+
+StripeRouter.post(
+  "/cancel-job-subscription",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["employer"]),
+  a(cancelAutoRenewl)
+);
 
 StripeRouter.post(
   "/create-intent",

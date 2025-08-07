@@ -12,9 +12,32 @@ const getSupportAdminId = async () => {
   return supportId;
 };
 
-const getOrCreateSupportTicket = async (req, res) => {
+const getSupportTicket = async (req, res) => {
   try {
     const userId = req.user?._id;
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(401).json({ message: "No or Invalid User" });
+    }
+
+    const support = await SupportMessage.findOne({
+      $or: [{ senderId: userId }, { receiverId: userId }],
+    });
+
+    if (support && support.ticketId) {
+      return res.status(200).json({ ticketId: support.ticketId });
+    } else {
+      return res.status(200).json({ ticketId: "" });
+    }
+  } catch (err) {
+    console.log("❌ Error getting ticket: ", err);
+    return res.status(500).json({ message: "Unable to create ticket" });
+  }
+};
+
+const createSupportTicket = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    const { chat } = req.body;
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(401).json({ message: "No or Invalid User" });
     }
@@ -28,6 +51,19 @@ const getOrCreateSupportTicket = async (req, res) => {
     }
 
     const newTicket = uuidv4();
+    if (chat && chat.length > 0) {
+      const newMessages = chat.map((e) => ({
+        ticketId: newTicket,
+        message: e.message,
+        seen: true,
+        senderId: e.senderId,
+        receiverId: e.receiverId,
+        sentAt: e.sentAt,
+      }));
+
+      await SupportMessage.insertMany(newMessages);
+    }
+
     return res.status(200).json({ ticketId: newTicket });
   } catch (err) {
     console.log("❌ Error getting ticket: ", err);
@@ -251,9 +287,9 @@ const getAllSupportThreads = async (req, res) => {
   }
 };
 
-
 export {
-  getOrCreateSupportTicket,
+  getSupportTicket,
+  createSupportTicket,
   getSupportAdminId,
   getSupportMessagesByTicket,
   getAllSupportThreads,

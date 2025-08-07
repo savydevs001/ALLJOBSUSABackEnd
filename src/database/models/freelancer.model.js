@@ -1,5 +1,14 @@
 import mongoose, { Types } from "mongoose";
 
+const resumeOrCoverSchema = mongoose.Schema(
+  {
+    title: String,
+    url: String,
+    at: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const freelancerSchema = mongoose.Schema(
   {
     fullName: { type: String, required: true },
@@ -32,6 +41,8 @@ const freelancerSchema = mongoose.Schema(
     // resume and cover
     canDownloadResume: { type: Boolean, default: false },
     canDownloadCover: { type: Boolean, default: false },
+    createdResumes: [resumeOrCoverSchema],
+    createdCovers: [resumeOrCoverSchema],
 
     stripeIntentForResume: String,
 

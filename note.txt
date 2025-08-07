@@ -1,1 +1,1 @@
-stripe listen --forward-to localhost:8000/webhook --events payment_intent.succeeded,account.updated
+stripe listen --forward-to localhost:8000/webhook --events payment_intent.succeeded,account.updated,invoice.payment_succeeded
