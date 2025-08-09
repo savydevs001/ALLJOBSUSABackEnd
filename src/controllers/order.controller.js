@@ -466,32 +466,53 @@ const markOrderAsComplete = async (req, res) => {
     const employerId = req.user?._id;
 
     if (!mongoose.Types.ObjectId.isValid(orderId)) {
-      return res.status(400).json({ message: "Invalid order ID" });
+      return abortSessionWithMessage(res, mongooseSession, "Invalid order ID");
     }
 
     const order = await Order.findOne({ _id: orderId, employerId });
-    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    if (!order)
+      return abortSessionWithMessage(
+        res,
+        mongooseSession,
+        "Order not found",
+        404
+      );
 
     if (order.status === "completed") {
-      return res.status(400).json({ message: "Order already completed" });
+      return abortSessionWithMessage(
+        res,
+        mongooseSession,
+        "Order already completed"
+      );
     }
 
     const transaction = await TRANSACTION.findById(order.transactionId);
     if (!transaction || !transaction.orderDeatils) {
-      return res.status(404).json({ message: "Transaction not found" });
+      return abortSessionWithMessage(
+        res,
+        mongooseSession,
+        "Transaction not found",
+        404
+      );
     }
 
     if (transaction.orderDeatils.status != "escrow_held") {
-      return res
-        .status(400)
-        .json({ message: "No Payment Held for this order" });
+      return abortSessionWithMessage(
+        res,
+        mongooseSession,
+        "No Payment Held for this order"
+      );
     }
 
     const freelancer = await FREELANCER.findById(order.freelancerId);
     if (!freelancer || !freelancer.stripeAccountId) {
-      return res
-        .status(404)
-        .json({ message: "Freelancer or Stripe account not found" });
+      return abortSessionWithMessage(
+        res,
+        mongooseSession,
+        "Freelancer or Stripe account not found",
+        404
+      );
     }
 
     // Create a pending payout record (delay 7 days)
@@ -546,6 +567,7 @@ const markOrderAsComplete = async (req, res) => {
     return res.status(500).json({ message: "Server Error" });
   }
 };
+
 const deliverZodSchema = z.object({
   files: z
     .array(

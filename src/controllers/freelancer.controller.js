@@ -574,6 +574,7 @@ const getFreelancerList = async (req, res) => {
       profile: { $exists: true },
       "profile.professionalTitle": { $exists: true },
       "profile.skills": { $exists: true, $ne: [] },
+      "profile.freelancerWork": true,
     };
 
     // Text search on name, title or bio
@@ -902,7 +903,10 @@ const getStripeFreelancerLogin = async (req, res) => {
     try {
       link = await generateStipeLoginLink(freelancer.stripeAccountId);
     } catch (err) {
-      console.log("Error in generating stripe login for user: ", freelancerId);
+      console.log(
+        "Error in generating stripe login for user: " + err,
+        freelancerId
+      );
     }
 
     if (!link) {

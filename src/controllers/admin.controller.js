@@ -6,10 +6,19 @@ import EMPLOYER from "../database/models/employers.model.js";
 import FREELANCER from "../database/models/freelancer.model.js";
 import JOBSEEKER from "../database/models/job-seeker.model.js";
 import Job from "../database/models/jobs.model.js";
-import { getTotalIncomeAndMonthlyChange } from "../services/stripe.service.js";
+import {
+  createRefund,
+  getTotalIncomeAndMonthlyChange,
+} from "../services/stripe.service.js";
 import mongoose from "mongoose";
 import Application from "../database/models/applications.model.js";
 import Offer from "../database/models/offers.model.js";
+import Order from "../database/models/order.model.js";
+import Message from "../database/models/messages.model.js";
+import TRANSACTION from "../database/models/transactions.model.js";
+import PENDING_PAYOUT from "../database/models/pendingPayout.model.js";
+import abortSessionWithMessage from "../utils/abortSession.js";
+import REFUND from "../database/models/refunds.model.js";
 
 // create admin
 const PASSWORD_REGEX =
@@ -265,11 +274,11 @@ const adminDashboardData = async (req, res) => {
     return res.status(200).json({
       subscriptionEarning,
       allTimeUsers,
-      usersPercentChange: Math.round(usersPercentChange),
+      usersPercentChange: Math.round(usersPercentChange).toFixed(2),
       allTimeFreelancers: allFreelancers,
-      freelancersPercentageChange,
+      freelancersPercentageChange: freelancersPercentageChange.toFixed(2),
       allJobs,
-      jobsPercentChange: Math.round(jobsPercentChange),
+      jobsPercentChange: Math.round(jobsPercentChange).toFixed(2),
     });
   } catch (err) {
     console.error("❌ Error getting admin dashboard data:", err);
@@ -840,6 +849,627 @@ const changeFreelancerBadge = async (req, res) => {
   }
 };
 
+// order stats
+const orderStats = async (req, res) => {
+  try {
+    const orders = await Order.find({}).select({ status: 1 });
+
+    let disputed = 0;
+    let inProgress = 0;
+    let completed = 0;
+    let cancelled = 0;
+    let payment_pending = 0;
+    orders.forEach((o) => {
+      switch (o.status) {
+        case "in_progress":
+        case "in_revision":
+        case "delivered":
+          inProgress += 1;
+          break;
+        case "completed":
+          completed += 1;
+          break;
+        case "disputed":
+          disputed += 1;
+          break;
+        case "cancelled":
+          cancelled += 1;
+          break;
+        case "payment_pending":
+          payment_pending += 1;
+          break;
+        default:
+          break;
+      }
+    });
+
+    return res.status(200).json({
+      total: orders.length - payment_pending,
+      inProgress,
+      completed,
+      disputed,
+      cancelled,
+    });
+  } catch (err) {
+    console.log("❌ Error getting order stats: ", err);
+    return res.status(500).json({ message: "Errror getting order stats", err });
+  }
+};
+
+// order list
+const getOrdersWithPartiesData = async (req, res) => {
+  try {
+    const { text, status, skip = 0, limit = 10 } = req.query;
+    const filter = {
+      status: { $ne: "payment_pending" },
+    };
+    if (status && status != "") {
+      filter.status = { $eq: status, $ne: "payment_pending" };
+    }
+
+    if (text && text != "") {
+      if (mongoose.Types.ObjectId.isValid(text)) {
+        filter._id = new mongoose.Types.ObjectId(text);
+      } else {
+        filter.$or = [
+          { title: { $regex: text, $options: "i" } },
+          { description: { $regex: text, $options: "i" } },
+        ];
+      }
+    }
+
+    const [orders, total] = await Promise.all([
+      Order.find(filter)
+        .select(
+          "_id title description status createdAt totalAmount employerModel disputeDetails.notes"
+        )
+        .populate({
+          path: "freelancerId",
+          select: "email fullName profilePictureUrl",
+          model: "freelancer",
+        })
+        .populate({
+          path: "employerId",
+          select: "email fullName profilePictureUrl",
+          // model will be resolved automatically from employerModel (refPath)
+        })
+        .sort({ createdAt: -1 })
+        .skip(Number(skip))
+        .limit(Number(limit)),
+      Order.countDocuments(filter),
+    ]);
+
+    const tranformed = orders.map((e) => ({
+      _id: e._id,
+      title: e.title,
+      description: e.description,
+      status: e.status,
+      createdAt: e.createdAt,
+      totalAmount: e.totalAmount,
+      internalNote: e.disputeDetails?.notes || "",
+      freelancer: {
+        _id: e.freelancerId?._id,
+        fullName: e.freelancerId?.fullName,
+        email: e.freelancerId?.email,
+        profilePictureUrl: e.freelancerId?.profilePictureUrl,
+      },
+      employer: {
+        _id: e.employerId?._id,
+        fullName: e.employerId?.fullName,
+        email: e.employerId?.email,
+        profilePictureUrl: e.employerId?.profilePictureUrl,
+        role: e.employerModel,
+      },
+    }));
+
+    return res.status(200).json({ orders: tranformed, total });
+  } catch (err) {
+    console.log("❌ Error getting orders data: ", err);
+    return res
+      .status(500)
+      .json({ message: "Error getting orders data: ", err });
+  }
+};
+
+// mark order as disputed
+const markOrderAsDisputed = async (req, res) => {
+  try {
+    const orderId = req.params.id;
+    const { details } = req.body;
+    if (!details) {
+      return res.status(400).json({ message: "Details field required" });
+    }
+    if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+      return res.status(400).json({ message: "Invalid order id" });
+    }
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ message: "No Order found" });
+    }
+    if (order.status == "disputed") {
+      return res
+        .status(400)
+        .json({ message: "Order already marked as disputed" });
+    }
+    if (order.status == "payment_pending") {
+      return res.status(400).json({
+        message: "Order cannot be marked as disputed as it has payment pending",
+      });
+    }
+
+    if (
+      order.status == "in_revision" ||
+      order.status == "in_progress" ||
+      order.status == "delivered"
+    ) {
+      order.status = "disputed";
+      order.disputeDetails = {
+        reason: details,
+      };
+      await order.save();
+      return res.status(200).json({ message: "Order marked as disputed" });
+    } else {
+      return res
+        .status(400)
+        .json({ message: "This order cannot be marked as disputed" });
+    }
+  } catch (err) {
+    console.log("❌ Error marking order as disputed: ", err);
+    return res
+      .status(500)
+      .json({ message: "Unable to mark order as disputed", err });
+  }
+};
+
+// get Messages with user ids
+const getMessagesByUsers = async (req, res) => {
+  try {
+    const userId = req.query?.userid;
+    const withUserId = req.query?.withuserid;
+
+    if (
+      !userId ||
+      !withUserId ||
+      !mongoose.Types.ObjectId.isValid(userId) ||
+      !mongoose.Types.ObjectId.isValid(withUserId)
+    ) {
+      return res.status(400).json({ message: "Invalid sender or receiver Id" });
+    }
+
+    const { limit = 50, skip = 0 } = req.query;
+
+    const filters = {
+      $or: [
+        { senderId: userId, receiverId: withUserId },
+        { senderId: withUserId, receiverId: userId },
+      ],
+    };
+
+    const messages = await Message.find(filters)
+      .sort({ sentAt: -1 }) // ascending
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    if ((!messages || messages.length == 0) && skip == 0) {
+      return res.status(200).json({
+        message: "No message exists",
+        data: [],
+      });
+    }
+
+    messages.reverse();
+
+    return res.status(200).json({
+      data: messages,
+    });
+  } catch (error) {
+    console.error("❌ Failed to fetch messages:", error);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
+// add note to order
+const addNoteToOrder = async (req, res) => {
+  try {
+    const orderId = req.params.id;
+    const { note } = req.body;
+    if (!note) {
+      return res.status(400).json({ message: "Note field required" });
+    }
+    if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+      return res.status(400).json({ message: "Invalid order id" });
+    }
+
+    const order = await Order.findById(orderId).select("disputeDetails");
+    if (!order) {
+      return res.status(404).json({ message: "No Order found" });
+    }
+
+    if (!order.disputeDetails) {
+      order.disputeDetails = {
+        notes: note,
+      };
+      await order.save();
+    } else if (order.disputeDetails?.notes != note) {
+      order.disputeDetails.notes = note;
+      await order.save();
+    }
+
+    return res.status(200).json({ message: "Note added to order" });
+  } catch (err) {
+    console.log("❌ Error adding note: ", err);
+    return res.status(500).json({ message: "Error adding note", err });
+  }
+};
+
+// complete disputed order
+const completeDisputedOrder = async (req, res) => {
+  const mongooseSession = await mongoose.startSession();
+  mongooseSession.startTransaction();
+  try {
+    const orderId = req.params.id;
+    if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+      return abortSessionWithMessage(res, mongooseSession, "Invalid order ID");
+    }
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return abortSessionWithMessage(
+        res,
+        mongooseSession,
+        "Order not found",
+        404
+      );
+    }
+
+    if (order.status != "disputed") {
+      return abortSessionWithMessage(
+        res,
+        mongooseSession,
+        "This order is not a disputed order"
+      );
+    }
+
+    //  validate transaction
+    const transaction = await TRANSACTION.findById(order.transactionId);
+    if (!transaction || !transaction.orderDeatils) {
+      return abortSessionWithMessage(
+        res,
+        mongooseSession,
+        "Transaction not found",
+        404
+      );
+    }
+
+    if (transaction.orderDeatils.status != "escrow_held") {
+      return abortSessionWithMessage(
+        res,
+        mongooseSession,
+        "No Payment Held for this order"
+      );
+    }
+
+    // validate freelancer
+    const freelancer = await FREELANCER.findById(order.freelancerId);
+    if (!freelancer || !freelancer.stripeAccountId) {
+      return abortSessionWithMessage(
+        res,
+        mongooseSession,
+        "Freelancer or Stripe account not found",
+        404
+      );
+    }
+
+    // Create a pending payout record (delay 7 days)
+    const releaseDate = new Date();
+    releaseDate.setDate(releaseDate.getDate() + 7);
+
+    const pendingPayout = new PENDING_PAYOUT({
+      freelancerId: freelancer._id,
+      stripeAccountId: freelancer.stripeAccountId,
+      amount: transaction.orderDeatils.amountToBePaid,
+      transferGroup: `order_${order._id}`,
+      releaseDate,
+      orderId: order._id,
+      transactionId: transaction._id,
+    });
+
+    // update paymet of freelancer
+    freelancer.pendingClearence =
+      freelancer.pendingClearence + transaction.orderDeatils.amountToBePaid;
+    freelancer.projectsCompleted = freelancer.projectsCompleted + 1;
+    await freelancer.save({ session: mongooseSession });
+
+    // mark order as completed
+    order.status = "completed";
+    order.disputeDetails.resolutionStatus = "resolved_in_favor_freelancer";
+    order.completionDate = new Date();
+
+    // update employer if employer
+    const employer = await EMPLOYER.findById(order.employerId);
+    if (employer) {
+      employer.ordersCompleted = employer.ordersCompleted + 1;
+      await employer.save({ session: mongooseSession });
+    }
+
+    await pendingPayout.save({ session: mongooseSession });
+    await order.save({ session: mongooseSession });
+
+    await mongooseSession.commitTransaction();
+    mongooseSession.endSession();
+
+    return res.status(200).json({
+      message: "Order marked as complete. Payout scheduled after 7 days.",
+      success: true,
+    });
+  } catch (err) {
+    console.log("❌ Error completing a disputed order: ", err);
+    await mongooseSession.abortTransaction();
+    mongooseSession.endSession();
+    return res
+      .status(500)
+      .json({ message: "Error completing a disputed order", err });
+  }
+};
+
+// cancel disputed order
+const cancelDisputedOrder = async (req, res) => {
+  const mongooseSession = await mongoose.startSession();
+  mongooseSession.startTransaction();
+  try {
+    const orderId = req.params.id;
+    if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+      return abortSessionWithMessage(res, mongooseSession, "Invalid order ID");
+    }
+
+    const order = await Order.findById(orderId).populate(
+      "employerId",
+      "_id fullName email"
+    );
+    if (!order) {
+      return abortSessionWithMessage(
+        res,
+        mongooseSession,
+        "Order not found",
+        404
+      );
+    }
+
+    if (order.status != "disputed") {
+      return abortSessionWithMessage(
+        res,
+        mongooseSession,
+        "This order is not a disputed order"
+      );
+    }
+
+    //  validate transaction
+    const transaction = await TRANSACTION.findById(order.transactionId);
+    if (!transaction || !transaction.orderDeatils) {
+      return abortSessionWithMessage(
+        res,
+        mongooseSession,
+        "Transaction not found",
+        404
+      );
+    }
+
+    if (transaction.orderDeatils.status != "escrow_held") {
+      return abortSessionWithMessage(
+        res,
+        mongooseSession,
+        "No Payment Held for this order"
+      );
+    }
+
+    if (!transaction.orderDeatils.stripeIntentId) {
+      return abortSessionWithMessage(
+        res,
+        mongooseSession,
+        "No Payment intent attached with order"
+      );
+    }
+
+    // create stripe refund
+    // const refund = await createRefund(transaction.orderDeatils.stripeIntentId);
+
+    // create refund
+    const refund = new REFUND({
+      orderId: order.id,
+      receiverId: order.employerId,
+      receiverModel: order.employerModel,
+      receiverName: order.employerId?.fullName,
+      receiverEmail: order.employerId?.email,
+      transactionId: transaction._id,
+    });
+
+    // mark order as cancelled
+    order.status = "cancelled";
+    order.disputeDetails.resolutionStatus = "resolved_in_favor_employer";
+    order.disputeDetails.refundId = refund.id;
+    order.completionDate = new Date();
+
+    // update employer if employer
+    const employer = await EMPLOYER.findById(order.employerId);
+    if (employer) {
+      employer.ordersCancelled = employer.ordersCancelled + 1;
+      await employer.save({ session: mongooseSession });
+    }
+
+    await order.save({ session: mongooseSession });
+    await refund.save({ session: mongooseSession });
+
+    await mongooseSession.commitTransaction();
+    mongooseSession.endSession();
+
+    return res.status(200).json({
+      message: "Order marked as cancelled. Refund is created.",
+      success: true,
+    });
+  } catch (err) {
+    console.log("❌ Error completing a disputed order: ", err);
+    await mongooseSession.abortTransaction();
+    mongooseSession.endSession();
+    return res
+      .status(500)
+      .json({ message: "Error completing a disputed order", err });
+  }
+};
+
+// get refunds
+const getRefunds = async (req, res) => {
+  try {
+    const { text, status, skip = 0, limit = 10 } = req.query;
+
+    const filter = {};
+    if (status && status != "") {
+      filter.status = status;
+    }
+    if (text && text != "") {
+      if (mongoose.Types.ObjectId.isValid(text)) {
+        filter.orderId = new mongoose.Types.ObjectId(text);
+      } else {
+        filter.$or = [
+          { receiverName: { $regex: text, $options: "i" } },
+          { receiverEmail: { $regex: text, $options: "i" } },
+        ];
+      }
+    }
+
+    const [refunds, total] = await Promise.all([
+      REFUND.find(filter)
+        .select("_id orderId receiverName receiverEmail status requestedDate")
+        .populate("orderId", "disputeDetails.reason totalAmount")
+        .sort({ createdAt: -1 })
+        .skip(Number(skip))
+        .limit(Number(limit)),
+      REFUND.countDocuments(filter),
+    ]);
+
+    const transformed = refunds.map((e) => ({
+      _id: e._id,
+      orderId: e.orderId._id,
+      receiverName: e.receiverName,
+      receiverEmail: e.receiverEmail,
+      status: e.status,
+      requestedDate: e.requestedDate,
+      reason: e.orderId.disputeDetails.reason,
+      totalAmount: e.orderId.totalAmount,
+    }));
+
+    return res.status(200).json({
+      refunds: transformed,
+      total,
+      skip: Number(skip),
+      limit: Number(limit),
+    });
+  } catch (err) {
+    console.log("❌ Error getting  refunds details: ", err);
+    return res
+      .status(500)
+      .json({ message: "error getting refunds details", err });
+  }
+};
+
+// reject refund
+const rejectRefunds = async (req, res) => {
+  try {
+    const refundId = req.params?.id;
+    if (!refundId || !mongoose.Types.ObjectId.isValid(refundId)) {
+      return res.status(400).json({ message: "Invalid refund id" });
+    }
+
+    const refund = await REFUND.findById(refundId);
+    if (!refund) {
+      return res.status(404).json({ message: "Not found" });
+    }
+
+    if (refund.status == "rejected") {
+      return res
+        .status(400)
+        .json({ message: "This refund is already rejected" });
+    }
+
+    if (refund.status != "pending") {
+      return res
+        .status(400)
+        .json({ message: "Only pending refunds can be rejected" });
+    }
+
+    refund.status = "rejected";
+    refund.completionOrCancelDate = new Date();
+    await refund.save();
+
+    return res.status(200).json({
+      message: "Refund rejected successfully",
+    });
+  } catch (err) {
+    console.log("❌ Error rejecting refund: ", err);
+    return res.status(500).json({ message: "Error rejecting refund", err });
+  }
+};
+
+// approve refund
+const approveRefunds = async (req, res) => {
+  try {
+    const refundId = req.params?.id;
+    if (!refundId || !mongoose.Types.ObjectId.isValid(refundId)) {
+      return res.status(400).json({ message: "Invalid refund id" });
+    }
+
+    const refund = await REFUND.findById(refundId).populate(
+      "transactionId",
+      "orderDeatils.stripeIntentId"
+    );
+    if (!refund) {
+      return res.status(404).json({ message: "Not found" });
+    }
+
+    if (refund.status == "approved") {
+      return res
+        .status(400)
+        .json({ message: "This refund is already approved" });
+    }
+
+    if (refund.status != "pending") {
+      return res
+        .status(400)
+        .json({ message: "Only pending refunds can be approved" });
+    }
+
+    // console.log("Refund: ", refund);
+
+    if (!refund.transactionId) {
+      return res.status(404).json({ message: "Order transaction not found" });
+    }
+
+    if (!refund.transactionId?.orderDeatils?.stripeIntentId) {
+      return res
+        .status(400)
+        .json({ message: "No intent for payment found in order transaction" });
+    }
+
+    // create a refund
+    const stripeRefund = await createRefund(
+      refund.transactionId?.orderDeatils?.stripeIntentId
+    );
+
+    refund.status = "approved";
+    refund.completionOrCancelDate = new Date();
+    refund.stripeRefundId = stripeRefund.id;
+    await refund.save();
+
+    return res.status(200).json({
+      message: "Refund approved successfully",
+    });
+  } catch (err) {
+    console.log("❌ Error approving refund: ", err);
+    return res.status(500).json({ message: "Error approving refund", err });
+  }
+};
+
 export {
   createAdminAccount,
   loginAdminAccount,
@@ -853,4 +1483,14 @@ export {
   getFreelancerStats,
   getFreelancers,
   changeFreelancerBadge,
+  orderStats,
+  getOrdersWithPartiesData,
+  markOrderAsDisputed,
+  getMessagesByUsers,
+  addNoteToOrder,
+  completeDisputedOrder,
+  cancelDisputedOrder,
+  getRefunds,
+  rejectRefunds,
+  approveRefunds
 };

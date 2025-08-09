@@ -10,6 +10,7 @@ import Offer from "../database/models/offers.model.js";
 import Job from "../database/models/jobs.model.js";
 import PlatformSettings from "../database/models/palteform.model.js";
 import PENDING_PAYOUT from "../database/models/pendingPayout.model.js";
+import { notifyUser } from "../controllers/notification.controller.js";
 
 dotenv.config();
 
@@ -40,14 +41,22 @@ const createStripeExpressAcount = async ({
 
   // Create the account with appropriate settings
   const account = await stripe.accounts.create({
-    type: "express",
+    type: "custom",
     country: country,
     email: email,
     business_type,
     capabilities,
     individual,
+    settings: {
+      payouts: {
+        schedule: {
+          interval: "manual", // Disable automatic payouts
+        },
+        debit_negative_balances: false, // Optional: Prevent overdrafts
+      },
+    },
     tos_acceptance: {
-      // ...tos_acceptance,
+      ...tos_acceptance,
       service_agreement: needsRecipientAgreement ? "recipient" : "full",
     },
   });
@@ -140,8 +149,20 @@ const getStripeAccountbyId = async (stripeAccountId) => {
 };
 
 const generateStipeLoginLink = async (stripeAccountId) => {
-  const link = await stripe.accounts.createLoginLink(stripeAccountId);
-  return link;
+  // const link = await stripe.accounts.createLoginLink(stripeAccountId);
+  // return link;
+
+  // Example for Custom account to update bank details
+  const accountLink = await stripe.accountLinks.create({
+    account: stripeAccountId,
+    refresh_url: process.env.STRIPE_REFRESH_URL,
+    return_url: process.env.STRIPE_RETURN_URL,
+    type: "account_update",
+    collect: "currently_due",
+  });
+  return accountLink;
+
+  // Redirect your user to accountLink.url
 };
 
 const generateStripeCheckoutSubscription = async (
@@ -564,7 +585,7 @@ const stripeWebhook = async (req, res) => {
 
         try {
           // Update offer status
-          await Offer.findByIdAndUpdate(
+          const offer = await Offer.findByIdAndUpdate(
             offerId,
             { status: "accepted" },
             { session: mongooseSession }
@@ -580,11 +601,11 @@ const stripeWebhook = async (req, res) => {
           }
 
           // Update order status
-          await Order.findByIdAndUpdate(
+          const order = await Order.findByIdAndUpdate(
             orderId,
             { status: "in_progress" },
             { session: mongooseSession }
-          );
+          ).populate("employerId", "fullName");
 
           // Update transaction record
           const aa = await TRANSACTION.findByIdAndUpdate(
@@ -599,10 +620,19 @@ const stripeWebhook = async (req, res) => {
             { session: mongooseSession }
           );
 
+          await notifyUser(
+            {
+              userId: freelancerId,
+              title: "Offer Accepted",
+              message: offer.title,
+              from: order.employerId?.fullName || "untitled",
+            },
+            mongooseSession
+          );
+
           await mongooseSession.commitTransaction();
           mongooseSession.endSession();
-          console.log("ok: ", session);
-          console.log("trasba ", aa);
+
           return res.status(200).json({ received: true });
         } catch (err) {
           await mongooseSession.abortTransaction();
@@ -615,7 +645,6 @@ const stripeWebhook = async (req, res) => {
       // Handle bonus/tip on order
       else if (purpose === "order-bonus") {
         const { freelancerId, orderId, amount } = metadata;
-        console.log("metadata: ", metadata);
 
         if (!amount) {
           return res.status(200).json({
@@ -762,7 +791,7 @@ const stripeWebhook = async (req, res) => {
     }
 
     if (event.type === "invoice.payment_succeeded") {
-      console.log("Invoice created")
+      console.log("Invoice created");
       const invoice = event.data.object;
       if (invoice.billing_reason === "subscription_create") {
         console.log("📦 Skipping initial subscription creation invoice");
@@ -949,7 +978,7 @@ const getTotalIncomeAndMonthlyChange = async () => {
 
     return {
       totalIncome: totalIncome,
-      percentChange,
+      percentChange: percentChange.toFixed(2),
     };
   } catch (err) {
     console.log("Error calculation payments: ", err);
@@ -1123,6 +1152,24 @@ const cancelStripeSubscription = async (subId) => {
   return canceledSubscription;
 };
 
+const createRefund = async (intentId) => {
+  // const paymentIntent = await stripe.paymentIntents.retrieve(intentId);
+  // console.log("intent for refund: ", paymentIntent)
+  // const chargeId = paymentIntent.charges.data[0].id;
+  const refund = await stripe.refunds.create({
+    payment_intent: intentId,
+  });
+  return refund;
+};
+
+const createStripePayout = async (amount, accountId) => {
+  const payout = await stripe.payouts.create(
+    { amount: Math.round(amount * 100), currency: "usd" },
+    { stripeAccount: accountId }
+  );
+  return payout;
+};
+
 export {
   createStripeExpressAcount,
   generateOnBoardingAccountLink,
@@ -1155,4 +1202,6 @@ export {
   createStripeSubscription2,
   retriveSubscription,
   cancelStripeSubscription,
+  createRefund,
+  createStripePayout,
 };

@@ -2,8 +2,10 @@ import mongoose from "mongoose";
 import {
   cancelStripeSubscription,
   createStripePaymentIntent,
+  createStripePayout,
   createStripeTransferToPlatform,
   findOrCreateCustomer,
+  getStripeAccountbyId,
   getStripeBalanceByAccountId,
   getTotalIncomeAndMonthlyChange,
   retriveStripePaymentIntent,
@@ -775,8 +777,120 @@ const createPaymentIntents = async (req, res) => {
   }
 };
 
+// check freelancer account status for payout
+const checkFreelancerPayoutSattus = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid user id" });
+    }
+    const user = await FREELANCER.findById(userId);
+    if (!user || !user.stripeAccountId) {
+      return res.status(400).json({
+        message: "Stripe account not connected.",
+      });
+    }
+
+    // Fetch Stripe account info
+    const account = await getStripeAccountbyId(user.stripeAccountId);
+
+    // Check if payouts are enabled
+    const enabled = account.payouts_enabled;
+
+    // Available payout methods from external accounts
+    const methods = [];
+    if (account.external_accounts?.data?.length) {
+      for (const acc of account.external_accounts.data) {
+        if (acc.object === "bank_account") {
+          methods.push({
+            id: acc.id,
+            type: "bank_account",
+            details: `**** ${acc.last4} (${acc.bank_name})`,
+          });
+        } else if (acc.object === "card") {
+          methods.push({
+            id: acc.id,
+            type: "card",
+            details: `**** ${acc.last4} (${acc.brand})`,
+          });
+        }
+      }
+    }
+
+    return res.json({ enabled, methods });
+  } catch (err) {
+    console.error("Error fetching payout status:", err);
+    return res.status(500).json({
+      message: "Failed to fetch payout info.",
+    });
+  }
+};
+
+// create freelancer payout
+const createFreelancerPayout = async (req, res) => {
+  try {
+    const { amount } = req.body;
+    const userId = req.user?._id;
+
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid user id" });
+    }
+
+    if (!amount || isNaN(amount) || amount <= 0) {
+      return res.status(400).json({
+        message: "Invalid payout amount.",
+      });
+    }
+
+    const user = await FREELANCER.findById(userId);
+    if (!user || !user.stripeAccountId) {
+      return res.status(400).json({
+        message: "Stripe account not connected.",
+      });
+    }
+
+    // check how much user can withdraw
+    if (amount > user.currentBalance) {
+      return res.status(400).json({
+        message: "Stripe account not connected.",
+      });
+    }
+
+    // Ensure payouts are enabled
+    const account = await getStripeAccountbyId(user.stripeAccountId);
+    if (!account.payouts_enabled) {
+      return res.status(400).json({
+        error: { message: "Payouts are not enabled for this account." },
+      });
+    }
+
+    // Stripe amounts are in cents
+    const payout = await createStripePayout(amount, user.stripeAccountId);
+
+    // Optional: Store in DB
+    user.payoutHistory.push({
+      amount,
+      stripePayoutId: payout.id,
+      status: payout.status,
+      createdAt: new Date(),
+    });
+    user.currentBalance = user.currentBalance - amount;
+    await user.save();
+
+    return res.json({ message: "Payout created successfully", payout });
+  } catch (err) {
+    console.error("Error creating payout:", err);
+    return res.status(500).json({
+      error: { message: err?.raw?.message || "Failed to create payout." },
+    });
+  }
+};
+
 export {
   calculateTotalSubscriptionEarning,
   createPaymentIntents,
   cancelAutoRenewl,
+  checkFreelancerPayoutSattus,
+  createFreelancerPayout
 };

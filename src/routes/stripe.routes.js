@@ -6,6 +6,8 @@ import a from "../utils/a.js";
 import {
   calculateTotalSubscriptionEarning,
   cancelAutoRenewl,
+  checkFreelancerPayoutSattus,
+  createFreelancerPayout,
   createPaymentIntents,
 } from "../controllers/stripe.controller.js";
 
@@ -18,6 +20,13 @@ const StripeRouter = Router();
 //   a(calculateTotalSubscriptionEarning)
 // );
 
+StripeRouter.get(
+  "/freelancer-account-status",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["freelancer"]),
+  a(checkFreelancerPayoutSattus)
+);
+
 StripeRouter.post("/verify-session", verifyStripeSession);
 
 StripeRouter.post(
@@ -26,11 +35,16 @@ StripeRouter.post(
   roleBasedAuthMiddleware(["employer"]),
   a(cancelAutoRenewl)
 );
-
 StripeRouter.post(
   "/create-intent",
   verifyTokenMiddleware(),
   createPaymentIntents
+);
+StripeRouter.post(
+  "/freelancer-payout",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["freelancer"]),
+  a(createFreelancerPayout)
 );
 
 export default StripeRouter;

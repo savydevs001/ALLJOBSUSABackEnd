@@ -2,6 +2,8 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import os from "os";
+import path from "path";
+import fs from "fs";
 
 // utils
 import errorHandlerMiddleware from "./middlewares/errorHandler.middleware.js";
@@ -38,6 +40,8 @@ import SupportRouter from "./routes/support.routes.js";
 dotenv.config();
 
 const FRONTEND_URL = process.env.FRONTEND_URL;
+const BACKEND_URL = process.env.BACKEND_URL;
+const PUBLIC_PATH = path.join(process.cwd(), "src/public");
 const app = express();
 
 // Stripe webhook
@@ -84,6 +88,35 @@ app.use("/contact", ContactRouter);
 // admin routes
 app.use("/admin", AdminRouter);
 app.use("/plateform", PlateformRouter);
+
+// download file
+app.get("/download", (req, res) => {
+  const fileUrl = req.query?.fileurl;
+  const fileName = req.query?.filename;
+  if (!fileUrl) {
+    return res.status(404).json({ message: "No File url" });
+  }
+  if (!fileName) {
+    return res.status(404).json({ message: "No File name" });
+  }
+  const splittedUrl = fileUrl.split(BACKEND_URL);
+  if (splittedUrl.length < 2) {
+    return res.status(400).json({ message: "Invalid File url" });
+  }
+  const filePath = path.join(PUBLIC_PATH, splittedUrl[1]);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).send("File not found");
+  }
+
+  res.download(filePath, fileName, (err) => {
+    if (err) {
+      console.error("Download error:", err);
+      if (!res.headersSent) {
+        res.status(500).send("Error downloading file");
+      }
+    }
+  });
+});
 
 // End Middlewares
 app.use(errorHandlerMiddleware);

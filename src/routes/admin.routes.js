@@ -1,17 +1,27 @@
 import { Router } from "express";
 import {
+  addNoteToOrder,
   adminDashboardData,
+  approveRefunds,
+  cancelDisputedOrder,
   changeFreelancerBadge,
+  completeDisputedOrder,
   createAdminAccount,
   getFreelancers,
   getFreelancerStats,
   getJobs,
   getJobsStats,
+  getMessagesByUsers,
   getMonthlyJobStats,
+  getOrdersWithPartiesData,
+  getRefunds,
   getTotalUserStats,
   getTrendingJobs,
   getUsers,
   loginAdminAccount,
+  markOrderAsDisputed,
+  orderStats,
+  rejectRefunds,
 } from "../controllers/admin.controller.js";
 import verifyTokenMiddleware from "../middlewares/verifyToken.middleware.js";
 import roleBasedAuthMiddleware from "../middlewares/roleBasedAuth.middleware.js";
@@ -73,9 +83,70 @@ AdminRouter.get(
   roleBasedAuthMiddleware(["admin"]),
   a(getFreelancers)
 );
+AdminRouter.get(
+  "/order-stats",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["admin"]),
+  a(orderStats)
+);
+AdminRouter.get(
+  "/orders",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["admin"]),
+  a(getOrdersWithPartiesData)
+);
+AdminRouter.get(
+  "/messages",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["admin"]),
+  a(getMessagesByUsers)
+);
+AdminRouter.get(
+  "/refunds",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["admin"]),
+  a(getRefunds)
+);
+AdminRouter.get(
+  "/refunds/:id/reject",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["admin"]),
+  a(rejectRefunds)
+);
+AdminRouter.get(
+  "/refunds/:id/approve",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["admin"]),
+  a(approveRefunds)
+);
+
 
 AdminRouter.post("/signup", createAdminAccount);
 AdminRouter.post("/signin", loginAdminAccount);
+AdminRouter.post(
+  "/orders/:id/mark-disputed",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["admin"]),
+  a(markOrderAsDisputed)
+);
+AdminRouter.post(
+  "/orders/:id/note",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["admin"]),
+  a(addNoteToOrder)
+);
+AdminRouter.post(
+  "/orders/:id/complete",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["admin"]),
+  a(completeDisputedOrder)
+);
+AdminRouter.post(
+  "/orders/:id/cancel",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["admin"]),
+  a(cancelDisputedOrder)
+);
 
 AdminRouter.put(
   "/freelancers/change-badge",

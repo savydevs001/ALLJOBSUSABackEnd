@@ -30,9 +30,10 @@ const attachedFileSchema = new Schema(
 // Dispute Details Sub-schema
 const disputeSchema = new Schema(
   {
-    raisedBy: { type: Types.ObjectId, ref: "User", required: true },
-    reason: { type: String, required: true },
+    reason: String,
+    notes: String,
     raisedAt: { type: Date, default: Date.now },
+    refundId: String, // in case if resolved in favour of employer
     resolutionStatus: {
       type: String,
       enum: [
@@ -94,12 +95,7 @@ const orderSchema = new Schema(
 
     // milestones: [milestoneSchema],
 
-    disputeDetails: {
-      type: disputeSchema,
-      required: function () {
-        return this.status === "disputed";
-      },
-    },
+    disputeDetails: disputeSchema,
 
     attachedFiles: [attachedFileSchema],
 

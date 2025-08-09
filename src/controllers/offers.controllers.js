@@ -12,6 +12,7 @@ import EMPLOYER from "../database/models/employers.model.js";
 import sendEmail from "../services/emailSender.js";
 import enqueueEmail from "../services/emailSender.js";
 import JOBSEEKER from "../database/models/job-seeker.model.js";
+import { notifyUser } from "./notification.controller.js";
 
 function getTotalYearsWorkedWithMerging(employers) {
   if (!Array.isArray(employers)) return 0;
@@ -191,6 +192,16 @@ const createOffer = async (req, res, next) => {
 
       user.profile.jobActivity.applicationsSent =
         (user.profile?.jobActivity?.applicationsSent || 0) + 1;
+
+      await notifyUser(
+        {
+          userId: employerId,
+          title: "New Offer received",
+          message: offer.title,
+          from: user.fullName,
+        },
+        session
+      );
 
       await offer.save({ session });
       if (job) await job.save({ session });

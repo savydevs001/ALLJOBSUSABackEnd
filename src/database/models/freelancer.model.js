@@ -9,6 +9,16 @@ const resumeOrCoverSchema = mongoose.Schema(
   { _id: false }
 );
 
+const payoutSchema = new mongoose.Schema(
+  {
+    amount: Number,
+    stripePayoutId: String,
+    status: String,
+    createdAt: Date,
+  },
+  { _id: false }
+);
+
 const freelancerSchema = mongoose.Schema(
   {
     fullName: { type: String, required: true },
@@ -37,6 +47,7 @@ const freelancerSchema = mongoose.Schema(
     currentBalance: { type: Number, default: 0 },
     pendingClearence: { type: Number, default: 0 },
     tip: { type: Number, default: 0 },
+    payoutHistory: [payoutSchema],
 
     // resume and cover
     canDownloadResume: { type: Boolean, default: false },

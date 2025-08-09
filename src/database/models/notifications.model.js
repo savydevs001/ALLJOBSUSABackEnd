@@ -4,24 +4,11 @@ const { Schema, model, Types } = mongoose;
 
 const notificationSchema = new Schema(
   {
-    userId: { type: Types.ObjectId, ref: "User", required: true },
+    userId: String,
 
-    type: {
-      type: String,
-      enum: [
-        "job_application_status",
-        "offer_accepted",
-        "payment_update",
-        "chat_message",
-        "system_announcement",
-      ],
-      required: true,
-    },
-
+    title: { type: String, required: true },
     message: { type: String, required: true },
-
-    relatedEntityId: { type: Types.ObjectId }, // Can be jobId, offerId, etc.
-
+    from: String, // name of sender
     read: { type: Boolean, default: false },
 
     createdAt: {

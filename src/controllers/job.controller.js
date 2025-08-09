@@ -1,8 +1,6 @@
 import { z } from "zod";
 import Job from "../database/models/jobs.model.js";
-import User from "../database/models/users.model.js";
 import mongoose, { mongo } from "mongoose";
-import { notifyUser, NotificationTypes } from "./notification.controller.js";
 import FREELANCER from "../database/models/freelancer.model.js";
 import EMPLOYER from "../database/models/employers.model.js";
 import getDateNDaysFromNow from "../utils/date-and-days.js";

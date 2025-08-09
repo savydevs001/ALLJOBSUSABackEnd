@@ -27,17 +27,27 @@ const storage = multer.diskStorage({
 });
 
 const allowedTypes = [
+  // Images
   "image/jpeg",
   "image/jpg",
   "image/png",
+
+  // Archives
   "application/zip",
   "application/x-zip-compressed", // Windows-specific ZIP
   "multipart/x-zip",              // Some other ZIP
   "application/x-rar-compressed",
   "application/vnd.rar",          // Alternate RAR MIME
+
+  // Documents
   "application/pdf",
   "application/msword",           // .doc
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+
+  // Videos
+  "video/mp4",                    // Most common web format
+  "video/quicktime",              // .mov
+  "video/x-msvideo",              // .avi
 ];
 
 

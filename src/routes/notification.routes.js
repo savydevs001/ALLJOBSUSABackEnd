@@ -4,11 +4,13 @@ import verifyTokenMiddleware from "../middlewares/verifyToken.middleware.js";
 import {
   getAllNotifications,
   getNotificationById,
+  getNotificationCountById,
 } from "../controllers/notification.controller.js";
 
 const NotificationRouter = Router();
 
 NotificationRouter.get("/all", verifyTokenMiddleware(), a(getAllNotifications));
+NotificationRouter.get("/count", verifyTokenMiddleware(), a(getNotificationCountById));
 NotificationRouter.get("/:id", verifyTokenMiddleware(), a(getNotificationById));
 
 export default NotificationRouter;
