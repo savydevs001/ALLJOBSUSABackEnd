@@ -16,7 +16,7 @@ SupportRouter.get("/ticket", verifyTokenMiddleware(), a(getSupportTicket));
 SupportRouter.get(
   "/all",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["admin"]),
+  roleBasedAuthMiddleware(["admin", "manager"]),
   a(getAllSupportThreads)
 );
 

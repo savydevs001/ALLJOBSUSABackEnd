@@ -19,21 +19,21 @@ TestimonialRouter.get("/:id", a(getTestimonialById));
 TestimonialRouter.post(
   "/",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["admin"]),
+  roleBasedAuthMiddleware(["admin", "manager"]),
   a(createTestimonial)
 );
 
 TestimonialRouter.put(
   "/:id",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["admin"]),
+  roleBasedAuthMiddleware(["admin", "manager"]),
   a(updateTestimonial)
 );
 
 TestimonialRouter.delete(
   "/:id",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["admin"]),
+  roleBasedAuthMiddleware(["admin", "manager"]),
   a(deleteTestimonial)
 );
 

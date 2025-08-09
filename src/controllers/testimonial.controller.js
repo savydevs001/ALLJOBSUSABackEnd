@@ -35,7 +35,7 @@ const createTestimonial = async (req, res) => {
 const getAllTestimonials = async (req, res) => {
   try {
     let filter = { status: "published" };
-    if (req.user && req.user.role === "admin") {
+    if (req.user && ["admin", "manager"].includes(req.user?.role)) {
       filter = {};
     }
 

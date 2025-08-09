@@ -48,6 +48,8 @@ const initSocket = (httpServer) => {
         ? "job-seeker"
         : socket.user?.role == "admin"
         ? "admin"
+        : socket?.user.role == "manager"
+        ? "manager"
         : "";
 
     if (
@@ -143,7 +145,7 @@ const initSocket = (httpServer) => {
           const details = {
             ticketId: ticketId,
             message,
-            seen: true
+            seen: true,
           };
           if (fileName && fileUrl) {
             details.attachments = {
@@ -183,7 +185,7 @@ const initSocket = (httpServer) => {
             io.to(receiver.socketId).emit("support-message", supportMessage);
             console.log("sent to reciver");
           } else {
-            if (role != "admin") {
+            if (!["admin", "manager"].includes(role)) {
               supportMessage.seen = false;
               await supportMessage.save();
             }

@@ -225,7 +225,7 @@ const createJob = async (req, res) => {
 const getJobById = async (req, res) => {
   try {
     const jobId = req.params.id;
-    console.log("Job Id :", jobId);
+
     if (!mongoose.Types.ObjectId.isValid(jobId)) {
       return res.status(400).json({ message: "Invalid Job!" });
     }
@@ -285,7 +285,7 @@ const getAllJobs = async (req, res) => {
     if (status && status !== "expired") {
       filters.status = status;
     } else {
-      if (req.user?.role !== "admin") {
+      if (!["admin", "manager"].includes(req.user?.role)) {
         filters.status = "active";
       }
     }

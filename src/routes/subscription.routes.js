@@ -21,7 +21,7 @@ SubscriptionRouter.get(
 SubscriptionRouter.get(
   "/profile-subscriptions",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["employer", "admin"]),
+  roleBasedAuthMiddleware(["employer", "admin", "manager"]),
   getALlProfileSubsriptions
 );
 
@@ -35,14 +35,14 @@ SubscriptionRouter.get(
 SubscriptionRouter.post(
   "/",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["admin"]),
+  roleBasedAuthMiddleware(["admin", "manager"]),
   createSubscription
 );
 
 SubscriptionRouter.put(
   "/profile-subscriptions",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["admin"]),
+  roleBasedAuthMiddleware(["admin", "manager"]),
   updateProfileSubscriptions
 );
 

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Notification from "../database/models/notifications.model.js";
 
 const notifyUser = async (
@@ -6,7 +7,7 @@ const notifyUser = async (
 ) => {
   try {
     const notification = new Notification({
-      userId,
+      userId: userId.toString(),
       title,
       message,
       from,
@@ -69,14 +70,11 @@ const getNotificationById = async (req, res) => {
     const userId = req.user?._id;
     const notificationId = req.params.id;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
+    if (!mongoose.Types.ObjectId.isValid(notificationId)) {
       return res.status(400).json({ message: "Invalid notification ID" });
     }
 
-    const notification = await Notification.findOne({
-      _id: notificationId,
-      userId,
-    });
+    const notification = await Notification.findById(notificationId);
 
     if (!notification) {
       return res.status(404).json({ message: "Notification not found" });
@@ -108,8 +106,8 @@ const getNotificationCountById = async (req, res) => {
   try {
     const userId = req.user?._id;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: "Invalid notification ID" });
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid user ID" });
     }
 
     const notifications = await Notification.countDocuments({

@@ -11,6 +11,6 @@ const NotificationRouter = Router();
 
 NotificationRouter.get("/all", verifyTokenMiddleware(), a(getAllNotifications));
 NotificationRouter.get("/count", verifyTokenMiddleware(), a(getNotificationCountById));
-NotificationRouter.get("/:id", verifyTokenMiddleware(), a(getNotificationById));
+NotificationRouter.get("/:id/mark-read", verifyTokenMiddleware(), a(getNotificationById));
 
 export default NotificationRouter;

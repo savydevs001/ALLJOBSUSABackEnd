@@ -3,7 +3,8 @@ import verifyTokenMiddleware from "../middlewares/verifyToken.middleware.js";
 import {
   getConversations,
   getMessagesWithProfile,
-  getUnreadMessageCount,
+  getTotalUnseenMessages,
+  // getUnreadMessageCount,
 } from "../controllers/message.controller.js";
 import a from "../utils/a.js";
 
@@ -14,7 +15,7 @@ MessageRouter.get(
   verifyTokenMiddleware(),
   a(getConversations)
 );
-MessageRouter.get("/count", verifyTokenMiddleware(), a(getUnreadMessageCount));
+MessageRouter.get("/count", verifyTokenMiddleware(), a(getTotalUnseenMessages));
 MessageRouter.get("/:id", verifyTokenMiddleware(), a(getMessagesWithProfile));
 
 export default MessageRouter;

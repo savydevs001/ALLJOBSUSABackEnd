@@ -13,7 +13,7 @@ LegalContentRouter.get("/:type", a(getLegalContent));
 LegalContentRouter.post(
   "/:type",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["admin"]),
+  roleBasedAuthMiddleware(["admin", "manager"]),
   a(updateContent)
 );
 

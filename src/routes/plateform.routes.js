@@ -13,7 +13,7 @@ const PlateformRouter = Router();
 PlateformRouter.get(
   "/commission",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["admin"]),
+  roleBasedAuthMiddleware(["admin", "manager"]),
   getPlateformCommission
 );
 PlateformRouter.get("/ad", getHomePageAd);
@@ -21,13 +21,13 @@ PlateformRouter.get("/ad", getHomePageAd);
 PlateformRouter.put(
   "/commission",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["admin"]),
+  roleBasedAuthMiddleware(["admin", "manager"]),
   updatePlateformCommision
 );
 PlateformRouter.put(
   "/ad",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["admin"]),
+  roleBasedAuthMiddleware(["admin", "manager"]),
   setHomePageAd
 );
 

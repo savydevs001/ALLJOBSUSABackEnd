@@ -427,7 +427,7 @@ const getOfferById = async (req, res) => {
       return res.status(404).json({ message: "No Offer found" });
     }
 
-    if (!req.user || req.user.role !== "admin") {
+    if (!req.user || !["admin", "manager"].includes(req.user?.role)) {
       if (
         ![
           offer.senderId._id.toString(),

@@ -37,9 +37,9 @@ const createAdminZODSchema = z.object({
 const createAdminAccount = async (req, res) => {
   const data = createAdminZODSchema.parse(req.body);
   try {
-    const admin = await ADMIN.findOne({ email: data.email });
+    const admin = await ADMIN.find();
 
-    if (admin) {
+    if (admin.length > 1) {
       return res.status(400).json({ message: "Admin already exists" });
     }
 
@@ -620,7 +620,7 @@ const getTrendingJobs = async (req, res) => {
     // Run aggregations in parallel
     const [applicationAgg, offerAgg] = await Promise.all([
       Application.aggregate([
-        { $match: { createdAt: { $gte: fromDate } } },
+        { $match: { createdAt: { $gte: fromDate }, status: "pending" } },
         {
           $group: {
             _id: "$jobId",
@@ -635,6 +635,7 @@ const getTrendingJobs = async (req, res) => {
           $match: {
             createdAt: { $gte: fromDate },
             jobId: { $ne: null },
+            status: "pending",
           },
         },
         {
@@ -1492,5 +1493,5 @@ export {
   cancelDisputedOrder,
   getRefunds,
   rejectRefunds,
-  approveRefunds
+  approveRefunds,
 };

@@ -18,6 +18,7 @@ import Job from "../database/models/jobs.model.js";
 import PlatformSettings from "../database/models/palteform.model.js";
 import PENDING_PAYOUT from "../database/models/pendingPayout.model.js";
 import EMPLOYER from "../database/models/employers.model.js";
+import { notifyUser } from "./notification.controller.js";
 
 const FRONTEND_URL = process.env.FRONTEND_URL;
 
@@ -550,6 +551,25 @@ const markOrderAsComplete = async (req, res) => {
       await employer.save({ session: mongooseSession });
     }
 
+    await notifyUser(
+      {
+        from: "System Message",
+        message: "Order " + order._id + ", completed",
+        title: "Order Completion",
+        userId: order.employerId,
+      },
+      mongooseSession
+    );
+    await notifyUser(
+      {
+        from: "System Message",
+        message: "Order " + order._id + ", completed",
+        title: "Order Completion",
+        userId: order.freelancerId,
+      },
+      mongooseSession
+    );
+
     await pendingPayout.save({ session: mongooseSession });
     await order.save({ session: mongooseSession });
 
@@ -620,6 +640,12 @@ const delieverOrderForRevsions = async (req, res) => {
     }
     order.deliveryDate = new Date();
     await order.save();
+    await notifyUser({
+      userId: order.employerId,
+      title: "Order Deleivered",
+      message: "Your order " + order._id + ",  got delivered",
+      from: freelancer.fullName || "System Message",
+    });
 
     return res.status(200).json({
       message: "Order Pending for revesion",
@@ -701,6 +727,12 @@ const attachNewFilesToOrder = async (req, res) => {
     order.delieveryFiles = [[...(order.delieveryFiles || []), ...tempFile]];
 
     await order.save();
+    await notifyUser({
+      userId: order.employerId,
+      title: "Order Got new Deleivery Filed",
+      message: "Your order " + order._id + ",  got some new files for you",
+      from: "System Message",
+    });
 
     return res.status(200).json({
       message: "Added new files to order",

@@ -33,7 +33,7 @@ orderRouter.get(
 orderRouter.get(
   "/recent-orders",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["admin"]),
+  roleBasedAuthMiddleware(["admin", "manager"]),
   getRecentOrders
 );
 

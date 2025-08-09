@@ -36,6 +36,7 @@ import LegalContentRouter from "./routes/legalContent.routes.js";
 import ContactRouter from "./routes/contact.route.js";
 import ApplicationRouter from "./routes/applications.routes.js";
 import SupportRouter from "./routes/support.routes.js";
+import ManagerRouter from "./routes/manager.routes.js";
 
 dotenv.config();
 
@@ -86,6 +87,7 @@ app.use("/legal", LegalContentRouter);
 app.use("/contact", ContactRouter);
 
 // admin routes
+app.use("/manager", ManagerRouter);
 app.use("/admin", AdminRouter);
 app.use("/plateform", PlateformRouter);
 

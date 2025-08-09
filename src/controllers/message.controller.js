@@ -218,60 +218,87 @@ const getConversations = async (req, res) => {
   }
 };
 
-const getUnreadMessageCount = async (req, res) => {
+// const getUnreadMessageCount = async (req, res) => {
+//   try {
+//     const userId = req.user?._id;
+//     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+//       return res.status(400).json({ message: "Invalid User ID" });
+//     }
+
+//     const result = await Message.aggregate([
+//       {
+//         $match: {
+//           receiverId: userId,
+//           seen: false,
+//         },
+//       },
+//       {
+//         $addFields: {
+//           conversationKey: {
+//             $cond: [
+//               { $gt: ["$senderId", "$receiverId"] },
+//               {
+//                 $concat: [
+//                   { $toString: "$receiverId" },
+//                   "_",
+//                   { $toString: "$senderId" },
+//                 ],
+//               },
+//               {
+//                 $concat: [
+//                   { $toString: "$senderId" },
+//                   "_",
+//                   { $toString: "$receiverId" },
+//                 ],
+//               },
+//             ],
+//           },
+//         },
+//       },
+//       {
+//         $group: {
+//           _id: "$conversationKey", // group by unique conversation
+//         },
+//       },
+//       {
+//         $count: "unreadConversationCount",
+//       },
+//     ]);
+
+//     const count = result[0]?.unreadConversationCount || 0;
+
+//     return res.json({ unreadCount: count });
+//   } catch (err) {
+//     console.error("❌ Failed to get unread conversation count:", err);
+//     return res.status(500).json({ message: "Server Error" });
+//   }
+// };
+
+const getTotalUnseenMessages = async (req, res) => {
   try {
     const userId = req.user?._id;
+
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: "Invalid User ID" });
+      return res.status(400).json({ message: "Invalid user ID" });
     }
 
-    const result = await Message.aggregate([
-      {
-        $match: {
-          receiverId: userId,
-          seen: false,
-        },
-      },
-      {
-        $addFields: {
-          conversationKey: {
-            $cond: [
-              { $gt: ["$senderId", "$receiverId"] },
-              {
-                $concat: [
-                  { $toString: "$receiverId" },
-                  "_",
-                  { $toString: "$senderId" },
-                ],
-              },
-              {
-                $concat: [
-                  { $toString: "$senderId" },
-                  "_",
-                  { $toString: "$receiverId" },
-                ],
-              },
-            ],
-          },
-        },
-      },
-      {
-        $group: {
-          _id: "$conversationKey", // group by unique conversation
-        },
-      },
-      {
-        $count: "unreadConversationCount",
-      },
-    ]);
+    const total = await Message.countDocuments({
+      receiverId: userId,
+      seen: false,
+    });
 
-    const count = result[0]?.unreadConversationCount || 0;
-
-    return res.json({ unreadCount: count });
+    return res.status(200).json({ total });
   } catch (err) {
-    console.error("❌ Failed to get unread conversation count:", err);
-    return res.status(500).json({ message: "Server Error" });
+    console.error("❌ Error getting total unseen messages:", err);
+    return res
+      .status(500)
+      .json({ message: "Error getting unseen messages count" });
   }
 };
 
-export { getMessagesWithProfile, getConversations, getUnreadMessageCount };
+export {
+  getMessagesWithProfile,
+  getConversations,
+  // getUnreadMessageCount,
+  getTotalUnseenMessages,
+};
