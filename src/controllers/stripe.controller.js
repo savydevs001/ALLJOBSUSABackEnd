@@ -844,7 +844,13 @@ const createFreelancerPayout = async (req, res) => {
     }
 
     const user = await FREELANCER.findById(userId);
-    if (!user || !user.stripeAccountId) {
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found!.",
+      });
+    }
+
+    if (!user.stripeAccountId) {
       return res.status(400).json({
         message: "Stripe account not connected.",
       });
@@ -853,7 +859,7 @@ const createFreelancerPayout = async (req, res) => {
     // check how much user can withdraw
     if (amount > user.currentBalance) {
       return res.status(400).json({
-        message: "Stripe account not connected.",
+        message: "Not enough balance",
       });
     }
 
@@ -892,5 +898,5 @@ export {
   createPaymentIntents,
   cancelAutoRenewl,
   checkFreelancerPayoutSattus,
-  createFreelancerPayout
+  createFreelancerPayout,
 };

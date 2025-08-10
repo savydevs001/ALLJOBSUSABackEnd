@@ -97,6 +97,11 @@ const loginAdminAccount = async (req, res) => {
       return res.status(500).json({ message: "Server Error" });
     }
 
+    if (admin.passwordChanged === true) {
+      admin.passwordChanged = false;
+      await admin.save();
+    }
+
     return res.status(201).json({
       message: "Signin successful",
       token,

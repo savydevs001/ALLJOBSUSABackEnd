@@ -724,12 +724,12 @@ const attachNewFilesToOrder = async (req, res) => {
       size: e.size,
       dated: new Date(),
     }));
-    order.delieveryFiles = [[...(order.delieveryFiles || []), ...tempFile]];
+    order.delieveryFiles = [...(order.delieveryFiles || []), ...tempFile];
 
     await order.save();
     await notifyUser({
       userId: order.employerId,
-      title: "Order Got new Deleivery Filed",
+      title: "Order Got New Delivery File(s)",
       message: "Your order " + order._id + ",  got some new files for you",
       from: "System Message",
     });

@@ -6,6 +6,7 @@ const adminSchema = new mongoose.Schema({
     hash: { type: String, required: true },
     salt: { type: String, required: true },
   },
+  passwordChanged: {type: Boolean, default: false}
 });
 
 const ADMIN = mongoose.model("admin", adminSchema);

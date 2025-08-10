@@ -1,6 +1,7 @@
 // weak checking for JWT secret -> weak
 // strict checking for JWT secret -> strict
 
+import ADMIN from "../database/models/admin.model.js";
 import FREELANCER from "../database/models/freelancer.model.js";
 import { verifyToken } from "../utils/jwt.js";
 
@@ -8,7 +9,6 @@ const verifyTokenMiddleware =
   (checking = "strict") =>
   async (req, res, next) => {
     const authHeader = req.headers.authorization;
-
 
     let token = authHeader?.split(" ")[1];
     if (token) {
@@ -38,6 +38,12 @@ const verifyTokenMiddleware =
           );
         } catch (err) {
           console.log("Error setting last online for user: ", err);
+        }
+      }
+      if (req?.user?.role == "admin") {
+        const admin = await ADMIN.findOne().select("passwordChanged");
+        if (admin.passwordChanged === true) {
+          return res.status(401).json({ message: "Password has been changed" });
         }
       }
       return next();

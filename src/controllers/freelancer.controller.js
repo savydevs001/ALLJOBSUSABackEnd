@@ -962,6 +962,81 @@ const checkPaidForResume = async (req, res) => {
 };
 
 // pay for resume from freelancer balance
+// const downLoadResume = async (req, res) => {
+//   try {
+//     const userId = req.user?._id;
+//     const { html } = req.body;
+
+//     if (!html || !userId) {
+//       return res.status(400).json({ message: "Missing data" });
+//     }
+
+//     if (!mongoose.Types.ObjectId.isValid(userId)) {
+//       return res.status(400).json({ message: "Invalid User" });
+//     }
+
+//     const user = await FREELANCER.findById(userId).select(
+//       "status canDownloadResume createdResumes"
+//     );
+//     if (!user || user.status !== "active") {
+//       return res.status(400).json({ message: "Invalid User" });
+//     }
+
+//     if (user.canDownloadResume === true) {
+//       const browser = await puppeteer.launch({
+//         headless: "new",
+//         args: ["--no-sandbox", "--disable-setuid-sandbox"],
+//       });
+//       const page = await browser.newPage();
+//       const tailwindCDN = `<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">`;
+
+//       await page.setContent(
+//         `
+//         <!DOCTYPE html>
+//         <html>
+//           <head>${tailwindCDN}</head>
+//            <body style="height: 100%; margin: 0;">
+//               ${html}
+//             </body>
+//         </html>
+//         `,
+//         {
+//           waitUntil: "networkidle0",
+//         }
+//       );
+//       const pdfBuffer = await page.pdf({
+//         format: "A4",
+//         printBackground: true,
+//         // margin: { top: "20px", bottom: "20px", left: "20px", right: "20px" },
+//       });
+//       await browser.close();
+
+//       // TO-DO save resume to user
+//       if (!user.createdResumes) user.createdResumes = [];
+//       user.createdResumes.push({
+//         title: `${Date.now()}-${user._id}-resume.pdf`,
+//         url: "",
+//       });
+//       user.canDownloadResume = false;
+//       await user.save();
+
+//       // ✅ Send PDF buffer as response
+//       res.set({
+//         "Content-Type": "application/pdf",
+//         "Content-Disposition": 'attachment; filename="resume.pdf"',
+//       });
+
+//       return res.send(pdfBuffer);
+//     } else {
+//       return res
+//         .status(400)
+//         .json({ message: "Resume can be downloaded after payment" });
+//     }
+//   } catch (err) {
+//     console.log("❌ Error downloading: ", err);
+//     return res.status(500).json({ message: "Error downloading " + err });
+//   }
+// };
 const downLoadResume = async (req, res) => {
   try {
     const userId = req.user?._id;
@@ -995,23 +1070,36 @@ const downLoadResume = async (req, res) => {
         <!DOCTYPE html>
         <html>
           <head>${tailwindCDN}</head>
-           <body style="height: 100%; margin: 0;">
+          <body style="margin:0; padding:0;">
+            <div id="resume-wrapper" style="width:100%;">
               ${html}
-            </body>
+            </div>
+          </body>
         </html>
         `,
-        {
-          waitUntil: "networkidle0",
-        }
+        { waitUntil: "networkidle0" }
       );
-      const pdfBuffer = await page.pdf({
-        format: "A4",
-        printBackground: true,
-        // margin: { top: "20px", bottom: "20px", left: "20px", right: "20px" },
+
+      // Measure actual rendered height in px
+      const contentHeightPx = await page.evaluate(() => {
+        const el = document.getElementById("resume-wrapper");
+        return el ? el.scrollHeight : document.body.scrollHeight;
       });
+
+      // Convert px → mm
+      const contentHeightMM = contentHeightPx * 0.264583;
+
+      // Generate PDF exactly to that size
+      const pdfBuffer = await page.pdf({
+        printBackground: true,
+        width: "210mm", // A4 width
+        height: `${contentHeightMM}mm`, // Exact content height
+        pageRanges: "1", // force only 1 page
+      });
+
       await browser.close();
 
-      // TO-DO save resume to user
+      // Save to DB
       if (!user.createdResumes) user.createdResumes = [];
       user.createdResumes.push({
         title: `${Date.now()}-${user._id}-resume.pdf`,
@@ -1020,7 +1108,7 @@ const downLoadResume = async (req, res) => {
       user.canDownloadResume = false;
       await user.save();
 
-      // ✅ Send PDF buffer as response
+      // Send file
       res.set({
         "Content-Type": "application/pdf",
         "Content-Disposition": 'attachment; filename="resume.pdf"',
@@ -1080,6 +1168,83 @@ const checkPaidForCoverLetter = async (req, res) => {
 };
 
 // downlaod cover
+// const downLoadCover = async (req, res) => {
+//   try {
+//     const userId = req.user?._id;
+//     const { html } = req.body;
+
+//     if (!html || !userId) {
+//       return res.status(400).json({ message: "Missing data" });
+//     }
+
+//     if (!mongoose.Types.ObjectId.isValid(userId)) {
+//       return res.status(400).json({ message: "Invalid User" });
+//     }
+
+//     const user = await FREELANCER.findById(userId).select(
+//       "status canDownloadCover createdCovers"
+//     );
+//     if (!user || user.status !== "active") {
+//       return res.status(400).json({ message: "Invalid User" });
+//     }
+
+//     if (user.canDownloadCover === true) {
+//       const browser = await puppeteer.launch({
+//         headless: "new",
+//         args: ["--no-sandbox", "--disable-setuid-sandbox"],
+//       });
+//       const page = await browser.newPage();
+//       const tailwindCDN = `<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">`;
+
+//       await page.setContent(
+//         `
+//         <!DOCTYPE html>
+//         <html>
+//           <head>${tailwindCDN}</head>
+//            <body style="height: 100%; margin: 0;">
+//               ${html}
+//             </body>
+//         </html>
+//         `,
+//         {
+//           waitUntil: "networkidle0",
+//         }
+//       );
+//       const pdfBuffer = await page.pdf({
+//         format: "A4",
+//         printBackground: true,
+//         // margin: { top: "20px", bottom: "20px", left: "20px", right: "20px" },
+//       });
+//       await browser.close();
+
+//       // TO-DO upload file and get url
+//       user.canDownloadCover = false;
+//       user.createdCovers = [
+//         ...(user.createdCovers || []),
+//         {
+//           title: `${Date.now()}-${user._id}-cover.pdf`,
+//           url: "no",
+//         },
+//       ];
+//       user.markModified("createdCovers");
+//       await user.save();
+
+//       res.set({
+//         "Content-Type": "application/pdf",
+//         "Content-Disposition": 'attachment; filename="cover_letter.pdf"',
+//       });
+
+//       return res.send(pdfBuffer);
+//     } else {
+//       return res
+//         .status(400)
+//         .json({ message: "Cover Letter can be downloaded after payment" });
+//     }
+//   } catch (err) {
+//     console.log("❌ Error downloading: ", err);
+//     return res.status(500).json({ message: "Error downloading : " + err });
+//   }
+// };
 const downLoadCover = async (req, res) => {
   try {
     const userId = req.user?._id;
@@ -1113,34 +1278,45 @@ const downLoadCover = async (req, res) => {
         <!DOCTYPE html>
         <html>
           <head>${tailwindCDN}</head>
-           <body style="height: 100%; margin: 0;">
+          <body style="margin:0; padding:0;">
+            <div id="cover-wrapper" style="width:100%;">
               ${html}
-            </body>
+            </div>
+          </body>
         </html>
         `,
-        {
-          waitUntil: "networkidle0",
-        }
+        { waitUntil: "networkidle0" }
       );
-      const pdfBuffer = await page.pdf({
-        format: "A4",
-        printBackground: true,
-        // margin: { top: "20px", bottom: "20px", left: "20px", right: "20px" },
+
+      // Measure actual rendered height in px
+      const contentHeightPx = await page.evaluate(() => {
+        const el = document.getElementById("cover-wrapper");
+        return el ? el.scrollHeight : document.body.scrollHeight;
       });
+
+      // Convert px → mm
+      const contentHeightMM = contentHeightPx * 0.264583;
+
+      // Generate PDF exactly to that size
+      const pdfBuffer = await page.pdf({
+        printBackground: true,
+        width: "210mm", // A4 width
+        height: `${contentHeightMM}mm`, // Exact content height
+        pageRanges: "1", // ensure 1 page only
+      });
+
       await browser.close();
 
-      // TO-DO upload file and get url
+      // Save to DB
+      if (!user.createdCovers) user.createdCovers = [];
+      user.createdCovers.push({
+        title: `${Date.now()}-${user._id}-cover.pdf`,
+        url: "",
+      });
       user.canDownloadCover = false;
-      user.createdCovers = [
-        ...(user.createdCovers || []),
-        {
-          title: `${Date.now()}-${user._id}-cover.pdf`,
-          url: "no",
-        },
-      ];
-      user.markModified("createdCovers");
       await user.save();
 
+      // Send file
       res.set({
         "Content-Type": "application/pdf",
         "Content-Disposition": 'attachment; filename="cover_letter.pdf"',

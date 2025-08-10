@@ -1,22 +1,53 @@
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
+import { google } from "googleapis";
 dotenv.config();
 
-let testAccount = await nodemailer.createTestAccount();
+const {
+  EMAIL_HOST,
+  EMAIL_PORT,
+  EMAIL_CLIENT,
+  EMAIL_CLIENT_SECRET,
+  EMAIL_CLIENT_ID,
+  EMAIL_CLIENT_REFRESH_TOKEN,
+  EMAIL_CLIENT_REDIRECT_URL,
+} = process.env;
+if (
+  !EMAIL_HOST ||
+  !EMAIL_PORT ||
+  !EMAIL_CLIENT ||
+  !EMAIL_CLIENT_SECRET ||
+  !EMAIL_CLIENT_ID ||
+  !EMAIL_CLIENT_REFRESH_TOKEN ||
+  !EMAIL_CLIENT_REDIRECT_URL
+) {
+  console.error("Some of variables missing for email sender (nodemailer)");
+  process.exit(0);
+}
 
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: process.env.EMAIL_PORT,
-  secure: process.env.EMAIL_PORT === 465, // true for 465, false for other ports
-  //   auth: {
-  //     user: process.env.EMAIL_USER,
-  //     pass: process.env.EMAIL_PASS,
-  //   },
-  auth: {
-    user: testAccount.user,
-    pass: testAccount.pass,
-  },
-});
+// google client
+const oAuth2Client = new google.auth.OAuth2(
+  EMAIL_CLIENT_ID,
+  EMAIL_CLIENT_SECRET,
+  EMAIL_CLIENT_REDIRECT_URL
+);
+oAuth2Client.setCredentials({ refresh_token: EMAIL_CLIENT_REFRESH_TOKEN });
+
+const getTransporter = async () => {
+  const accessToken = await oAuth2Client.getAccessToken();
+
+  return nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      type: "OAuth2",
+      user: EMAIL_CLIENT,
+      clientId: EMAIL_CLIENT_ID,
+      clientSecret: EMAIL_CLIENT_SECRET,
+      refreshToken: EMAIL_CLIENT_REFRESH_TOKEN,
+      accessToken: accessToken.token,
+    },
+  });
+};
 
 const emailQueue = [];
 
@@ -29,8 +60,9 @@ setInterval(async () => {
   if (emailQueue.length === 0) return;
 
   const { to, subject, html } = emailQueue.shift();
+  const transporter = await getTransporter();
   const mailOptions = {
-    from: `"ALLJOBUSA" <${process.env.EMAIL_USER}>`,
+    from: `"ALLJOBUSA" <${EMAIL_CLIENT}>`,
     to,
     subject,
     html,

@@ -13,6 +13,7 @@ import FREELANCER from "../database/models/freelancer.model.js";
 import mongoose from "mongoose";
 import req from "express/lib/request.js";
 import JOBSEEKER from "../database/models/job-seeker.model.js";
+import enqueueEmail from "../services/emailSender.js";
 
 dotenv.config();
 
@@ -61,10 +62,28 @@ const signinSchema = z.object({
 });
 const forgotSchema = z.object({
   email: z.string().email("Invalid email format"),
+  role: z.enum(["employer", "freelancer", "job-seeker"], {
+    errorMap: () => ({
+      message: "Invalid User Role",
+    }),
+  }),
 });
 const resetPasswordSchema = z.object({
-  password: z.string().min(8, "Password must be at least 8 characters long"),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters long")
+    .regex(
+      PASSWORD_REGEX,
+      "Password must contain uppercase, lowercase, number, and special character"
+    ),
+  confirmPassword: z.string(),
+  email: z.string().email("Invalid email format"),
   token: z.string("Token is missing"),
+  role: z.enum(["employer", "freelancer", "job-seeker"], {
+    errorMap: () => ({
+      message: "Invalid User Role",
+    }),
+  }),
 });
 
 // Controllers
@@ -222,72 +241,109 @@ const signOut = async (req, res) => {
 };
 
 const forgotPassword = async (req, res) => {
-  const { email } = forgotSchema.parse(req.body);
-  const user = await User.findOne({ email });
-  if (!user) {
-    return res.status(404).json({ message: "User not found with this email" });
+  const parsed = forgotSchema.parse(req.body);
+  try {
+    let user;
+    switch (parsed.role) {
+      case "employer":
+        user = await EMPLOYER.findOne({ email: parsed.email });
+        break;
+      case "freelancer":
+        user = await FREELANCER.findOne({ email: parsed.email });
+        break;
+      case "job-seeker":
+        user = await JOBSEEKER.findOne({ email: parsed.email });
+        break;
+      default:
+        return res.status(400).json({ message: "Invalid role" });
+    }
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ message: "User not found with this email" });
+    }
+
+    // if (
+    //   user.password?.lastResetTokenTime &&
+    //   Date.now() - new Date(user.password.lastResetTokenTime).getTime() <
+    //     1000 * 60 * 5
+    // ) {
+    //   return res.status(400).json({ message: "Please try again in 5 minutes" });
+    // }
+
+    // Generate secure token
+    const token = crypto.randomBytes(32).toString("hex");
+    const expireTime = Date.now() + 1000 * 60 * 30; // 30 minutes
+
+    user.password.resetToken = token;
+    user.password.lastResetTokenTime = new Date(); // for oly allow token generation every 5 minutes
+    user.password.resetTokenExpiry = new Date(expireTime);
+    await user.save();
+
+    const resetLink = `${process.env.FRONTEND_URL}/reset-password/${token}?role=${parsed.role}&email=${user.email}`;
+    enqueueEmail(
+      user.email,
+      "Reset Your Password",
+      `<p>Click below to reset your password:</p>
+       <a href="${resetLink}">${resetLink}</a>`
+    );
+
+    return res.status(200).json({
+      message: "Password reset link sent to email",
+      success: true,
+    });
+  } catch (err) {
+    console.log("❌ Error generation reset token email: " + err);
+    return res
+      .status(500)
+      .json({ message: "Error generation reset token email", err });
   }
-
-  // Generate secure token
-  const token = crypto.randomBytes(32).toString("hex");
-  const expireTime = Date.now() + 1000 * 60 * 60; // 1 hour
-
-  user.resetPasswordToken = token;
-  user.resetPasswordExpires = new Date(expireTime);
-  await user.save();
-
-  const resetLink = `${process.env.FRONTEND_URL}/reset-password/${token}`;
-  // await sendEmail({
-  //   to: user.email,
-  //   subject: "Reset Your Password",
-  //   html: `<p>Click below to reset your password:</p>
-  //        <a href="${resetLink}">${resetLink}</a>`,
-  // });
-
-  // clear cookies to ensure security
-  res.clearCookie(process.env.JWT_COOKIE_NAME, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-  });
-
-  return res.status(200).json({
-    message: "Password reset link sent to email",
-    link: resetLink,
-  });
 };
 
 const resetPassword = async (req, res) => {
-  const { password, token } = resetPasswordSchema.parse(req.body);
+  const { password, confirmPassword, token, role, email } =
+    resetPasswordSchema.parse(req.body);
 
-  const user = await User.findOne({
-    resetPasswordToken: token,
-    resetPasswordExpires: {
-      $gt: Date.now(),
-    },
-  });
+  if (password !== confirmPassword) {
+    return res
+      .status(400)
+      .json({ message: "Password and confirm password do not match" });
+  }
+
+  let user;
+  switch (role) {
+    case "employer":
+      user = await EMPLOYER.findOne({ email, "password.resetToken": token });
+      break;
+    case "freelancer":
+      user = await FREELANCER.findOne({ email, "password.resetToken": token });
+      break;
+    case "job-seeker":
+      user = await JOBSEEKER.findOne({ email, "password.resetToken": token });
+      break;
+    default:
+      return res.status(400).json({ message: "Invalid role" });
+  }
 
   if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  if (
+    user.password.resetTokenExpiry &&
+    user.password.resetTokenExpiry < new Date()
+  ) {
     return res.status(400).json({ message: "Invalid or expired token" });
   }
 
   // create new salt
   const { salt, hash } = hashPassword(password);
-  user.passwordHash = hash;
-  user.passwordSalt = salt;
-
-  // Clear reset token fields
-  user.resetPasswordToken = undefined;
-  user.resetPasswordExpires = undefined;
+  user.password.hash = hash;
+  user.password.salt = salt;
+  user.password.resetToken = undefined;
 
   await user.save();
-
-  //   notify
-  notifyUser({
-    userId: user._id,
-    type: NotificationTypes.JOB_APPLICATION_STATUS,
-    message: `<a href="/jobs/${job._id}"> ${job.title}<a> created successfully`,
-    relatedEntityId: job._id,
-  });
   return res.status(200).json({ message: "Password reset successful" });
 };
 
@@ -405,8 +461,6 @@ const googleCallback = async (req, res) => {
       return res.status(400).json({ message: "Invalid user role" });
     }
 
-    console.log("token: :", token)
-    console.log("newUser :", newUser)
     if (!newUser && token === null) {
       console.log("❌ Error creating jwt token");
       return res.status(500).json({ message: "Server Error" });

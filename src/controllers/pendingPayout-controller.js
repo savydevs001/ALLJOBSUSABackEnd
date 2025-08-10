@@ -9,7 +9,7 @@ const runScheduledPayouts = async () => {
     const now = new Date();
 
     const pendingPayouts = await PENDING_PAYOUT.find({
-      releaseDate: { $lte: now },
+      // releaseDate: { $lte: now },
       transferred: false,
     });
 

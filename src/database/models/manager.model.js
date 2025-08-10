@@ -6,6 +6,8 @@ const managerSchema = new mongoose.Schema({
     hash: { type: String, required: true },
     salt: { type: String, required: true },
   },
+  twoFASecret: String,
+  is2FAEnabled: { type: Boolean, default: false },
 });
 
 const MANAGER = mongoose.model("manager", managerSchema);
