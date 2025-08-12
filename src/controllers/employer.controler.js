@@ -334,9 +334,13 @@ const getEmployerDashboardData = async (req, res) => {
     const newApplications =
       offers.filter((e) => e.status === "pending").length + applications;
 
-    const activeJobs = jobs.filter((e) => e.status === "filled").length;
-    const completedJobs = jobs.filter((e) => e.status === "completed").length;
-    const totalHires = activeJobs + completedJobs;
+    const activeJobs = jobs.filter(
+      (e) => e.status === "filled" || e.status == "empty"
+    ).length;
+    // const completedJobs = jobs.filter((e) => e.status === "completed").length;
+    const totalHires = jobs.filter(
+      (e) => e.status === "filled" || e.status == "completed"
+    ).length;
 
     const latestApplicantsOffers = offers
       .sort(

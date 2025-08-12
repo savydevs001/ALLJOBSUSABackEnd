@@ -6,6 +6,7 @@ import EMPLOYER from "../database/models/employers.model.js";
 import getDateNDaysFromNow from "../utils/date-and-days.js";
 import calculateJobMatchPercentage from "../utils/calculate-job-match.js";
 import JOBSEEKER from "../database/models/job-seeker.model.js";
+import { Target } from "puppeteer";
 
 // POST job
 const createJobZODSchema = z.object({
@@ -225,6 +226,7 @@ const createJob = async (req, res) => {
 const getJobById = async (req, res) => {
   try {
     const jobId = req.params.id;
+    const userId = req.user?._id;
 
     if (!mongoose.Types.ObjectId.isValid(jobId)) {
       return res.status(400).json({ message: "Invalid Job!" });
@@ -245,7 +247,38 @@ const getJobById = async (req, res) => {
       await job.save();
     }
 
-    return res.status(200).json({ job });
+    const transformed = {
+      _id: job._id,
+      alreadyApplied: job.applicants.some(
+        (e) => e.userId.toString() == userId.toString()
+      ),
+      employerId: {
+        fullName: job.employerId.fullName,
+        jobsCreated: job.employerId.fullName,
+        ordersCompleted: job.employerId.ordersCompleted,
+        profilePictureUrl: job.employerId.profilePictureUrl,
+      },
+      status: job.status,
+      title: job.title,
+      description: job.description,
+      job: job.job,
+      simpleJobDetails: {
+        locationCity: job.simpleJobDetails?.locationCity,
+        locationState: job.simpleJobDetails?.locationState,
+        minSalary: job.simpleJobDetails?.minSalary,
+        maxSalary: job.simpleJobDetails?.maxSalary,
+      },
+      freelanceJobDetails: {
+        budget: {
+          budgetType: job.freelanceJobDetails?.budget?.budgetType,
+          price: job.freelanceJobDetails?.budget?.price,
+          minimum: job.freelanceJobDetails?.budget?.minimum,
+          maximum: job.freelanceJobDetails?.budget?.maximum,
+        },
+      },
+    };
+
+    return res.status(200).json({ job: transformed });
   } catch (err) {
     console.log("❌ Error getting job by id: ", err);
     return res.status(500).json({ message: "Server Error" });
@@ -601,7 +634,7 @@ const getAllSavedJobs = async (req, res) => {
       .skip(skip)
       .limit(limit)
       .select(
-        "_id title description job simpleJobDetails.jobType simpleJobDetails.locationCity simpleJobDetails.locationState simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.budget"
+        "_id title applicants description job simpleJobDetails.jobType simpleJobDetails.locationCity simpleJobDetails.locationState simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.budget"
       )
       .populate("employerId", "fullName")
       .lean();
@@ -609,6 +642,9 @@ const getAllSavedJobs = async (req, res) => {
     const transformedJobs = savedJobs.map((job) => ({
       ...job,
       saved: true,
+      alreadyApplied: job.applicants.some(
+        (e) => e.userId.toString() == userId.toString()
+      ),
       match: calculateJobMatchPercentage(
         {
           title: job.title,
@@ -723,6 +759,217 @@ const myJobPostings = async (req, res) => {
   }
 };
 
+// get job for edit
+const getJobForEdit = async (req, res) => {
+  try {
+    const jobMode = req.query.job;
+    const jobId = req.params.id;
+    if (!jobMode || !["freelance", "simple"].includes(jobMode)) {
+      return res.status(400).json({ message: "Invalid job" });
+    }
+
+    if (!jobId || !mongoose.Types.ObjectId.isValid(jobId)) {
+      return res.status(400).json({ message: "Invalid job id" });
+    }
+
+    const job = await Job.findById(jobId);
+    if (!job) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    if (job.employerId.toString() != req.user?._id) {
+      return res.status(400).json({ message: "You cannot edit this job" });
+    }
+
+    if (job.status !== "empty") {
+      return res
+        .status(400)
+        .json({ message: "You cannot edit this job, as it is already filled" });
+    }
+
+    if (job.job != jobMode) {
+      return res.status(400).json({ message: "Invalid job mode" });
+    }
+
+    const tranformData = {
+      _id: job._id,
+      title: job.title,
+      description: job.description,
+      job: job.job,
+    };
+    if (jobMode == "freelance") {
+      tranformData.requiredSkills = job.freelanceJobDetails?.requiredSkills;
+      tranformData.budget = job.freelanceJobDetails?.budget;
+      tranformData.durationDays = job.freelanceJobDetails?.durationDays;
+      tranformData.experienceLevel = job.freelanceJobDetails?.experienceLevel;
+      tranformData.files = job.freelanceJobDetails?.files;
+
+      return res.status(200).json({ job: tranformData });
+    } else if (jobMode == "simple") {
+      tranformData.jobType = job.simpleJobDetails?.jobType;
+      tranformData.category = job.simpleJobDetails?.category;
+      tranformData.minSalary = job.simpleJobDetails?.minSalary;
+      tranformData.maxSalary = job.simpleJobDetails?.maxSalary;
+      tranformData.locationCity = job.simpleJobDetails?.locationCity;
+      tranformData.locationState = job.simpleJobDetails?.locationState;
+      tranformData.experienceLevel = job.simpleJobDetails?.experienceLevel;
+      tranformData.deadline = job.simpleJobDetails?.deadline;
+
+      return res.status(200).json({ job: tranformData });
+    } else {
+      return res.status(400).json({ message: "Invalid job" });
+    }
+  } catch (err) {
+    console.log("❌ Error getting job for edit: ", err);
+    return res.status(500).json({ message: "Error getting job", err });
+  }
+};
+
+// update job by id
+const updateJob = async (req, res) => {
+  try {
+    const jobMode = req.query.job;
+    const jobId = req.params.id;
+    const parsed = createJobZODSchema.parse(req.body);
+    if (!jobMode || !["freelance", "simple"].includes(jobMode)) {
+      return res.status(400).json({ message: "Invalid job" });
+    }
+
+    if (!jobId || !mongoose.Types.ObjectId.isValid(jobId)) {
+      return res.status(400).json({ message: "Invalid job id" });
+    }
+
+    const job = await Job.findById(jobId);
+    if (!job) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    if (job.employerId.toString() != req.user?._id) {
+      return res.status(400).json({ message: "You cannot edit this job" });
+    }
+
+    if (job.status !== "empty") {
+      return res
+        .status(400)
+        .json({ message: "You cannot edit this job, as it is already filled" });
+    }
+
+    if (job.job != jobMode) {
+      return res.status(400).json({ message: "Invalid job mode" });
+    }
+
+    job.title = parsed.title;
+    job.description = parsed.description;
+
+    if (jobMode == "freelance") {
+      const freelanceParsed = freelanceZODSchema.parse(req.body);
+      job.freelanceJobDetails.requiredSkills = freelanceParsed.requiredSkills;
+      job.freelanceJobDetails.budget = freelanceParsed.budget;
+      job.freelanceJobDetails.durationDays = freelanceParsed.durationDays;
+      job.freelanceJobDetails.experienceLevel = freelanceParsed.experienceLevel;
+      job.freelanceJobDetails.files = freelanceParsed.files;
+
+      await job.save();
+
+      return res.status(200).json({ message: "job eidted successfully" });
+    } else if (jobMode == "simple") {
+      const simpleParsed = simpleJobZODSchema.parse(req.body);
+      job.simpleJobDetails.jobType = simpleParsed.jobType;
+      job.simpleJobDetails.category = simpleParsed.category;
+      job.simpleJobDetails.minSalary = simpleParsed.minSalary;
+      job.simpleJobDetails.maxSalary = simpleParsed.maxSalary;
+      job.simpleJobDetails.locationCity = simpleParsed.locationCity;
+      job.simpleJobDetails.locationState = simpleParsed.locationState;
+      job.simpleJobDetails.experienceLevel = simpleParsed.experienceLevel;
+      job.simpleJobDetails.deadline = simpleParsed.deadline;
+
+      await job.save();
+
+      return res.status(200).json({ message: "job eidted successfully" });
+    } else {
+      return res.status(400).json({ message: "Invalid job" });
+    }
+  } catch (err) {
+    console.log("❌ Error getting job for edit: ", err);
+    return res.status(500).json({ message: "Error getting job", err });
+  }
+};
+
+// close a job
+const closeAJob = async (req, res) => {
+  try {
+    const jobId = req.params.id;
+    if (!jobId || !mongoose.Types.ObjectId.isValid(jobId)) {
+      return res.status(400).json({ message: "Invalid job id" });
+    }
+
+    const job = await Job.findById(jobId);
+    if (!job) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    if (job.employerId.toString() != req.user?._id) {
+      return res.status(400).json({ message: "You cannot close this job" });
+    }
+
+    if (job.status == "deleted") {
+      return res.status(400).json({ message: "Job already closed" });
+    }
+
+    if (job.status !== "empty") {
+      return res.status(400).json({
+        message: "You cannot close this job, as it is already filled",
+      });
+    }
+
+    job.status = "deleted";
+    await job.save();
+    return res.status(200).json({ message: "Job Closed" });
+  } catch (err) {
+    console.log("❌ Error getting job for edit: ", err);
+    return res.status(500).json({ message: "Error getting job", err });
+  }
+};
+
+// get job applicants
+const getJobApplicants = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    const jobId = req.params.id;
+
+    if (!jobId || !mongoose.Types.ObjectId.isValid(jobId)) {
+      return res.status(400).json({ message: "Invalid job id" });
+    }
+
+    const job = await Job.findOne({ _id: jobId, employerId: userId }).select("title description applicants").populate("applicants.userId", "_id fullName profilePictureUrl");
+    if(!job){
+      return res.status(404).json({message: "Job not found!"})
+    }
+
+
+    const tranformed = {
+      _id: job._id,
+      title: job.title,
+      description: job.description,
+      applicants: job.applicants.map(e => ({
+        _id: e.userId._id,
+        fullName: e.userId?.fullName,
+        profilePictureUrl: e.userId?.profilePictureUrl
+      }))
+    }
+
+    
+    console.log("job: ", tranformed)
+
+    return res.status(200).json({data: tranformed})
+
+  } catch (err) {
+    console.log("❌ Error getting job applicants: ", err);
+    return res
+      .status(500)
+      .json({ message: "Error getting job applicants", err });
+  }
+};
 export {
   createJob,
   getAllJobs,
@@ -731,4 +978,8 @@ export {
   getAllSavedJobs,
   getJobById,
   myJobPostings,
+  getJobForEdit,
+  updateJob,
+  closeAJob,
+  getJobApplicants
 };

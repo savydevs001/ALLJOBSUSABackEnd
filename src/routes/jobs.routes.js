@@ -1,14 +1,17 @@
 import { Router } from "express";
 import {
+  closeAJob,
   createJob,
   getAllJobs,
   getAllSavedJobs,
+  getJobApplicants,
   getJobById,
+  getJobForEdit,
   myJobPostings,
   removeSavedJob,
   saveAJob,
   // jobById,
-  // updateJob,
+  updateJob,
   // deleteJob,
   // saveAJob,
   // removeSavedJob,
@@ -34,6 +37,24 @@ JobRouter.get(
   roleBasedAuthMiddleware(["freelancer", "job-seeker"]),
   a(removeSavedJob)
 );
+JobRouter.get(
+  "/:id/edit",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["employer", "job-seeker"]),
+  a(getJobForEdit)
+);
+JobRouter.get(
+  "/:id/close",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["employer", "job-seeker"]),
+  a(closeAJob)
+);
+JobRouter.get(
+  "/:id/applicants",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["employer", "job-seeker"]),
+  a(getJobApplicants)
+);
 JobRouter.get("/:id", a(getJobById));
 
 // JobRouter.get("/save/:id", a(saveAJob));
@@ -47,7 +68,7 @@ JobRouter.post(
   a(createJob)
 );
 
-// JobRouter.put("/:id", a(updateJob));
+JobRouter.put("/:id", a(updateJob));
 
 // JobRouter.delete("/:id", a(deleteJob));
 

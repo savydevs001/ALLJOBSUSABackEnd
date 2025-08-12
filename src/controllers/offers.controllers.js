@@ -163,12 +163,12 @@ const createOffer = async (req, res, next) => {
 
       // Update job applicants
       if (job) {
-        if (!job.applicants.includes({ id: user._id, role: req.user.role })) {
-          job.applicants.push({
-            role: req.user.role,
-            id: user._id,
-          });
-        }
+        // if (!job.applicants.includes({ userId: user._id, role: req.user.role })) {
+        //   job.applicants.push({
+        //     role: req.user.role,
+        //     userId: user._id,
+        //   });
+        // }
 
         const alreadyApplied = job.applicants.some(
           (app) =>
@@ -269,6 +269,137 @@ const getUserOffers = async (req, res) => {
 };
 
 // Received Offers
+// const getReceivedOffers = async (req, res) => {
+//   try {
+//     const skip = parseInt(req.query.skip) || 0;
+//     const limit = parseInt(req.query.limit) || 10;
+//     const text = req.query.text?.trim();
+//     const status = req.query.status?.trim();
+//     const userId = req.user?._id;
+
+//     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+//       return res.status(401).json({ message: "Invalid user" });
+//     }
+
+//     const textTerms = text
+//       ? text
+//           .split(" ")
+//           .map((t) => t.trim())
+//           .filter(Boolean)
+//       : [];
+
+//     const initialFilter = {
+//       receiverId: new mongoose.Types.ObjectId(userId),
+//     };
+
+//     if (status) {
+//       initialFilter.status = status;
+//     }
+
+//     const matchStages = [{ ...initialFilter }];
+
+//     if (textTerms.length > 0) {
+//       const orConditions = textTerms.map((term) => {
+//         const regex = new RegExp(term, "i");
+//         return {
+//           $or: [
+//             { title: { $regex: regex } },
+//             { description: { $regex: regex } },
+//             { "sender.fullName": { $regex: regex } },
+//             { "job.title": { $regex: regex } }, // added job title filtering
+//           ],
+//         };
+//       });
+//       matchStages.push(...orConditions);
+//     }
+
+//     const offers = await Offer.aggregate([
+//       { $match: initialFilter },
+//       {
+//         $lookup: {
+//           from: "freelancers",
+//           localField: "senderId",
+//           foreignField: "_id",
+//           as: "sender",
+//         },
+//       },
+//       { $unwind: "$sender" },
+//       {
+//         $lookup: {
+//           from: "jobs",
+//           localField: "jobId",
+//           foreignField: "_id",
+//           as: "job",
+//         },
+//       },
+//       { $unwind: "$job" },
+//       ...(textTerms.length > 0 ? [{ $match: { $and: matchStages } }] : []),
+//       { $sort: { createdAt: -1 } },
+//       { $skip: skip },
+//       { $limit: limit },
+//       {
+//         $project: {
+//           _id: 1,
+//           jobId: 1,
+//           status: 1,
+//           createdAt: 1,
+//           jobTitle: "$job.title",
+//           sender: {
+//             _id: "$sender._id",
+//             fullName: "$sender.fullName",
+//             profilePictureUrl: {
+//               $ifNull: ["$sender.profilePictureUrl", ""],
+//             },
+//             title: "$sender.profile.professionalTitle",
+//             resumeUrl: {
+//               $ifNull: ["$sender.profile.resumeUrl", ""],
+//             },
+//             rating: {
+//               $cond: [
+//                 "$sender.rating.isRated",
+//                 "$sender.rating.value",
+//                 "not rated",
+//               ],
+//             },
+//             experiences: "$sender.profile.experiences",
+//           },
+//         },
+//       },
+//     ]);
+
+//     console.log("ok: ", offers);
+
+//     const transformedOffers = offers.map((e) => {
+//       const yearsOfExperience = getTotalYearsWorkedWithMerging(
+//         e.sender.experiences || []
+//       );
+
+//       return {
+//         _id: e._id,
+//         jobId: e.jobId,
+//         appliedTo: e.jobTitle, // ✅ now using actual job title
+//         status: e.status,
+//         createdAt: e.createdAt,
+//         sender: {
+//           _id: e.sender._id,
+//           fullName: e.sender.fullName,
+//           profilePictureUrl: e.sender.profilePictureUrl || "",
+//           title: e.sender.title || "",
+//           resumeUrl: e.sender.resumeUrl || "",
+//           rating: e.sender.rating,
+//           yearsOfExperience,
+//         },
+//       };
+//     });
+
+//     return res.status(200).json({ offers: transformedOffers });
+//   } catch (err) {
+//     console.error("❌ Error retrieving received offers:", err);
+//     return res
+//       .status(500)
+//       .json({ message: "Error retrieving received offers" });
+//   }
+// };
 const getReceivedOffers = async (req, res) => {
   try {
     const skip = parseInt(req.query.skip) || 0;
@@ -306,7 +437,7 @@ const getReceivedOffers = async (req, res) => {
             { title: { $regex: regex } },
             { description: { $regex: regex } },
             { "sender.fullName": { $regex: regex } },
-            { "job.title": { $regex: regex } }, // added job title filtering
+            { "job.title": { $regex: regex } },
           ],
         };
       });
@@ -323,7 +454,7 @@ const getReceivedOffers = async (req, res) => {
           as: "sender",
         },
       },
-      { $unwind: "$sender" },
+      { $unwind: { path: "$sender", preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
           from: "jobs",
@@ -332,7 +463,7 @@ const getReceivedOffers = async (req, res) => {
           as: "job",
         },
       },
-      { $unwind: "$job" },
+      { $unwind: { path: "$job", preserveNullAndEmptyArrays: true } },
       ...(textTerms.length > 0 ? [{ $match: { $and: matchStages } }] : []),
       { $sort: { createdAt: -1 } },
       { $skip: skip },
@@ -347,13 +478,9 @@ const getReceivedOffers = async (req, res) => {
           sender: {
             _id: "$sender._id",
             fullName: "$sender.fullName",
-            profilePictureUrl: {
-              $ifNull: ["$sender.profilePictureUrl", ""],
-            },
+            profilePictureUrl: { $ifNull: ["$sender.profilePictureUrl", ""] },
             title: "$sender.profile.professionalTitle",
-            resumeUrl: {
-              $ifNull: ["$sender.profile.resumeUrl", ""],
-            },
+            resumeUrl: { $ifNull: ["$sender.profile.resumeUrl", ""] },
             rating: {
               $cond: [
                 "$sender.rating.isRated",
@@ -369,22 +496,22 @@ const getReceivedOffers = async (req, res) => {
 
     const transformedOffers = offers.map((e) => {
       const yearsOfExperience = getTotalYearsWorkedWithMerging(
-        e.sender.experiences || []
+        e.sender?.experiences || []
       );
 
       return {
         _id: e._id,
         jobId: e.jobId,
-        appliedTo: e.jobTitle, // ✅ now using actual job title
+        appliedTo: e.jobTitle || "",
         status: e.status,
         createdAt: e.createdAt,
         sender: {
-          _id: e.sender._id,
-          fullName: e.sender.fullName,
-          profilePictureUrl: e.sender.profilePictureUrl || "",
-          title: e.sender.title || "",
-          resumeUrl: e.sender.resumeUrl || "",
-          rating: e.sender.rating,
+          _id: e.sender?._id || null,
+          fullName: e.sender?.fullName || "",
+          profilePictureUrl: e.sender?.profilePictureUrl || "",
+          title: e.sender?.title || "",
+          resumeUrl: e.sender?.resumeUrl || "",
+          rating: e.sender?.rating ?? "not rated",
           yearsOfExperience,
         },
       };
@@ -546,331 +673,51 @@ const getOfferById = async (req, res) => {
   }
 };
 
-// const updateOfferSchema = z
-//   .object({
-//     proposedAmount: z.number().positive().optional(),
-//     description: z.string().min(1).optional(),
-//     milestones: z.array(milestoneSchema).optional(),
-//   })
-//   .strict(); // Prevent unexpected fields
-// const editOffer = async (req, res) => {
-//   const offerId = req.params.id;
+const rejectOffer = async (req, res) => {
+  const offerId = req.params.id;
 
-//   // Validate ObjectId
-//   if (!mongoose.Types.ObjectId.isValid(offerId)) {
-//     return res.status(400).json({ message: "Invalid offer ID" });
-//   }
+  // Validate offer ID format
+  if (!mongoose.Types.ObjectId.isValid(offerId)) {
+    return res.status(400).json({ message: "Invalid offer ID" });
+  }
 
-//   // Parse and validate input
-//   const updates = updateOfferSchema.parse(req.body);
+  const offer = await Offer.findById(offerId);
 
-//   // Find offer
-//   const offer = await Offer.findOne({ _id: offerId });
+  if (!offer) {
+    return res.status(404).json({ message: "Offer not found" });
+  }
 
-//   if (!offer) {
-//     return res.status(404).json({ message: "Offer not found" });
-//   }
+  // Only the receiver can reject the offer
+  if (!offer.receiverId.equals(req.user?._id)) {
+    return res
+      .status(403)
+      .json({ message: "You are not authorized to reject this offer" });
+  }
 
-//   // Only allow update if offer is still pending
-//   if (offer.status !== "pending") {
-//     return res
-//       .status(400)
-//       .json({ message: "Only pending offers can be updated" });
-//   }
+  if (offer.status === "rejected") {
+    return res.status(400).json({ message: "Offer already rejected" });
+  }
 
-//   // Ensure only the sender (freelancer) can edit
-//   if (
-//     !req.user?.role.includes("freelancer") ||
-//     !offer.senderId.equals(req.user._id)
-//   ) {
-//     return res
-//       .status(403)
-//       .json({ message: "You are not authorized to update this offer" });
-//   }
+  // Ensure offer is still pending
+  if (!["pending", "reviewed", "interviewing"].includes(offer.status)) {
+    return res
+      .status(400)
+      .json({ message: "Only pending offers can be rejected" });
+  }
 
-//   // Apply updates
-//   if (updates.proposedAmount !== undefined)
-//     offer.proposedAmount = updates.proposedAmount;
-//   if (updates.description !== undefined)
-//     offer.description = updates.description;
-//   if (updates.milestones !== undefined) offer.milestones = updates.milestones;
+  // Update status to 'rejected'
+  offer.status = "rejected";
+  await offer.save();
 
-//   await offer.save();
-
-//   return res.status(200).json({
-//     message: "Offer updated successfully",
-//     offer,
-//   });
-// };
-
-// const withdrawOffer = async (req, res) => {
-//   const offerId = req.params.id;
-
-//   // Validate offerId format
-//   if (!mongoose.Types.ObjectId.isValid(offerId)) {
-//     return res.status(400).json({ message: "Invalid offer ID" });
-//   }
-
-//   const offer = await Offer.findById(offerId);
-
-//   if (!offer) {
-//     return res.status(404).json({ message: "Offer not found" });
-//   }
-
-//   // Only allow the sender to withdraw
-//   if (
-//     !req.user?.role.includes("freelancer") ||
-//     !offer.senderId.equals(req.user._id)
-//   ) {
-//     return res.status(403).json({
-//       message: "You are not authorized to withdraw this offer",
-//     });
-//   }
-
-//   if (offer.status === "withdrawn") {
-//     return res.status(400).json({ message: "Offer already withdrawn" });
-//   }
-
-//   // Only pending offers can be withdrawn
-//   if (offer.status !== "pending") {
-//     return res
-//       .status(400)
-//       .json({ message: "Only pending offers can be withdrawn" });
-//   }
-
-//   // Update offer status
-//   offer.status = "withdrawn";
-//   await offer.save();
-
-//   return res.status(200).json({
-//     message: "Offer withdrawn successfully",
-//     offer,
-//   });
-// };
-
-// const rejectOffer = async (req, res) => {
-//   const offerId = req.params.id;
-
-//   // Validate offer ID format
-//   if (!mongoose.Types.ObjectId.isValid(offerId)) {
-//     return res.status(400).json({ message: "Invalid offer ID" });
-//   }
-
-//   const offer = await Offer.findById(offerId);
-
-//   if (!offer) {
-//     return res.status(404).json({ message: "Offer not found" });
-//   }
-
-//   // Only the receiver can reject the offer
-//   if (!offer.receiverId.equals(req.user._id)) {
-//     return res
-//       .status(403)
-//       .json({ message: "You are not authorized to reject this offer" });
-//   }
-
-//   if (offer.status === "rejected") {
-//     return res.status(400).json({ message: "Offer already rejected" });
-//   }
-
-//   // Ensure offer is still pending
-//   if (offer.status !== "pending") {
-//     return res
-//       .status(400)
-//       .json({ message: "Only pending offers can be rejected" });
-//   }
-
-//   // Update status to 'rejected'
-//   offer.status = "rejected";
-//   await offer.save();
-
-//   return res.status(200).json({
-//     message: "Offer rejected successfully",
-//     offer,
-//   });
-// };
-
-// const getOfferById = async (req, res) => {
-//   const offerId = req.params.id;
-
-//   // Validate ObjectId
-//   if (!mongoose.Types.ObjectId.isValid(offerId)) {
-//     return res.status(400).json({ message: "Invalid offer ID" });
-//   }
-
-//   const offer = await Offer.findById(offerId)
-//     .populate("senderId", "profile")
-//     .populate("receiverId", "profile")
-//     .populate("jobId", "title description price status");
-
-//   // Optional access check (if you want only sender/receiver to view)
-//   if (
-//     (offer.senderId._id.equals(req.user?._id) &&
-//       offer.receiverId._id.equals(req.user?._id)) ||
-//     req.user?.role.includes("admin")
-//   ) {
-//     return res.status(200).json({ offer });
-//   }
-//   return res
-//     .status(403)
-//     .json({ message: "You are not authorized to view this offer" });
-// };
-
-// const ALLOWED_STATUSES = ["pending", "accepted", "rejected", "withdrawn"];
-// const getAllOffers = async (req, res) => {
-//   const { page = 1, limit = 10, senderId, receiverId, status } = req.query;
-//   const filters = {};
-
-//   // Validate and apply senderId filter
-//   if (senderId) {
-//     if (!mongoose.Types.ObjectId.isValid(senderId)) {
-//       return res.status(400).json({ message: "Invalid senderId" });
-//     }
-//     filters.senderId = senderId;
-//   }
-
-//   // Validate and apply receiverId filter
-//   if (receiverId) {
-//     if (!mongoose.Types.ObjectId.isValid(receiverId)) {
-//       return res.status(400).json({ message: "Invalid receiverId" });
-//     }
-//     filters.receiverId = receiverId;
-//   }
-
-//   // Validate and apply status filter
-//   if (status) {
-//     if (!ALLOWED_STATUSES.includes(status)) {
-//       return res.status(400).json({ message: "Invalid offer status" });
-//     }
-//     filters.status = status;
-//   }
-
-//   const skip = (parseInt(page) - 1) * parseInt(limit);
-//   const total = await Offer.countDocuments(filters);
-
-//   const offers = await Offer.find(filters)
-//     .sort({ createdAt: -1 })
-//     .skip(skip)
-//     .limit(parseInt(limit))
-//     .select("-milestones");
-
-//   if (!offers) {
-//     return res.status(404).json({ message: "offers not found" });
-//   }
-
-//   return res.status(200).json({
-//     total,
-//     page: parseInt(page),
-//     pages: Math.ceil(total / limit),
-//     results: offers.length,
-//     offers,
-//   });
-// };
-
-// const acceptOffer = async (req, res) => {
-//   const offerId = req.params.id;
-
-//   // Validate offer ID format
-//   if (!mongoose.Types.ObjectId.isValid(offerId)) {
-//     return res.status(400).json({ message: "Invalid offer ID" });
-//   }
-
-//   const session = await mongoose.startSession();
-//   try {
-//     const offer = await Offer.findById(offerId).session(session);
-
-//     if (!offer) {
-//       return abortSessionWithMessage(res, session, "Offer not found!", 404);
-//     }
-
-//     // Only the receiver can reject the offer
-//     if (!offer.receiverId.equals(req.user._id)) {
-//       return abortSessionWithMessage(
-//         res,
-//         session,
-//         "You are not authorized to reject this offer",
-//         403
-//       );
-//     }
-
-//     if (offer.status === "accepted") {
-//       return abortSessionWithMessage(
-//         res,
-//         session,
-//         "Offer already accepted",
-//         400
-//       );
-//     }
-
-//     // Ensure offer is still pending
-//     if (offer.status !== "pending") {
-//       return abortSessionWithMessage(
-//         res,
-//         session,
-//         "Only pending offers can be accepted",
-//         400
-//       );
-//     }
-
-//     offer.status = "accepted";
-//     await offer.save({ session });
-
-//     const job = await Job.findByIdAndUpdate(offer.jobId).session(session);
-//     if (!job) {
-//       return abortSessionWithMessage(
-//         res,
-//         session,
-//         "No matching Job found",
-//         404
-//       );
-//     }
-
-//     if (job.status === "filled") {
-//       return abortSessionWithMessage(res, session, "Job already filled", 403);
-//     }
-
-//     if (job.status === "expired") {
-//       return abortSessionWithMessage(res, session, "Job expired", 403);
-//     }
-
-//     job.status = "filled";
-//     await job.save({ session });
-
-//     // create order
-//     const order = new Order({
-//       offerId: offer._id,
-//       jobId: offer.jobId,
-//       employerId: offer.receiverId,
-//       freelancerId: offer.senderId,
-//       title: job.title,
-//       description: job.description,
-//       totalAmount: offer.proposedAmount,
-//     });
-
-//     await order.save({ session });
-
-//     await session.commitTransaction();
-//     session.endSession();
-
-//     return res.status(200).json({
-//       message: "Offer accepted successfully",
-//       order_id: order._id,
-//     });
-//   } catch (err) {
-//     console.error("❌ Failed to Accept offer:", err);
-//     return abortSessionWithMessage(res, session, "Server error", 500);
-//   }
-// };
+  return res.status(200).json({
+    message: "Offer rejected successfully",
+  });
+};
 
 export {
   createOffer,
   getUserOffers,
   getReceivedOffers,
   getOfferById,
-  // editOffer,
-  // withdrawOffer,
-  // rejectOffer,
-  // getOfferById,
-  // getAllOffers,
-  // acceptOffer,
+  rejectOffer,
 };

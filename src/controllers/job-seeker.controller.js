@@ -5,6 +5,7 @@ import Job from "../database/models/jobs.model.js";
 import calculateJobMatchPercentage from "../utils/calculate-job-match.js";
 import Offer from "../database/models/offers.model.js";
 import JOBSEEKER from "../database/models/job-seeker.model.js";
+import EMPLOYER from "../database/models/employers.model.js";
 
 dotenv.config();
 const BACKEND_URL = process.env.BACKEND_URL;
@@ -360,6 +361,26 @@ const getJobSeekerList = async (req, res) => {
     const text = req.query.text?.trim() || "";
     const userId = req.user?._id;
 
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid user id" });
+    }
+
+    const employer = await EMPLOYER.findById(userId);
+    if (!employer) {
+      return res.status(404).json({ message: "user not found!" });
+    }
+
+    if (
+      !employer.currentSubscription ||
+      new Date(employer.currentSubscription.end) < new Date()
+    ) {
+      return res.status(200).json({
+        message: "subscription required",
+        users: [],
+        subscribed: false,
+      });
+    }
+
     const filter = {
       status: "active",
       profile: { $exists: true },
@@ -416,7 +437,7 @@ const getJobSeekerList = async (req, res) => {
       };
     });
 
-    return res.json({ users: formatted });
+    return res.status(200).json({ users: formatted, subscribed: true });
   } catch (err) {
     console.error("❌ Failed to fetch users:", err);
     return res.status(500).json({ message: "Server Error" });

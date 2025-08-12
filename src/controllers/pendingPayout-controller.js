@@ -44,17 +44,30 @@ const runScheduledPayouts = async () => {
           );
         }
 
-        await FREELANCER.updateOne(
-          { _id: payout.freelancerId },
-          {
-            $inc: {
-              totalEarning: payout.amount,
-              currentBalance: payout.amount,
-              tip: payout.amount || 0,
-              pendingClearence: -payout.amount,
-            },
-          }
-        );
+        if (payout.type == "order_tip") {
+          await FREELANCER.updateOne(
+            { _id: payout.freelancerId },
+            {
+              $inc: {
+                totalEarning: payout.amount,
+                currentBalance: payout.amount,
+                tip: payout.amount || 0,
+                pendingClearence: -payout.amount,
+              },
+            }
+          );
+        } else if (payout.type == "order_payment") {
+          await FREELANCER.updateOne(
+            { _id: payout.freelancerId },
+            {
+              $inc: {
+                totalEarning: payout.amount,
+                currentBalance: payout.amount,
+                pendingClearence: -payout.amount,
+              },
+            }
+          );
+        }
 
         console.log(
           `✅ Transferred $${payout.amount} to freelancer ${payout.freelancerId}`

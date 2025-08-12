@@ -874,7 +874,7 @@ const createFreelancerPayout = async (req, res) => {
     // Stripe amounts are in cents
     const payout = await createStripePayout(amount, user.stripeAccountId);
 
-    // Optional: Store in DB
+
     user.payoutHistory.push({
       amount,
       stripePayoutId: payout.id,

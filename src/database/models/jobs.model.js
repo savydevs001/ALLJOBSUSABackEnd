@@ -3,18 +3,18 @@ import mongoose from "mongoose";
 const { Schema, Types } = mongoose;
 
 // Applicant Subschema
-// const applicantSchema = new Schema(
-//   {
-//     freelancerId: { type: Types.ObjectId, ref: "User", required: true },
-//     appliedAt: { type: Date, default: Date.now },
-//     status: {
-//       type: String,
-//       enum: ["pending", "reviewed", "interview", "rejected", "hired"],
-//       default: "pending",
-//     },
-//   },
-//   { _id: false }
-// );
+
+const applicantSchema = new Schema(
+  {
+    userId: { type: Types.ObjectId, refPath: "applicants.role" },
+    role: {
+      type: String,
+      required: true,
+      enum: ["freelancer", "jobSeeker"],
+    },
+  },
+  { _id: false }
+);
 
 // Main Job Schema
 const jobSchema = new Schema(
@@ -61,7 +61,6 @@ const jobSchema = new Schema(
         price: Number,
         minimum: Number,
         maximum: Number,
-        _id: false,
       },
       durationDays: Number,
       experienceLevel: {
@@ -75,17 +74,7 @@ const jobSchema = new Schema(
 
     // deadline for job delisting
     deadline: { type: Date, required: true },
-    applicants: [
-      {
-        userId: { type: Types.ObjectId, refPath: "applicants.role" },
-        role: {
-          type: String,
-          required: true,
-          enum: ["freelancer", "jobSeeker"],
-        },
-      },
-      { _id: false },
-    ],
+    applicants: [applicantSchema],
 
     // analytics
     views: { type: Number, default: 0 },

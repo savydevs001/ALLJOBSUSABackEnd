@@ -528,6 +528,7 @@ const markOrderAsComplete = async (req, res) => {
       releaseDate,
       orderId: order._id,
       transactionId: transaction._id,
+      type: "order_payment",
     });
 
     // update paymet of freelancer

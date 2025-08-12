@@ -702,13 +702,17 @@ const stripeWebhook = async (req, res) => {
               transferGroup: `order_${orderId}`,
               releaseDate,
               orderId: orderId,
+              type: "order_tip",
             });
 
             // freelancer.tip = freelancer.tip + (totalAmount - companyCut);
-            freelancer.pendingClearence =
-              freelancer.pendingClearence + (totalAmount - companyCut);
+            freelancer.pendingClearence = Number(
+              (freelancer.pendingClearence || 0) + (totalAmount - companyCut)
+            );
 
-            transaction.orderDeatils.tip = totalAmount - companyCut;
+            transaction.orderDeatils.tip = Number(
+              (transaction.orderDeatils.tip || 0) + (totalAmount - companyCut)
+            );
 
             await pendingPayout.save({ session: mongooseSession });
             await freelancer.save({ session: mongooseSession });
@@ -724,7 +728,7 @@ const stripeWebhook = async (req, res) => {
           } catch (err) {
             console.log(
               "Error updating data while updating bonus for order: ",
-              orderId
+              orderId + " " + err
             );
             await mongooseSession.abortTransaction();
             mongooseSession.endSession();

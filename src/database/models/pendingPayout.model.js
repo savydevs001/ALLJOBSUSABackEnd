@@ -6,6 +6,11 @@ const pendingPayoutSchema = new mongoose.Schema({
     ref: "freelancer",
     required: true,
   },
+  type: {
+    type: String,
+    enum: ["order_payment", "order_tip"],
+    default: "order_payment",
+  },
   stripeAccountId: { type: String, required: true },
   amount: { type: Number, required: true },
   transferGroup: { type: String },
@@ -18,7 +23,6 @@ const pendingPayoutSchema = new mongoose.Schema({
   transactionId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Transaction",
-
   },
   transferred: { type: Boolean, default: false },
   transferId: String,

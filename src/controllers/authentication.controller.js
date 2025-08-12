@@ -112,6 +112,7 @@ const signUp = async (req, res) => {
     }
 
     let token = null;
+    let user;
 
     if (role === "employer") {
       // Employer Signup
@@ -123,7 +124,7 @@ const signUp = async (req, res) => {
           .status(409)
           .json({ message: "Email already registered as a employer" });
 
-      const user = new EMPLOYER(userDetails);
+      user = new EMPLOYER(userDetails);
       await user.save();
 
       token = jwtToken(user, "employer");
@@ -135,7 +136,7 @@ const signUp = async (req, res) => {
       if (existing)
         return res.status(409).json({ message: "Email already registered" });
 
-      const user = new FREELANCER(userDetails);
+      user = new FREELANCER(userDetails);
       await user.save();
       token = jwtToken(user, "freelancer");
     } else if (role == "job-seeker") {
@@ -146,18 +147,24 @@ const signUp = async (req, res) => {
       if (existing)
         return res.status(409).json({ message: "Email already registered" });
 
-      const user = new JOBSEEKER(userDetails);
+      user = new JOBSEEKER(userDetails);
       await user.save();
       token = jwtToken(user, "job-seeker");
     }
 
-    if (token === null) {
+    if (token === null || !user) {
       console.log("❌ Error creating jwt token");
       return res.status(500).json({ message: "Server Error" });
     }
     return res.status(201).json({
       message: "Signup successful",
       token,
+      user: {
+        _id: user?._id,
+        fullName: user?.fullName,
+        role: role,
+        profilePictureUrl: user?.profilePictureUrl,
+      },
     });
   } catch (err) {
     console.error("❌ Sign-up error:", err);
@@ -225,6 +232,12 @@ const signIn = async (req, res) => {
     return res.status(200).json({
       message: "Login successful",
       token,
+      user: {
+        _id: user?._id,
+        fullName: user?.fullName,
+        role: role,
+        profilePictureUrl: user?.profilePictureUrl,
+      },
     });
   } catch (err) {
     console.error("❌ Sign-in error:", err);
