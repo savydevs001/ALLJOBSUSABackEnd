@@ -3,7 +3,6 @@ import dotenv from "dotenv";
 
 import { verifyToken } from "../utils/jwt.js";
 import Message from "../database/models/messages.model.js";
-import { createOrUpdateConversation } from "../controllers/conversation.controller.js";
 import {
   checkOnlineUser,
   deleteOnlineUser,

@@ -1,8 +1,6 @@
-import User from "../database/models/users.model.js";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import { z } from "zod";
-import { jwtToken } from "../utils/jwt.js";
 import Job from "../database/models/jobs.model.js";
 import EMPLOYER from "../database/models/employers.model.js";
 import Offer from "../database/models/offers.model.js";

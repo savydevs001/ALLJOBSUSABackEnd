@@ -1,15 +1,9 @@
-// controllers/offerController.js
-import req from "express/lib/request.js";
 import Offer from "../database/models/offers.model.js";
 import mongoose from "mongoose";
 import { z } from "zod";
-import abortSessionWithMessage from "../utils/abortSession.js";
-import Order from "../database/models/order.model.js";
 import Job from "../database/models/jobs.model.js";
-import User from "../database/models/users.model.js";
 import FREELANCER from "../database/models/freelancer.model.js";
 import EMPLOYER from "../database/models/employers.model.js";
-import sendEmail from "../services/emailSender.js";
 import enqueueEmail from "../services/emailSender.js";
 import JOBSEEKER from "../database/models/job-seeker.model.js";
 import { notifyUser } from "./notification.controller.js";

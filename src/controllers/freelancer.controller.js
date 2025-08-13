@@ -1,21 +1,15 @@
 import mongoose, { mongo } from "mongoose";
-import User from "../database/models/users.model.js";
 import dotenv from "dotenv";
 import { z } from "zod";
-import { jwtToken } from "../utils/jwt.js";
 import FREELANCER from "../database/models/freelancer.model.js";
-import uploadProfile from "../utils/files/uploadProfile.js";
 import Job from "../database/models/jobs.model.js";
 import calculateJobMatchPercentage from "../utils/calculate-job-match.js";
 import {
-  createAccountOnbaordSession2,
-  createStripeAccount2,
   createStripeExpressAcount,
   generateOnBoardingAccountLink,
   generateStipeLoginLink,
   getExternalAccounts,
   getStripeBalanceByAccountId,
-  retriveStripeAccount,
 } from "../services/stripe.service.js";
 import Offer from "../database/models/offers.model.js";
 import Order from "../database/models/order.model.js";

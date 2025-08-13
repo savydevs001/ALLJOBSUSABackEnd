@@ -1,17 +1,12 @@
 import { z } from "zod";
 import dotenv from "dotenv";
 import crypto from "crypto";
-
-import User from "../database/models/users.model.js";
 import { hashPassword, verifyPassword } from "../utils/password.js";
 // import sendEmail from "../utils/emailSender.js";
-import { notifyUser } from "./notification.controller.js";
-import { createStripeExpressAcount } from "../services/stripe.service.js";
+
 import { jwtToken } from "../utils/jwt.js";
 import EMPLOYER from "../database/models/employers.model.js";
 import FREELANCER from "../database/models/freelancer.model.js";
-import mongoose from "mongoose";
-import req from "express/lib/request.js";
 import JOBSEEKER from "../database/models/job-seeker.model.js";
 import enqueueEmail from "../services/emailSender.js";
 
