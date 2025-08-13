@@ -1,0 +1,11 @@
+stripe listen --forward-to localhost:8000/webhook --events payment_intent.succeeded,account.updated,invoice.payment_succeeded
+
+https://github.com/savydevs001/ALLJOBSUSAFrontend.git
+git subtree split --prefix=frontend -b temp-frontend
+git push client-frontend temp-frontend:main --force
+git branch -D temp-frontend
+
+https://github.com/savydevs001/ALLJOBSUSABackEnd.git
+git subtree split --prefix=backend -b temp-backend
+git push client-backend temp-backend:main --force
+git branch -D temp-backend

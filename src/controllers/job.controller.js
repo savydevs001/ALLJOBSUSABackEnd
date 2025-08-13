@@ -301,6 +301,8 @@ const getAllJobs = async (req, res) => {
       text,
     } = req.query;
 
+    const userId = req.user?._id;
+
     const filters = {};
     if (job) {
       filters.job = job;
@@ -460,6 +462,9 @@ const getAllJobs = async (req, res) => {
 
       return {
         ...job,
+        alreadyApplied: job.applicants.some(
+          (e) => e.userId.toString() == userId.toString()
+        ),
         applicants: job.applicants?.length ?? 0,
         saved: user ? isSaved : false,
         match: user ? match : "",
@@ -941,28 +946,27 @@ const getJobApplicants = async (req, res) => {
       return res.status(400).json({ message: "Invalid job id" });
     }
 
-    const job = await Job.findOne({ _id: jobId, employerId: userId }).select("title description applicants").populate("applicants.userId", "_id fullName profilePictureUrl");
-    if(!job){
-      return res.status(404).json({message: "Job not found!"})
+    const job = await Job.findOne({ _id: jobId, employerId: userId })
+      .select("title description applicants")
+      .populate("applicants.userId", "_id fullName profilePictureUrl");
+    if (!job) {
+      return res.status(404).json({ message: "Job not found!" });
     }
-
 
     const tranformed = {
       _id: job._id,
       title: job.title,
       description: job.description,
-      applicants: job.applicants.map(e => ({
+      applicants: job.applicants.map((e) => ({
         _id: e.userId._id,
         fullName: e.userId?.fullName,
-        profilePictureUrl: e.userId?.profilePictureUrl
-      }))
-    }
+        profilePictureUrl: e.userId?.profilePictureUrl,
+      })),
+    };
 
-    
-    console.log("job: ", tranformed)
+    console.log("job: ", tranformed);
 
-    return res.status(200).json({data: tranformed})
-
+    return res.status(200).json({ data: tranformed });
   } catch (err) {
     console.log("❌ Error getting job applicants: ", err);
     return res
@@ -981,5 +985,5 @@ export {
   getJobForEdit,
   updateJob,
   closeAJob,
-  getJobApplicants
+  getJobApplicants,
 };

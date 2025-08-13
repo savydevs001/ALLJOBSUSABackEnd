@@ -209,7 +209,7 @@ const getUserJobStats = async (req, res) => {
     // Get count of applied jobs
     const applied = await Job.find({
       status: "empty",
-      applicants: { $in: [new mongoose.Types.ObjectId(userId)] },
+      "applicants.userId": { $in: [new mongoose.Types.ObjectId(userId)] },
       deadline: { $gt: new Date() },
       "simpleJobDetails.deadline": { $gt: new Date() },
     }).select("_id");
@@ -310,6 +310,8 @@ const getJobSeekerProfileById = async (req, res) => {
       { _id: userId, status: { $nin: ["deleted"] } },
       {
         fullName: 1,
+        phoneNumber: 1,
+        email: 1,
         profilePictureUrl: 1,
         profile: 1,
       }
@@ -342,6 +344,8 @@ const getJobSeekerProfileById = async (req, res) => {
       fullName: user.fullName,
       ...user.profile,
       profilePictureUrl: user.profilePictureUrl,
+      phoneNumber: user.phoneNumber,
+      email: user.email,
     };
 
     return res.status(200).json({
