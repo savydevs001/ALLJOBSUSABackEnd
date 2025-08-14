@@ -34,6 +34,7 @@ import ManagerRouter from "./routes/manager.routes.js";
 
 // stripe
 import { stripeWebhook } from "./services/stripe.service.js";
+import ChatBotRouter from "./routes/chatbot.routes.js";
 
 dotenv.config();
 
@@ -60,34 +61,36 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use(express.static("src/public"));
 
-app.get("/", (req, res) => res.send("Hello world"));
-app.use("/auth", AuthenticationRouter);
-app.use("/freelancers", FreelancerRouter);
-app.use("/employers", EmployerRouter);
-app.use("/job-seekers", JobSeekerRouter);
-app.use("/jobs", verifyTokenMiddleware(), JobRouter);
-app.use("/notifications", NotificationRouter);
-app.use("/offers", OfferRouter);
-app.use("/applications", ApplicationRouter);
-app.use("/messages", MessageRouter);
-app.use("/reviews", reviewRouter);
-app.use("/orders", orderRouter);
-app.use("/payments", express.json(), transactionRouter);
-app.use("/subscriptions", SubscriptionRouter);
-app.use("/testimonials", TestimonialRouter);
-app.use("/upload", uploadRouter);
-app.use("/stripe", StripeRouter);
-app.use("/support", SupportRouter);
-app.use("/legal", LegalContentRouter);
-app.use("/contact", ContactRouter);
+const apiRouter = express.Router();
+
+apiRouter.use("/auth", AuthenticationRouter);
+apiRouter.use("/freelancers", FreelancerRouter);
+apiRouter.use("/employers", EmployerRouter);
+apiRouter.use("/job-seekers", JobSeekerRouter);
+apiRouter.use("/jobs", verifyTokenMiddleware(), JobRouter);
+apiRouter.use("/notifications", NotificationRouter);
+apiRouter.use("/offers", OfferRouter);
+apiRouter.use("/applications", ApplicationRouter);
+apiRouter.use("/messages", MessageRouter);
+apiRouter.use("/reviews", reviewRouter);
+apiRouter.use("/orders", orderRouter);
+apiRouter.use("/payments", express.json(), transactionRouter);
+apiRouter.use("/subscriptions", SubscriptionRouter);
+apiRouter.use("/testimonials", TestimonialRouter);
+apiRouter.use("/upload", uploadRouter);
+apiRouter.use("/stripe", StripeRouter);
+apiRouter.use("/support", SupportRouter);
+apiRouter.use("/legal", LegalContentRouter);
+apiRouter.use("/contact", ContactRouter);
+apiRouter.use("/chatbot", ChatBotRouter);
 
 // admin routes
-app.use("/manager", ManagerRouter);
-app.use("/admin", AdminRouter);
-app.use("/plateform", PlateformRouter);
+apiRouter.use("/manager", ManagerRouter);
+apiRouter.use("/admin", AdminRouter);
+apiRouter.use("/plateform", PlateformRouter);
 
 // download file
-app.get("/download", (req, res) => {
+apiRouter.get("/download", (req, res) => {
   const fileUrl = req.query?.fileurl;
   const fileName = req.query?.filename;
   if (!fileUrl) {
@@ -115,7 +118,18 @@ app.get("/download", (req, res) => {
   });
 });
 
+apiRouter.use("/", (req, res) => res.send("Hello world"));
+app.use("/api", apiRouter)
+
 // End Middlewares
 app.use(errorHandlerMiddleware);
+
+//for front end
+app.use(express.static(path.resolve(process.cwd(), "dist")));
+
+// Fallback only for non-API GET requests
+app.get(/^\/(?!api).*/, (req, res) => {
+  res.sendFile(path.resolve(process.cwd(), "dist", "index.html"));
+});
 
 export default app;

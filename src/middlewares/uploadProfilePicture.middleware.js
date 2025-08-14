@@ -1,7 +1,14 @@
 import multer from "multer";
 import path from "path";
+import fs from "fs"
 
 const folder = "src/public/images/";
+const uploadDir = path.resolve(process.cwd(), folder);
+
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     req.folder = "images/";

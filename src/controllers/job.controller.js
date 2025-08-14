@@ -250,7 +250,7 @@ const getJobById = async (req, res) => {
     const transformed = {
       _id: job._id,
       alreadyApplied: job.applicants.some(
-        (e) => e.userId.toString() == userId.toString()
+        (e) => e.userId?.toString() == userId?.toString()
       ),
       employerId: {
         fullName: job.employerId.fullName,
@@ -311,9 +311,9 @@ const getAllJobs = async (req, res) => {
     // get user to check if he had saved this job
     let user;
     if (req.user.role == "freelancer") {
-      user = await FREELANCER.findById(req.user?._id).select("savedJobs");
+      user = await FREELANCER.findById(userId).select("savedJobs");
     } else if (req.user.role === "job-seeker") {
-      user = await JOBSEEKER.findById(req.user?._id).select("savedJobs");
+      user = await JOBSEEKER.findById(userId).select("savedJobs");
     }
 
     // Filter by job status
@@ -425,27 +425,6 @@ const getAllJobs = async (req, res) => {
       .populate("employerId", "fullName")
       .lean();
 
-    // const transformedJobs = jobs.map((job) => ({
-    //   ...job,
-    //   applicants: job.applicants?.length ?? 0,
-    //   saved:
-    //     employerId == ""
-    //       ? user?.savedJobs?.includes(job._id) === true
-    //         ? true
-    //         : false
-    //       : "",
-    //   match:
-    //     employerId == ""
-    //       ? calculateJobMatchPercentage(
-    //           { title: job.title, description: job.description },
-    //           {
-    //             bio: user?.profile?.bio || "",
-    //             skills: user?.profile?.skills || [],
-    //           }
-    //         )
-    //       : "",
-    // }));
-
     const transformedJobs = jobs.map((job) => {
       const isSaved = user?.savedJobs?.some((savedId) =>
         savedId.equals(job._id)
@@ -463,7 +442,7 @@ const getAllJobs = async (req, res) => {
       return {
         ...job,
         alreadyApplied: job.applicants.some(
-          (e) => e.userId.toString() == userId.toString()
+          (e) => e.userId?.toString() == userId?.toString()
         ),
         applicants: job.applicants?.length ?? 0,
         saved: user ? isSaved : false,
@@ -476,7 +455,7 @@ const getAllJobs = async (req, res) => {
     });
   } catch (err) {
     console.log("❌ Error getting job: ", err);
-    return res.status(500).json({ message: "Server Error" });
+    return res.status(500).json({ message: "Server Error",err });
   }
 };
 

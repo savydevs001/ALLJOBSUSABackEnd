@@ -55,7 +55,7 @@ JobRouter.get(
   roleBasedAuthMiddleware(["employer", "job-seeker"]),
   a(getJobApplicants)
 );
-JobRouter.get("/:id", a(getJobById));
+JobRouter.get("/:id", verifyTokenMiddleware(), a(getJobById));
 
 // JobRouter.get("/save/:id", a(saveAJob));
 // JobRouter.get("/unsave/:id", a(removeSavedJob));

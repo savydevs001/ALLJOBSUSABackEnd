@@ -1,0 +1,15 @@
+[
+  {
+    "question": "How can I create a ticket?",
+    "answer": "There is button right above chat to create a ticket."
+  },
+  { "question": "hi", "answer": "Hello! How can I help you today?" },
+  {
+    "question": "how to apply",
+    "answer": "To apply for a job, go to the Jobs page and click Apply."
+  },
+  {
+    "question": "how to post job",
+    "answer": "Go to 'Post a Job' from your dashboard."
+  }
+]

@@ -1,13 +1,9 @@
 import multer from "multer";
 import path from "path";
 import fs from "fs";
-import { fileURLToPath } from "url";
 
-const folder = "src/public/uploads/";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const uploadDir = path.join(__dirname, folder);
+const folder = "./src/public/uploads/";
+const uploadDir = path.resolve(process.cwd(), folder);
 
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
@@ -35,21 +31,20 @@ const allowedTypes = [
   // Archives
   "application/zip",
   "application/x-zip-compressed", // Windows-specific ZIP
-  "multipart/x-zip",              // Some other ZIP
+  "multipart/x-zip", // Some other ZIP
   "application/x-rar-compressed",
-  "application/vnd.rar",          // Alternate RAR MIME
+  "application/vnd.rar", // Alternate RAR MIME
 
   // Documents
   "application/pdf",
-  "application/msword",           // .doc
+  "application/msword", // .doc
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
 
   // Videos
-  "video/mp4",                    // Most common web format
-  "video/quicktime",              // .mov
-  "video/x-msvideo",              // .avi
+  "video/mp4", // Most common web format
+  "video/quicktime", // .mov
+  "video/x-msvideo", // .avi
 ];
-
 
 const fileFilter = (req, file, cb) => {
   if (allowedTypes.includes(file.mimetype)) {
