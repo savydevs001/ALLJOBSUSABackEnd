@@ -3,6 +3,7 @@ import verifyTokenMiddleware from "../middlewares/verifyToken.middleware.js";
 import a from "../utils/a.js";
 import {
   createSupportTicket,
+  deleteSupportMessagesByTicket,
   getAllSupportThreads,
   getSupportMessagesByTicket,
   getSupportTicket,
@@ -27,5 +28,12 @@ SupportRouter.get(
 );
 
 SupportRouter.post("/new", verifyTokenMiddleware(), a(createSupportTicket));
+
+SupportRouter.delete(
+  "/:ticketid",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["admin", "manager"]),
+  a(deleteSupportMessagesByTicket)
+);
 
 export default SupportRouter;

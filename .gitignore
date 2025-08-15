@@ -45,3 +45,9 @@ pids/
 # Misc
 debug.log
 .vercel
+
+
+src/public/images/*
+!src/public/images/.keep
+src/public/uploads/*
+!src/public/uploads/.keep

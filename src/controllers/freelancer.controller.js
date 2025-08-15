@@ -326,7 +326,7 @@ const getFreelancerEarnings = async (req, res) => {
 
 const onboardConnectedAccountSchema = z.object({
   phone: z.string().min(8),
-  ssn: z.string().length(4, "SSN number is of 4 chracters only").optional(),
+  ssn: z.string().length(4, "SSN number is of 4 chracters only").or(z.literal("")).optional(),
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   dob: z.object({
@@ -380,14 +380,18 @@ const startFreelancerOnboarding = async (req, res) => {
           address: data.address,
         };
         if (data.address.country == "US") {
+          if (!data.ssn) {
+            return res.status(400).json({ message: "ssn required" });
+          }
+          if (data.ssn.length != 4) {
+            return res.status(400).json({ message: "ssn should be of 4 digits" });
+          }
           individual.ssn_last_4 = data.ssn;
         }
         const tos_acceptance = {
           date: Math.floor(Date.now() / 1000),
           ip: req.ip, // IP address of the user
         };
-
-        // console.log("individual: ", individual)
 
         const account = await createStripeExpressAcount({
           email: user.email,

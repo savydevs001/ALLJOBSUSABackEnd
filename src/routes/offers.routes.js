@@ -28,7 +28,7 @@ OfferRouter.get(
 OfferRouter.get(
   "/:id",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["employer", "freelancer", "job-seeker"]),
+  roleBasedAuthMiddleware(["employer", "freelancer", "job-seeker", "admin", "manager"]),
   a(getOfferById)
 );
 OfferRouter.get(

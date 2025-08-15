@@ -76,9 +76,9 @@ const getSupportMessagesByTicket = async (req, res) => {
   const ticketId = req.params.ticketid;
   const role = req.user?.role;
 
-  if (!ticketId) {
-    return res.status(401).json({ message: "Invalid request" });
-  }
+  // if (!ticketId) {
+  //   return res.status(401).json({ message: "Invalid request" });
+  // }
   if (!ticketId) {
     return res.status(400).json({ message: "Invalid ticket Id" });
   }
@@ -287,10 +287,33 @@ const getAllSupportThreads = async (req, res) => {
   }
 };
 
+// delete ticket
+const deleteSupportMessagesByTicket = async (req, res) => {
+  const ticketId = req.params.ticketid;
+
+  if (!ticketId) {
+    return res.status(400).json({ message: "Invalid ticket Id" });
+  }
+
+  try {
+    await SupportMessage.deleteMany({
+      ticketId: ticketId,
+    });
+
+    res.json({
+      message: "Deleted Successully"
+    });
+  } catch (err) {
+    console.error("Error deleting ticket messages:", err);
+    res.status(500).json({ message: "Failed to delete messages" });
+  }
+};
+
 export {
   getSupportTicket,
   createSupportTicket,
   getSupportAdminId,
   getSupportMessagesByTicket,
   getAllSupportThreads,
+  deleteSupportMessagesByTicket
 };
