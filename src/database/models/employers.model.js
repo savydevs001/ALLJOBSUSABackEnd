@@ -1,5 +1,14 @@
 import mongoose, { Mongoose, Types } from "mongoose";
 
+const resumeOrCoverSchema = mongoose.Schema(
+  {
+    title: String,
+    url: String,
+    at: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const employerSchema = mongoose.Schema(
   {
     email: { type: String, required: true },
@@ -12,10 +21,6 @@ const employerSchema = mongoose.Schema(
       lastResetTokenTime: Date,
       resetTokenExpiry: Date,
     },
-    // temporaryPass: {
-    //   password: String,
-    //   createdAt: Date,
-    // },
     lastLogin: Date,
     status: {
       type: String,
@@ -64,6 +69,12 @@ const employerSchema = mongoose.Schema(
     // stripe
     stripeCustomerId: String,
     stripeProfileSubscriptionId: String,
+
+    // resume and cover
+    canDownloadResume: { type: Boolean, default: false },
+    canDownloadCover: { type: Boolean, default: false },
+    createdResumes: [resumeOrCoverSchema],
+    createdCovers: [resumeOrCoverSchema],
   },
   {
     timestamps: true,

@@ -1,30 +1,38 @@
 import { Router } from "express";
-import { verifyStripeSession } from "../database/models/stripe.controller.js";
 import verifyTokenMiddleware from "../middlewares/verifyToken.middleware.js";
 import roleBasedAuthMiddleware from "../middlewares/roleBasedAuth.middleware.js";
 import a from "../utils/a.js";
 import {
-  calculateTotalSubscriptionEarning,
   cancelAutoRenewl,
   checkFreelancerPayoutSattus,
   createFreelancerPayout,
   createPaymentIntents,
+  verifyStripeSession,
+  checkPaidForResume,
+  checkPaidForCoverLetter,
+  downLoadResume,
+  downLoadCover,
 } from "../controllers/stripe.controller.js";
 
 const StripeRouter = Router();
-
-// StripeRouter.get(
-//   "/subscription-earnings",
-//   verifyTokenMiddleware(),
-//   roleBasedAuthMiddleware(["admin"]),
-//   a(calculateTotalSubscriptionEarning)
-// );
 
 StripeRouter.get(
   "/freelancer-account-status",
   verifyTokenMiddleware(),
   roleBasedAuthMiddleware(["freelancer"]),
   a(checkFreelancerPayoutSattus)
+);
+StripeRouter.get(
+  "/resume-paid",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["freelancer", "employer", "job-seeker"]),
+  a(checkPaidForResume)
+);
+StripeRouter.get(
+  "/cover-letter-paid",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["freelancer", "employer", "job-seeker"]),
+  a(checkPaidForCoverLetter)
 );
 
 StripeRouter.post("/verify-session", verifyStripeSession);
@@ -45,6 +53,18 @@ StripeRouter.post(
   verifyTokenMiddleware(),
   roleBasedAuthMiddleware(["freelancer"]),
   a(createFreelancerPayout)
+);
+StripeRouter.post(
+  "/resume-download",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["freelancer", "employer", "job-seeker"]),
+  a(downLoadResume)
+);
+StripeRouter.post(
+  "/cover-letter-download",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["freelancer", "employer", "job-seeker"]),
+  a(downLoadCover)
 );
 
 export default StripeRouter;

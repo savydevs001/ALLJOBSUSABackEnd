@@ -7,6 +7,7 @@ import {
   findOrCreateCustomer,
   getStripeAccountbyId,
   getStripeBalanceByAccountId,
+  getStripeSession,
   getTotalIncomeAndMonthlyChange,
   retriveStripePaymentIntent,
   retriveSubscription,
@@ -21,6 +22,8 @@ import abortSessionWithMessage from "../utils/abortSession.js";
 import Job from "../database/models/jobs.model.js";
 import Order from "../database/models/order.model.js";
 import PlatformSettings from "../database/models/palteform.model.js";
+import puppeteer from "puppeteer";
+import uploadPdfBufferToStorage from "../utils/uploadPdfBuffer.js";
 
 const calculateTotalSubscriptionEarning = async (req, res) => {
   try {
@@ -181,8 +184,8 @@ const createPaymentIntents = async (req, res) => {
             userRole: "employer",
             transactionId: transaction._id.toString(),
           },
+          receipt_email: user.email,
         };
-        // console.log("stripeIntentParams: ", stripeIntentParams);
 
         if (requestedSubscription.mode == "subscription") {
           const { renew } = req.body;
@@ -216,178 +219,6 @@ const createPaymentIntents = async (req, res) => {
           // paymentIntentId: paymentIntent.id,
           price: requestedSubscription.price,
         });
-
-      // case "order_payment":
-      //   if (!["employer", "job-seeker"].includes(userRole)) {
-      //     return res.status(400).json({ message: "Invalid Employer role" });
-      //   }
-
-      //   const session = await mongoose.startSession();
-      //   session.startTransaction();
-      //   try {
-      //     const offer = await Offer.findById(itemId).session(session);
-      //     if (!offer || offer.status === "accepted") {
-      //       return abortSessionWithMessage(
-      //         res,
-      //         session,
-      //         "Offer not Valid",
-      //         400
-      //       );
-      //     }
-      //     if (offer.receiverId.toString() != userId.toString()) {
-      //       return abortSessionWithMessage(
-      //         res,
-      //         session,
-      //         "You are not allowed to accept this offerr",
-      //         403
-      //       );
-      //     }
-      //     // validate the freelancer
-      //     const freelancer = await FREELANCER.findById(offer.senderId);
-      //     if (!freelancer || freelancer.status != "active") {
-      //       return abortSessionWithMessage(
-      //         res,
-      //         session,
-      //         "Invalid Freelancer",
-      //         400
-      //       );
-      //     }
-      //     // check job
-      //     let job = null;
-      //     if (offer.jobId) {
-      //       job = await Job.findById(offer.jobId);
-      //       if (!job || job.status != "empty") {
-      //         return abortSessionWithMessage(
-      //           res,
-      //           session,
-      //           "This job is not empty",
-      //           400
-      //         );
-      //       }
-      //       if (job.job != "freelance") {
-      //         return abortSessionWithMessage(
-      //           res,
-      //           session,
-      //           "This is not a freelance job",
-      //           400
-      //         );
-      //       }
-      //     }
-
-      //     // Prevent duplicate order for same offer
-      //     const existingOrder = await Order.findOne({
-      //       offerId: offer._id,
-      //     }).session(session);
-      //     if (existingOrder) {
-      //       if (existingOrder.status == "payment_pending") {
-      //         const existingTrnsaction = await TRANSACTION.findById(
-      //           existingOrder.transactionId
-      //         );
-      //         if (
-      //           existingTrnsaction &&
-      //           existingTrnsaction.orderDeatils?.stripeIntentId
-      //         ) {
-      //           await session.abortTransaction();
-      //           session.endSession();
-      //           const savedIntent = await retriveStripePaymentIntent(
-      //             existingTrnsaction.orderDeatils?.stripeIntentId
-      //           );
-      //           return res.json({
-      //             clientSecret: savedIntent.client_secret,
-      //             price: savedIntent.amount / 100,
-      //           });
-      //         }
-      //       } else {
-      //         return abortSessionWithMessage(
-      //           res,
-      //           session,
-      //           "Order already processed",
-      //           409
-      //         );
-      //       }
-      //     }
-
-      //     const totalAmount = offer.price;
-      //     let companyCut = 0;
-      //     const plateform = (await PlatformSettings.find({}))[0];
-      //     if (plateform.pricing.platformCommissionPercentageActive === true) {
-      //       companyCut = Math.round(
-      //         totalAmount *
-      //           (plateform.pricing.platformCommissionPercentage / 100)
-      //       );
-      //     }
-      //     // create transaction
-      //     const transaction = new TRANSACTION({
-      //       mode: "order",
-      //       orderDeatils: {
-      //         freelancerId: offer.senderId,
-      //         totalAmount: totalAmount,
-      //         amountToBePaid: totalAmount - companyCut,
-      //       },
-      //     });
-      //     const now = new Date();
-      //     // create order
-      //     const order = new Order({
-      //       offerId: offer._id,
-      //       jobId: job ? job._id : null,
-      //       employerId: userId,
-      //       employerModel:
-      //         userRole == "job-seeker"
-      //           ? "jobSeeker"
-      //           : userRole == "employer"
-      //           ? "employer"
-      //           : "",
-      //       freelancerId: offer.senderId,
-      //       title: `${job ? job.title : offer.title ? offer.title : "Project"}`,
-      //       description: job
-      //         ? job.description
-      //         : offer.description
-      //         ? offer.description
-      //         : "description",
-      //       totalAmount: offer.price,
-      //       status: "payment_pending",
-      //       deadline: now.setDate(now.getDate() + offer.duration),
-      //       milestones: offer.milestones || [],
-      //       transactionId: transaction.id,
-      //     });
-      //     transaction.orderDeatils.orderId = order.id;
-
-      //     // initailze params
-      //     const stripeIntentParams = {
-      //       amount: offer.price * 100,
-      //       metadata: {
-      //         purpose: "order-payment",
-      //         orderId: order._id.toString(),
-      //         jobId: job && job._id.toString(),
-      //         offerId: offer._id.toString(),
-      //         employerId: userId.toString(),
-      //         transactionId: transaction._id.toString(),
-      //         freelancerId: freelancer._id.toString(),
-      //       },
-      //     };
-      //     const paymentIntent = await createStripePaymentIntent(
-      //       stripeIntentParams
-      //     );
-      //     transaction.orderDeatils.stripeIntentId = paymentIntent.id;
-
-      //     await order.save({ session });
-      //     await transaction.save({ session });
-      //     await session.commitTransaction();
-      //     session.endSession();
-
-      //     return res.json({
-      //       clientSecret: paymentIntent.client_secret,
-      //       price: offer.price,
-      //     });
-      //   } catch (err) {
-      //     console.log("❌Error processing order: ", err);
-      //     return abortSessionWithMessage(
-      //       res,
-      //       session,
-      //       "Error creating order",
-      //       400
-      //     );
-      //   }
 
       case "order_payment": {
         if (!["employer", "job-seeker"].includes(userRole)) {
@@ -538,6 +369,7 @@ const createPaymentIntents = async (req, res) => {
               transactionId: transaction._id.toString(),
               freelancerId: freelancer._id.toString(),
             },
+            receipt_email: user.email,
           };
 
           const paymentIntent = await createStripePaymentIntent(
@@ -596,6 +428,7 @@ const createPaymentIntents = async (req, res) => {
               freelancerId: order.freelancerId._id.toString(),
               amount: Number(amount),
             },
+            receipt_email: user.email,
           };
 
           const paymentIntent = await createStripePaymentIntent(
@@ -614,18 +447,18 @@ const createPaymentIntents = async (req, res) => {
 
       case "resume":
         try {
-          if (req.user.role !== "freelancer") {
-            return res.status(400).json({
-              message: "Only freelancers are allowed to pay for resumes",
-            });
-          }
+          // if (req.user.role !== "freelancer") {
+          //   return res.status(400).json({
+          //     message: "Only freelancers are allowed to pay for resumes",
+          //   });
+          // }
 
-          const user = await FREELANCER.findById(userId).select(
-            "status stripeAccountId currentBalance"
-          );
-          if (!user || user.status !== "active") {
-            return res.status(400).json({ message: "Invalid User", paid });
-          }
+          // const user = await FREELANCER.findById(userId).select(
+          //   "status stripeAccountId currentBalance"
+          // );
+          // if (!user || user.status !== "active") {
+          //   return res.status(400).json({ message: "Invalid User", paid });
+          // }
           // plans
           const allPlans = await getMemorySubscriptionns();
           const plan = allPlans.find((e) => e.mode === "resume");
@@ -638,7 +471,7 @@ const createPaymentIntents = async (req, res) => {
               .json({ message: "Resume downloads are paused" });
           }
 
-          if (user.stripeAccountId) {
+          if (userRole == "freelancer" && user.stripeAccountId) {
             const balance = await getStripeBalanceByAccountId(
               user.stripeAccountId
             );
@@ -672,8 +505,10 @@ const createPaymentIntents = async (req, res) => {
             description: "Resume for user: " + user._id,
             metadata: {
               purpose: "resume-payment",
-              freelancerId: user._id.toString(),
+              userId: user._id.toString(),
+              userRole,
             },
+            receipt_email: user.email,
           };
 
           const paymentIntent = await createStripePaymentIntent(
@@ -692,18 +527,18 @@ const createPaymentIntents = async (req, res) => {
 
       case "cover":
         try {
-          if (req.user.role !== "freelancer") {
-            return res.status(400).json({
-              message: "Only freelancers are allowed to pay for cover letters",
-            });
-          }
+          // if (req.user.role !== "freelancer") {
+          //   return res.status(400).json({
+          //     message: "Only freelancers are allowed to pay for cover letters",
+          //   });
+          // }
 
-          const user = await FREELANCER.findById(userId).select(
-            "status stripeAccountId currentBalance"
-          );
-          if (!user || user.status !== "active") {
-            return res.status(400).json({ message: "Invalid User", paid });
-          }
+          // const user = await FREELANCER.findById(userId).select(
+          //   "status stripeAccountId currentBalance"
+          // );
+          // if (!user || user.status !== "active") {
+          //   return res.status(400).json({ message: "Invalid User", paid });
+          // }
           // plans
           const allPlans = await getMemorySubscriptionns();
           const plan = allPlans.find((e) => e.mode === "cover");
@@ -716,7 +551,7 @@ const createPaymentIntents = async (req, res) => {
               .json({ message: "Cover Letter downloads are paused" });
           }
 
-          if (user.stripeAccountId) {
+          if (userRole == "freelancer" && user.stripeAccountId) {
             const balance = await getStripeBalanceByAccountId(
               user.stripeAccountId
             );
@@ -750,8 +585,10 @@ const createPaymentIntents = async (req, res) => {
             description: "Cover Letter for user: " + user._id,
             metadata: {
               purpose: "cover-payment",
-              freelancerId: user._id.toString(),
+              userId: user._id.toString(),
+              userRole,
             },
+            receipt_email: user.email,
           };
 
           const paymentIntent = await createStripePaymentIntent(
@@ -874,13 +711,22 @@ const createFreelancerPayout = async (req, res) => {
     // Stripe amounts are in cents
     const payout = await createStripePayout(amount, user.stripeAccountId);
 
-
     user.payoutHistory.push({
       amount,
       stripePayoutId: payout.id,
       status: payout.status,
       createdAt: new Date(),
     });
+
+    user.activity.unshift({
+      title: `Withdrawn $${amount}`,
+      subTitle: "Balance changes",
+      at: new Date(),
+    });
+    if (user.activity.length > 3) {
+      user.activity.splice(3);
+    }
+
     user.currentBalance = user.currentBalance - amount;
     await user.save();
 
@@ -888,8 +734,455 @@ const createFreelancerPayout = async (req, res) => {
   } catch (err) {
     console.error("Error creating payout:", err);
     return res.status(500).json({
-      error: { message: err?.raw?.message || "Failed to create payout." },
+      message: "Failed to create withdraw.",
     });
+  }
+};
+
+// verify session
+const verifyStripeSession = async (req, res) => {
+  const { sessionId } = req.body;
+  if (!sessionId)
+    return res
+      .status(400)
+      .json({ success: false, message: "Missing session ID" });
+
+  try {
+    const session = await getStripeSession(sessionId);
+    if (!session) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Invalid session id" });
+    }
+
+    const metadata = session.metadata;
+    const purpose = metadata.purpose;
+
+    if (purpose == "profile-subscription") {
+      //  validate metadata
+      const transactionId = metadata.transactionId;
+      if (!transactionId) {
+        return res.status(404).json({
+          success: false,
+          message: "Transaction Id not found in metadata",
+        });
+      }
+      const userId = metadata.userId;
+      if (!userId) {
+        return res.status(404).json({
+          success: false,
+          message: "user Id not found in metadata",
+        });
+      }
+
+      // validate user
+      const user = await EMPLOYER.findById(userId);
+      if (!user) {
+        return res
+          .status(404)
+          .json({ success: false, message: "User not found!" });
+      }
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found",
+        });
+      }
+
+      // validate transaction
+      const transaction = await TRANSACTION.findOne({
+        _id: transactionId,
+        mode: "profile-subscription",
+        "subscriptionDetails.sessionId": sessionId,
+      });
+      if (!transaction) {
+        return res.status(404).json({
+          success: false,
+          message: "transaction not found",
+        });
+      }
+
+      if (transaction.subscriptionDetails.status === "completed") {
+        return res.status(200).json({
+          success: true,
+          message: "transaction succeed",
+        });
+      }
+
+      return res
+        .status(400)
+        .json({ message: "Payment not successful", success: false });
+    } else if (purpose == "order-payment") {
+      const { transactionId, employerId, orderId } = metadata;
+      if (!transactionId || !orderId || !employerId) {
+        return res.status(400).json({
+          success: false,
+          message: "Missing data in session",
+        });
+      }
+
+      // validate order;
+      const order = await Order.findById(orderId);
+      if (!order || order.status !== "in_progress") {
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid order" });
+      }
+
+      // validate employer
+      if (order.employerId.toString() !== employerId.toString()) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid Employer" });
+      }
+
+      // validate transaction
+      const transaction = await TRANSACTION.findById(transactionId);
+      if (!transaction || transaction.orderDeatils.status != "escrow_held") {
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid Transaction" });
+      }
+
+      return res
+        .status(200)
+        .json({ message: "Session verified", success: true });
+    }
+
+    return res.status(400).json({
+      message: "Payment not successful, invalid purpose",
+      success: false,
+    });
+  } catch (err) {
+    console.error("❌ Stripe session verification failed:", err);
+    return res.status(500).json({ message: "Server error", success: false });
+  }
+};
+
+// check if paid for resume
+const checkPaidForResume = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    const userRole = req.user?.role;
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid User Id" });
+    }
+    let user;
+    switch (userRole) {
+      case "employer":
+        user = await EMPLOYER.findById(userId);
+        break;
+      case "job-seeker":
+        user = await JOBSEEKER.findById(userId);
+        break;
+      case "freelancer":
+        user = await FREELANCER.findById(userId);
+        break;
+      default:
+        break;
+    }
+    if (!user) {
+      return res.status(404).json({ message: "User not found!" });
+    }
+    if (user.status != "active") {
+      return res.status(400).json({
+        message: "Only Active users are allowed to build resumes",
+      });
+    }
+
+    const hasPaid = user.canDownloadResume === true;
+    if (hasPaid) {
+      return res.status(200).json({ hasPaid, amount: null });
+    }
+
+    const allPlans = await getMemorySubscriptionns();
+    const plan = allPlans.find((e) => e.mode === "resume");
+    if (!plan) {
+      return res.status(400).json({ message: "No Plan Avaiable" });
+    }
+    if (!plan.isActive) {
+      return res.status(400).json({ message: "Resume downloads are paused" });
+    }
+
+    let canPay = false;
+    if (userRole == "freelancer" && user.stripeAccountId) {
+      const balance = await getStripeBalanceByAccountId(user.stripeAccountId);
+      const availableBalance =
+        balance.available.find((b) => b.currency === "usd")?.amount || 0;
+      canPay = availableBalance >= plan.price * 100;
+    }
+
+    return res.status(200).json({ hasPaid, amount: plan.price, canPay });
+  } catch (err) {
+    console.log("❌ Erro checking if user has paid for resume: ", err);
+    return res.status(500).json({ message: err });
+  }
+};
+
+// pay for resume from freelancer balance
+const downLoadResume = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    const userRole = req.user?.role;
+    const { html } = req.body;
+
+    if (!html || !userId) {
+      return res.status(400).json({ message: "Missing data" });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid User" });
+    }
+
+    let user;
+    switch (userRole) {
+      case "employer":
+        user = await EMPLOYER.findById(userId);
+        break;
+      case "job-seeker":
+        user = await JOBSEEKER.findById(userId);
+        break;
+      case "freelancer":
+        user = await FREELANCER.findById(userId);
+        break;
+      default:
+        break;
+    }
+    if (!user || user.status !== "active") {
+      return res.status(400).json({ message: "Invalid User" });
+    }
+
+    if (user.canDownloadResume === true) {
+      const browser = await puppeteer.launch({
+        headless: "new",
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      });
+      const page = await browser.newPage();
+      const tailwindCDN = `<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">`;
+
+      await page.setContent(
+        `
+        <!DOCTYPE html>
+        <html>
+          <head>${tailwindCDN}</head>
+          <body style="margin:0; padding:0;">
+            <div id="resume-wrapper" style="width:100%;">
+              ${html}
+            </div>
+          </body>
+        </html>
+        `,
+        { waitUntil: "networkidle0" }
+      );
+
+      // Measure actual rendered height in px
+      const contentHeightPx = await page.evaluate(() => {
+        const el = document.getElementById("resume-wrapper");
+        return el ? el.scrollHeight : document.body.scrollHeight;
+      });
+
+      // Convert px → mm
+      const contentHeightMM = contentHeightPx * 0.264583;
+
+      // Generate PDF exactly to that size
+      const pdfBuffer = await page.pdf({
+        printBackground: true,
+        width: "210mm", // A4 width
+        height: `${contentHeightMM}mm`, // Exact content height
+        pageRanges: "1", // force only 1 page
+      });
+
+      await browser.close();
+
+      // Save to DB
+      if (!user.createdResumes) user.createdResumes = [];
+      const { path } = await uploadPdfBufferToStorage(pdfBuffer);
+      user.createdResumes.push({
+        title: `${user.fullName}-${Date.now()}-resume.pdf`,
+        url: path,
+      });
+      user.canDownloadResume = false;
+      await user.save();
+
+      // Send file
+      res.set({
+        "Content-Type": "application/pdf",
+        "Content-Disposition": 'attachment; filename="resume.pdf"',
+      });
+
+      return res.send(pdfBuffer);
+    } else {
+      return res
+        .status(400)
+        .json({ message: "Resume can be downloaded after payment" });
+    }
+  } catch (err) {
+    console.log("❌ Error downloading: ", err);
+    return res.status(500).json({ message: "Error downloading " + err });
+  }
+};
+
+// check paid for cover letter
+const checkPaidForCoverLetter = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    const userRole = req.user?.role;
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid User Id" });
+    }
+
+    let user;
+    switch (userRole) {
+      case "employer":
+        user = await EMPLOYER.findById(userId);
+        break;
+      case "job-seeker":
+        user = await JOBSEEKER.findById(userId);
+        break;
+      case "freelancer":
+        user = await FREELANCER.findById(userId);
+        break;
+      default:
+        break;
+    }
+    if (!user) {
+      return res.status(404).json({ message: "User not found!" });
+    }
+    if (user.status != "active") {
+      return res.status(400).json({
+        message: "Only Active users are allowed to build resumes",
+      });
+    }
+
+    const hasPaid = user.canDownloadCover === true;
+    if (hasPaid) {
+      return res.status(200).json({ hasPaid, amount: null });
+    }
+
+    const allPlans = await getMemorySubscriptionns();
+    const plan = allPlans.find((e) => e.mode === "cover");
+    if (!plan) {
+      return res.status(400).json({ message: "No Plan Avaiable" });
+    }
+    if (!plan.isActive) {
+      return res.status(400).json({ message: "Cover downloads are paused" });
+    }
+
+    let canPay = false;
+    if (userRole == "freelancer" && user.stripeAccountId) {
+      const balance = await getStripeBalanceByAccountId(user.stripeAccountId);
+      const availableBalance =
+        balance.available.find((b) => b.currency === "usd")?.amount || 0;
+      canPay = availableBalance >= plan.price * 100;
+    }
+
+    return res.status(200).json({ hasPaid, amount: plan.price, canPay });
+  } catch (err) {
+    console.log("❌ Erro checking if user has paid for cover: ", err);
+    return res.status(500).json({ message: err });
+  }
+};
+
+// downlaod cover
+const downLoadCover = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    const userRole = req.user?.role;
+    const { html } = req.body;
+
+    if (!html || !userId) {
+      return res.status(400).json({ message: "Missing data" });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid User" });
+    }
+
+    let user;
+    switch (userRole) {
+      case "employer":
+        user = await EMPLOYER.findById(userId);
+        break;
+      case "job-seeker":
+        user = await JOBSEEKER.findById(userId);
+        break;
+      case "freelancer":
+        user = await FREELANCER.findById(userId);
+        break;
+      default:
+        break;
+    }
+    if (!user || user.status !== "active") {
+      return res.status(400).json({ message: "Invalid User" });
+    }
+
+    if (user.canDownloadCover === true) {
+      const browser = await puppeteer.launch({
+        headless: "new",
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      });
+      const page = await browser.newPage();
+      const tailwindCDN = `<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">`;
+
+      await page.setContent(
+        `
+        <!DOCTYPE html>
+        <html>
+          <head>${tailwindCDN}</head>
+          <body style="margin:0; padding:0;">
+            <div id="cover-wrapper" style="width:100%;">
+              ${html}
+            </div>
+          </body>
+        </html>
+        `,
+        { waitUntil: "networkidle0" }
+      );
+
+      // Measure actual rendered height in px
+      const contentHeightPx = await page.evaluate(() => {
+        const el = document.getElementById("cover-wrapper");
+        return el ? el.scrollHeight : document.body.scrollHeight;
+      });
+
+      // Convert px → mm
+      const contentHeightMM = contentHeightPx * 0.264583;
+
+      // Generate PDF exactly to that size
+      const pdfBuffer = await page.pdf({
+        printBackground: true,
+        width: "210mm", // A4 width
+        height: `${contentHeightMM}mm`, // Exact content height
+        pageRanges: "1", // ensure 1 page only
+      });
+
+      await browser.close();
+
+      // Save to DB
+      if (!user.createdCovers) user.createdCovers = [];
+      const { path } = await uploadPdfBufferToStorage(pdfBuffer);
+      user.createdCovers.push({
+        title: `${user.fullName}-${Date.now()}-cover.pdf`,
+        url: path,
+      });
+      user.canDownloadCover = false;
+      await user.save();
+
+      // Send file
+      res.set({
+        "Content-Type": "application/pdf",
+        "Content-Disposition": 'attachment; filename="cover_letter.pdf"',
+      });
+
+      return res.send(pdfBuffer);
+    } else {
+      return res
+        .status(400)
+        .json({ message: "Cover Letter can be downloaded after payment" });
+    }
+  } catch (err) {
+    console.log("❌ Error downloading: ", err);
+    return res.status(500).json({ message: "Error downloading : " + err });
   }
 };
 
@@ -899,4 +1192,9 @@ export {
   cancelAutoRenewl,
   checkFreelancerPayoutSattus,
   createFreelancerPayout,
+  checkPaidForResume,
+  checkPaidForCoverLetter,
+  downLoadResume,
+  downLoadCover,
+  verifyStripeSession,
 };

@@ -9,83 +9,6 @@ import { getMemorySubscriptionns } from "./subscriptions.controller.js";
 
 dotenv.config();
 
-// ZOD Schemas
-// const subscriptionZodSchema = z.object({
-//   planId: z
-//     .string()
-//     .regex(/^[a-f\d]{24}$/i, "Invalid ObjectId")
-//     .optional(),
-//   status: z.enum(["active", "inactive"]).optional(),
-//   startDate: z.string().datetime().optional(),
-//   endDate: z.string().datetime().optional(),
-//   autoRenew: z.boolean().optional(),
-// });
-
-// Controllers
-// const enableEmployerProfile = async (req, res) => {
-//   const userId = req.user?._id;
-//   const user = await User.findById(userId);
-//   if (!user) {
-//     return res.status(404).json({ message: "User not found" });
-//   }
-//   if (user.role.includes("employer")) {
-//     return res
-//       .status(400)
-//       .json({ message: "Employer profile already enabled" });
-//   }
-//   user.role.push("employer");
-//   await user.save();
-
-//   const token = jwtToken(user);
-//   if (!token) {
-//     return res.status(500).json({ message: "Server Error" });
-//   }
-
-//   res.cookie(process.env.JWT_COOKIE_NAME, token, {
-//     httpOnly: true,
-//     secure: process.env.NODE_ENV === "production",
-//     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-//   });
-
-//   return res
-//     .status(200)
-//     .json({ message: "Employer profile enabled successfully", token });
-// };
-
-// const addEmployerProfile = async (req, res) => {
-//   const data = employerDetailsZodSchema.parse(req.body);
-
-//   const userId = req.user?._id;
-//   const user = await User.findOne({
-//     _id: userId,
-//     status: { $nin: ["suspended", "deleted"] },
-//   });
-
-//   if (!user) {
-//     return res.status(404).json({ message: "User not found" });
-//   }
-
-//   if (user.role.includes("employer")) {
-//     // Check if employer details already exist
-//     if (user.employerDetails) {
-//       return res
-//         .status(400)
-//         .json({ message: "Employer profile already exists" });
-//     }
-
-//     // Add Employer details to user
-//     user.employerDetails = data;
-//     await user.save();
-//     return res.status(201).json({
-//       message: "Employer profile created successfully",
-//       employerDetails: user.employerDetails,
-//     });
-//   }
-//   return res
-//     .status(403)
-//     .json({ message: "Only Employer can add Employer details" });
-// };
-
 // Edit employer
 const editEmployerProfileSchema = z.object({
   fullName: z
@@ -195,23 +118,25 @@ const getEmployerProfile = async (req, res) => {
   }
 
   let currentSusbscription;
-  if (
-    user.currentSubscription &&
-    new Date(user.currentSubscription.end) > new Date()
-  ) {
-    const memorySusbcriptions = await getMemorySubscriptionns();
-    const sub = memorySusbcriptions.find(
-      (e) => e._id == user.currentSubscription.subId
-    );
+  if (user.currentSubscription) {
+    if (new Date(user.currentSubscription.end) > new Date()) {
+      const memorySusbcriptions = await getMemorySubscriptionns();
+      const sub = memorySusbcriptions.find(
+        (e) => e._id == user.currentSubscription.subId
+      );
 
-    if (sub) {
-      currentSusbscription = {
-        autoRenew: user.susbscriptionRenew,
-        title: sub.name,
-        description: sub.description,
-        start: user.currentSubscription.start,
-        end: user.currentSubscription.end,
-      };
+      if (sub) {
+        currentSusbscription = {
+          autoRenew: user.susbscriptionRenew,
+          title: sub.name,
+          description: sub.description,
+          start: user.currentSubscription.start,
+          end: user.currentSubscription.end,
+        };
+      }
+    } else {
+      user.currentSubscription = null;
+      await user.save()
     }
   }
 
@@ -317,6 +242,13 @@ const getEmployerDashboardData = async (req, res) => {
       return res.status(401).json({ message: "User not found!" });
     }
 
+    if (user.currentSubscription) {
+      if (new Date(user.currentSubscription.end) < new Date()) {
+        user.currentSubscription = null;
+        await user.save()
+      }
+    }
+
     const offers = await Offer.find({ receiverId: userId }).populate(
       "senderId",
       "fullName profilePictureUrl profile.professionalTitle profile.resumeUrl"
@@ -374,12 +306,4 @@ const getEmployerDashboardData = async (req, res) => {
   }
 };
 
-export {
-  getEmployerDashboardData,
-  // enableEmployerProfile,
-  // addEmployerProfile,
-  editEmployerProfile,
-  getEmployerProfile,
-  // getEmployerProfileById,
-  // getAllEmployers,
-};
+export { getEmployerDashboardData, editEmployerProfile, getEmployerProfile };

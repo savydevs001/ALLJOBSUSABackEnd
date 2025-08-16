@@ -1,7 +1,7 @@
 function calculateJobMatchPercentage(job, user) {
   try{
     const normalize = (text) =>
-    text.toLowerCase().replace(/[^a-z0-9\s]/gi, "");
+    text?.toLowerCase()?.replace(/[^a-z0-9\s]/gi, "");
 
   const jobText = normalize(job.title + " " + job.description);
   const userBio = normalize(user.bio);

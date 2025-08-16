@@ -1,5 +1,14 @@
 import mongoose, { Types } from "mongoose";
 
+const resumeOrCoverSchema = mongoose.Schema(
+  {
+    title: String,
+    url: String,
+    at: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const jobSeekerSchema = mongoose.Schema(
   {
     fullName: { type: String, required: true },
@@ -13,10 +22,6 @@ const jobSeekerSchema = mongoose.Schema(
       lastResetTokenTime: Date,
       resetTokenExpiry: Date,
     },
-    // temporaryPass: {
-    //   password: String,
-    //   createdAt: Date,
-    // },
     lastLogin: Date,
     status: {
       type: String,
@@ -86,6 +91,12 @@ const jobSeekerSchema = mongoose.Schema(
     savedJobs: [{ type: Types.ObjectId, ref: "Job" }],
 
     likedBy: { type: [String], default: [] },
+
+    // resume and cover
+    canDownloadResume: { type: Boolean, default: false },
+    canDownloadCover: { type: Boolean, default: false },
+    createdResumes: [resumeOrCoverSchema],
+    createdCovers: [resumeOrCoverSchema],
   },
   {
     timestamps: true,

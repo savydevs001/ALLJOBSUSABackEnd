@@ -28,7 +28,7 @@ const start = async () => {
 
       // Schedule
 
-      cron.schedule("* 3 * * *", async () => { // daily at 3A.M
+      cron.schedule("* * * * *", async () => { // daily at 3A.M
         try {
           console.log(`Starting Payouts`);
           await runScheduledPayouts();

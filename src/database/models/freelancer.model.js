@@ -31,10 +31,6 @@ const freelancerSchema = mongoose.Schema(
       lastResetTokenTime: Date,
       resetTokenExpiry: Date,
     },
-    // temporaryPass: {
-    //   password: String,
-    //   createdAt: Date,
-    // },
     lastLogin: Date,
     lastOnline: { type: Date, default: new Date() },
     status: {

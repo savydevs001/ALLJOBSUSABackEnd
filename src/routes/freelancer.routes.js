@@ -19,13 +19,6 @@ import {
   getFreelancerPaymentHistory,
   getMonthlyEarningsByFreelancer,
   getStripeFreelancerLogin,
-  checkPaidForResume,
-  downLoadResume,
-  checkPaidForCoverLetter,
-  downLoadCover,
-  createFreelacneStripeAccount,
-  createFreelacneStripeAccountOnBoardSession,
-  checkFreelancerStripeAccountStatus,
 } from "../controllers/freelancer.controller.js";
 
 const FreelancerRouter = Router();
@@ -94,44 +87,6 @@ FreelancerRouter.get(
   roleBasedAuthMiddleware(["freelancer"]),
   a(getStripeFreelancerLogin)
 );
-FreelancerRouter.get(
-  "/resume",
-  verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["freelancer"]),
-  a(checkPaidForResume)
-);
-FreelancerRouter.get(
-  "/cover-letter",
-  verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["freelancer"]),
-  a(checkPaidForCoverLetter)
-);
-
-// FreelancerRouter.get(
-//   "/create-connect-account",
-//   verifyTokenMiddleware(),
-//   roleBasedAuthMiddleware(["freelancer"]),
-//   a(createFreelacneStripeAccount)
-// );
-// FreelancerRouter.get(
-//   "/check-account-status",
-//   verifyTokenMiddleware(),
-//   roleBasedAuthMiddleware(["freelancer"]),
-//   a(checkFreelancerStripeAccountStatus)
-// );
-
-FreelancerRouter.post(
-  "/resume-download",
-  verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["freelancer"]),
-  a(downLoadResume)
-);
-FreelancerRouter.post(
-  "/cover-letter-download",
-  verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["freelancer"]),
-  a(downLoadCover)
-);
 FreelancerRouter.post(
   "/profile",
   verifyTokenMiddleware(),
@@ -145,12 +100,6 @@ FreelancerRouter.post(
   roleBasedAuthMiddleware(["freelancer"]),
   a(startFreelancerOnboarding)
 );
-// FreelancerRouter.post(
-//   "/create-onboarding-session",
-//   verifyTokenMiddleware(),
-//   roleBasedAuthMiddleware(["freelancer"]),
-//   a(createFreelacneStripeAccountOnBoardSession)
-// );
 
 FreelancerRouter.put(
   "/profile",

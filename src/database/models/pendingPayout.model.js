@@ -26,6 +26,7 @@ const pendingPayoutSchema = new mongoose.Schema({
   },
   transferred: { type: Boolean, default: false },
   transferId: String,
+  createdAt: { type: Date, default: new Date() },
 });
 
 const PENDING_PAYOUT = mongoose.model("pendingPayout", pendingPayoutSchema);

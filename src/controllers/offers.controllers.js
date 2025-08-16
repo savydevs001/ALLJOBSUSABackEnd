@@ -157,13 +157,6 @@ const createOffer = async (req, res, next) => {
 
       // Update job applicants
       if (job) {
-        // if (!job.applicants.includes({ userId: user._id, role: req.user.role })) {
-        //   job.applicants.push({
-        //     role: req.user.role,
-        //     userId: user._id,
-        //   });
-        // }
-
         const alreadyApplied = job.applicants.some(
           (app) =>
             app.userId?.toString() === user._id.toString() &&
@@ -179,7 +172,11 @@ const createOffer = async (req, res, next) => {
       }
 
       // Add to recent activity
-
+      user.activity.unshift({
+        title: `Create Offer ${offer.title}`,
+        subTitle: employer.fullName,
+        at: new Date(),
+      });
       if (user.activity.length > 3) {
         user.activity.splice(3);
       }

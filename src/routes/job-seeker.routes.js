@@ -5,7 +5,7 @@ import uploadProfilePictureMiddleware from "../middlewares/uploadProfilePicture.
 import roleBasedAuthMiddleware from "../middlewares/roleBasedAuth.middleware.js";
 import {
   creatJobSeekerProfile,
-  editJobSeekerProfile,
+  // editJobSeekerProfile,
   getDashboardData,
   getJobSeekerList,
   getJobSeekerProfile,
@@ -60,20 +60,19 @@ JobSeekerRouter.get(
 JobSeekerRouter.post(
   "/profile",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["freelancer", "job-seeker"]),
-  uploadProfilePictureMiddleware.single("file"),
+  roleBasedAuthMiddleware(["job-seeker"]),
   a(creatJobSeekerProfile)
 );
 
-JobSeekerRouter.put(
-  "/profile",
-  verifyTokenMiddleware(),
-  roleBasedAuthMiddleware([ "job-seeker"]),
-  uploadProfilePictureMiddleware.fields([
-    { name: "banner", maxCount: 1 },
-    { name: "profile", maxCount: 1 },
-  ]),
-  a(editJobSeekerProfile)
-);
+// JobSeekerRouter.put(
+//   "/profile",
+//   verifyTokenMiddleware(),
+//   roleBasedAuthMiddleware([ "job-seeker"]),
+//   uploadProfilePictureMiddleware.fields([
+//     { name: "banner", maxCount: 1 },
+//     { name: "profile", maxCount: 1 },
+//   ]),
+//   a(editJobSeekerProfile)
+// );
 
 export default JobSeekerRouter;

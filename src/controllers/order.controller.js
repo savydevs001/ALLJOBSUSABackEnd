@@ -224,75 +224,6 @@ const createOrder = async (req, res) => {
   }
 };
 
-const completeOrder = async (req, res) => {
-  //   const session = await mongoose.startSession();
-  //   session.startTransaction();
-  //   try {
-  //     const userId = req.user?._id;
-  //     const orderId = req.params.id;
-  //     if (!mongoose.Types.ObjectId.isValid(orderId)) {
-  //       return abortSessionWithMessage(res, session, "Invalid order ID");
-  //     }
-  //     if (!mongoose.Types.ObjectId.isValid(userId)) {
-  //       return abortSessionWithMessage(res, session, "Invalid user ID");
-  //     }
-  //     const order = await Order.findById(orderId).session(session);
-  //     if (!order) {
-  //       return abortSessionWithMessage(res, session, "No order found!");
-  //     }
-  //     if (!order.employerId.equals(userId)) {
-  //       return abortSessionWithMessage(
-  //         res,
-  //         session,
-  //         "You are not authorized to complete this order"
-  //       );
-  //     }
-  //     if (!["delivered", "in_progress"].includes(order.status)) {
-  //       return abortSessionWithMessage(res, session, "Invalid order state");
-  //     }
-  //     if (order.status === "payment_pending") {
-  //       return abortSessionWithMessage(
-  //         res,
-  //         session,
-  //         "Payment pending for this order"
-  //       );
-  //     }
-  //     // try {
-  //     //   // ⚠️ Now release funds outside of DB transaction
-  //     //   await getCapturedIntent(order.intentId);
-  //     // } catch (err) {
-  //     //   console.error("❌ Capture intent falied", err);
-  //     //   return abortSessionWithMessage(
-  //     //     res,
-  //     //     session,
-  //     //     "Unable to capture payment",
-  //     //     500
-  //     //   );
-  //     // }
-  //     await FREELANCER.updateOne(
-  //       { _id: order.freelancerId },
-  //       {
-  //         $inc: {
-  //           projectsCompleted: 1,
-  //         },
-  //       }
-  //     ).session(session);
-  //     order.status = "completed";
-  //     await order.save({ session });
-  //     await session.commitTransaction();
-  //     session.endSession();
-  //     return res.status(200).json({
-  //       message: "Order marked as completed and funds released",
-  //     });
-  //   } catch (err) {
-  //     console.error("❌ Order completion failed:", err);
-  //     return abortSessionWithMessage(
-  //       res,
-  //       session,
-  //       "Error marking order as completed"
-  //     );
-  //   }
-};
 
 const getFreelancerOrders = async (req, res) => {
   try {
@@ -550,6 +481,15 @@ const markOrderAsComplete = async (req, res) => {
     if (employer) {
       employer.ordersCompleted = employer.ordersCompleted + 1;
       await employer.save({ session: mongooseSession });
+    }
+
+    // update job status to completed (if availble)
+    if (order.jobId && mongoose.Types.ObjectId.isValid(order.jobId)) {
+      await Job.updateOne(
+        { _id: order.jobId },
+        { status: "completed" },
+        { session: mongooseSession }
+      );
     }
 
     await notifyUser(
@@ -824,7 +764,6 @@ const getRecentOrders = async (req, res) => {
 };
 export {
   createOrder,
-  completeOrder,
   getFreelancerOrders,
   getClientOrders,
   markOrderAsComplete,

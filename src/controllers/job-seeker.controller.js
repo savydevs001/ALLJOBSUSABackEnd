@@ -8,22 +8,47 @@ import JOBSEEKER from "../database/models/job-seeker.model.js";
 import EMPLOYER from "../database/models/employers.model.js";
 
 dotenv.config();
-const BACKEND_URL = process.env.BACKEND_URL;
 
 const createProfileZODSchema = z.object({
+  fullName: z.string().min(1, "Full name is reuired min 1 chracter"),
+  profilePictureUrl: z.string().optional(),
+  bannerUrl: z.string().optional(),
+  resumeUrl: z.string().optional(),
   professionalTitle: z
     .string()
     .min(5, "Min 5 chracter required")
     .max(200, "Max 200 chracters allowed"),
-  hourlyRate: z.string().min(1, "Hourly rate required"),
-  skills: z.array(z.string()).min(1, "At lease 1 skill required"),
+  loaction: z.string().min(2, "Location reuired with min 2 chracters"),
+  website: z.string().optional(),
   bio: z
     .string()
     .min(10, "At least 10 chracters required")
     .max(2000, "Max 2000 chracters allowed"),
-  freelancerWork: z.enum(["true", "false"]).default("false"),
-  projects: z.array(z.string()).default([]),
-  samples: z.array(z.string()).default([]),
+  phoneNumber: z
+    .string()
+    .min(11, "Min 11 chracters allowed")
+    .max(15, "Max 15 chracters allowed"),
+  skills: z.array(z.string()).min(1, "At lease 1 skill required"),
+  experiences: z
+    .array(
+      z.object({
+        jobTitle: z.string(),
+        companyName: z.string(),
+        jobType: z.enum([
+          "Part-time",
+          "Full-time",
+          "Internship",
+          "Freelance",
+          "Contract",
+        ]),
+        startDate: z.coerce.date().optional(),
+        endDate: z.coerce.date().optional(),
+        jobLoaction: z.string(),
+        isCurrentJob: z.boolean(),
+        jobDescription: z.string(),
+      })
+    )
+    .optional(),
 });
 
 // Controllers
@@ -40,23 +65,31 @@ const creatJobSeekerProfile = async (req, res) => {
       return res.status(403).json({ message: "No User found!" });
     }
 
-    if (user.profile) {
-      return res.status(403).json({ message: "Profile already set" });
+    user.fullName = data.fullName;
+    user.phoneNumber = data.phoneNumber;
+    if (data.profilePictureUrl) {
+      user.profilePictureUrl = data.profilePictureUrl;
     }
-
-    user.profile = data;
-    user.profile.freelancerWork = data.freelancerWork === "true";
-    if (req.file && req.newName) {
-      user.profilePictureUrl =
-        BACKEND_URL + "/" + `${req.newName.replace(/\\/g, "/")}`;
+    if (data.bannerUrl) {
+      user.profile.bannerUrl = data.bannerUrl;
     }
-
+    if (data.resumeUrl) {
+      user.profile.resumeUrl = data.resumeUrl;
+    }
+    user.profile.professionalTitle = data.professionalTitle;
+    user.profile.bio = data.bio;
+    user.profile.loaction = data.loaction;
+    user.profile.website = data.website;
+    user.profile.skills = data.skills;
+    user.profile.experiences = data.experiences;
     await user.save();
 
-    return res.status(201).json({ message: "Profile created successfully" });
+    return res.status(201).json({ message: "Profile updated successfully" });
   } catch (err) {
     console.log("❌ Error creating User profile: ", err);
-    return res.status(500).json({ message: "Server Error" });
+    return res
+      .status(500)
+      .json({ message: "Error updating job seeker profile" });
   }
 };
 
@@ -108,83 +141,84 @@ const getJobSeekerProfile = async (req, res) => {
 };
 
 // Edit Profile
-const updateProfileZODSchema = z.object({
-  fullName: z.string().min(1, "Full name is reuired min 1 chracter"),
-  professionalTitle: z
-    .string()
-    .min(5, "Min 5 chracter required")
-    .max(200, "Max 200 chracters allowed"),
-  loaction: z.string().min(2, "Location reuired with min 2 chracters"),
-  website: z.string().optional(),
-  bio: z
-    .string()
-    .min(10, "At least 10 chracters required")
-    .max(2000, "Max 2000 chracters allowed"),
-  email: z.string().email("Invalid email format"),
-  phone: z
-    .string()
-    .min(11, "Min 11 chracters allowed")
-    .max(15, "Max 15 chracters allowed"),
-  skills: z.array(z.string()).min(1, "At lease 1 skill required"),
-  experiences: z.array(z.string()).optional(),
-});
-const editJobSeekerProfile = async (req, res) => {
-  const data = updateProfileZODSchema.parse(req.body);
+// const updateProfileZODSchema = z.object({
+//   fullName: z.string().min(1, "Full name is reuired min 1 chracter"),
+//   profilePictureUrl: z.string().optional(),
+//   bannerUrl: z.string().optional(),
+//   professionalTitle: z
+//     .string()
+//     .min(5, "Min 5 chracter required")
+//     .max(200, "Max 200 chracters allowed"),
+//   loaction: z.string().min(2, "Location reuired with min 2 chracters"),
+//   website: z.string().optional(),
+//   bio: z
+//     .string()
+//     .min(10, "At least 10 chracters required")
+//     .max(2000, "Max 2000 chracters allowed"),
+//   phone: z
+//     .string()
+//     .min(11, "Min 11 chracters allowed")
+//     .max(15, "Max 15 chracters allowed"),
+//   skills: z.array(z.string()).min(1, "At lease 1 skill required"),
+//   experiences: z.array(z.string()).optional(),
+// });
+// const editJobSeekerProfile = async (req, res) => {
+//   const data = updateProfileZODSchema.parse(req.body);
 
-  try {
-    const userId = req.user?._id;
+//   try {
+//     const userId = req.user?._id;
 
-    if (!userId) {
-      return res.status(401).json({ message: "User invalid" });
-    }
-    const user = await JOBSEEKER.findOne({
-      _id: userId,
-      status: { $nin: ["deleted"] },
-    });
+//     if (!userId) {
+//       return res.status(401).json({ message: "User invalid" });
+//     }
+//     const user = await JOBSEEKER.findOne({
+//       _id: userId,
+//       status: { $nin: ["deleted"] },
+//     });
 
-    if (user.status == "suspended") {
-      return res.status(403).json({ message: "Account cannot be modified" });
-    }
+//     if (user.status == "suspended") {
+//       return res.status(403).json({ message: "Account cannot be modified" });
+//     }
 
-    const existing = await JOBSEEKER.findOne({
-      email: data.email,
-    });
-    if (existing && userId != existing._id) {
-      return res.status(403).json({ message: "Email not availble" });
-    }
+//     const existing = await JOBSEEKER.findOne({
+//       email: data.email,
+//     });
+//     if (existing && userId != existing._id) {
+//       return res.status(403).json({ message: "Email not availble" });
+//     }
 
-    const banner = req.files["banner"]?.[0];
-    const profilePic = req.files["profile"]?.[0];
+//     const banner = req.files["banner"]?.[0];
+//     const profilePic = req.files["profile"]?.[0];
 
-    if (banner) {
-      user.profile.bannerUrl =
-        process.env.BACKEND_URL + "/images/" + banner.filename;
-    }
-    if (profilePic) {
-      user.profilePictureUrl =
-        process.env.BACKEND_URL + "/images/" + profilePic.filename;
-    }
-    let parsedExps = [];
-    if (data.experiences) {
-      parsedExps = data.experiences.map((exp) => JSON.parse(exp));
-    }
+//     if (banner) {
+//       user.profile.bannerUrl =
+//         process.env.BACKEND_URL + "/images/" + banner.filename;
+//     }
+//     if (profilePic) {
+//       user.profilePictureUrl =
+//         process.env.BACKEND_URL + "/images/" + profilePic.filename;
+//     }
+//     let parsedExps = [];
+//     if (data.experiences) {
+//       parsedExps = data.experiences.map((exp) => JSON.parse(exp));
+//     }
 
-    user.email = data.email;
-    user.phoneNumber = data.phone;
-    user.profile.professionalTitle = data.professionalTitle;
-    user.profile.loaction = data.loaction;
-    user.profile.website = data.website;
-    user.profile.bio = data.bio;
-    user.profile.skills = data.skills;
-    user.profile.experiences = parsedExps;
+//     user.email = data.email;
+//     user.phoneNumber = data.phone;
+//     user.profile.professionalTitle = data.professionalTitle;
+//     user.profile.loaction = data.loaction;
+//     user.profile.website = data.website;
+//     user.profile.bio = data.bio;
+//     user.profile.skills = data.skills;
+//     user.profile.experiences = parsedExps;
 
-    await user.save();
-    return res.status(200).json({ message: "Profile updated successfully" });
-  } catch (err) {
-    console.log("❌ Error getting profile: ", err);
-    return res.status(500).json({ message: "Server Error" });
-  }
-};
+//     await user.save();
+//     return res.status(200).json({ message: "Profile updated successfully" });
+//   } catch (err) {
+//     console.log("❌ Error getting profile: ", err);
+//     return res.status(500).json({ message: "Server Error" });
+//   }
+// };
 
 // Job Stats
 const getUserJobStats = async (req, res) => {
@@ -527,7 +561,6 @@ const unlikeJObSeeker = async (req, res) => {
 export {
   creatJobSeekerProfile,
   getJobSeekerProfile,
-  editJobSeekerProfile,
   getUserJobStats,
   getDashboardData,
   getJobSeekerList,

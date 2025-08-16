@@ -3,7 +3,6 @@ import verifyTokenMiddleware from "../middlewares/verifyToken.middleware.js";
 import roleBasedAuthMiddleware from "../middlewares/roleBasedAuth.middleware.js";
 import {
   attachNewFilesToOrder,
-  // completeOrder,
   createOrder,
   delieverOrderForRevsions,
   getClientOrders,

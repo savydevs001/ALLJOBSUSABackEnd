@@ -9,18 +9,16 @@ import {
   generateOnBoardingAccountLink,
   generateStipeLoginLink,
   getExternalAccounts,
-  getStripeBalanceByAccountId,
 } from "../services/stripe.service.js";
 import Offer from "../database/models/offers.model.js";
 import Order from "../database/models/order.model.js";
 import TRANSACTION from "../database/models/transactions.model.js";
-import { getMemorySubscriptionns } from "./subscriptions.controller.js";
-import puppeteer from "puppeteer";
+import PENDING_PAYOUT from "../database/models/pendingPayout.model.js";
 
 dotenv.config();
-const BACKEND_URL = process.env.BACKEND_URL;
 
 const createProfileZODSchema = z.object({
+  profilePictureUrl: z.string().optional(),
   professionalTitle: z
     .string()
     .min(5, "Min 5 chracter required")
@@ -51,15 +49,13 @@ const creatFreelancerProfile = async (req, res) => {
       return res.status(403).json({ message: "No User found!" });
     }
 
-    // if (freelancer.profile) {
-    //   return res.status(403).json({ message: "Profile already set" });
-    // }
-
     freelancer.profile = data;
     freelancer.profile.freelancerWork = data.freelancerWork === "true";
-    if (req.file && req.newName) {
-      freelancer.profilePictureUrl =
-        BACKEND_URL + "/" + `${req.newName.replace(/\\/g, "/")}`;
+    if (data.profilePictureUrl) {
+      freelancer.profilePictureUrl = data.profilePictureUrl;
+    }
+    if (!data.loaction) {
+      freelancer.profile.loaction = "Remote";
     }
 
     await freelancer.save();
@@ -326,7 +322,11 @@ const getFreelancerEarnings = async (req, res) => {
 
 const onboardConnectedAccountSchema = z.object({
   phone: z.string().min(8),
-  ssn: z.string().length(4, "SSN number is of 4 chracters only").or(z.literal("")).optional(),
+  ssn: z
+    .string()
+    .length(4, "SSN number is of 4 chracters only")
+    .or(z.literal(""))
+    .optional(),
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   dob: z.object({
@@ -384,7 +384,9 @@ const startFreelancerOnboarding = async (req, res) => {
             return res.status(400).json({ message: "ssn required" });
           }
           if (data.ssn.length != 4) {
-            return res.status(400).json({ message: "ssn should be of 4 digits" });
+            return res
+              .status(400)
+              .json({ message: "ssn should be of 4 digits" });
           }
           individual.ssn_last_4 = data.ssn;
         }
@@ -400,6 +402,7 @@ const startFreelancerOnboarding = async (req, res) => {
           tos_acceptance: tos_acceptance,
           country: data.address.country,
         });
+        // console.log("account: ", account)
         user.stripeAccountId = account.id;
         await user.save();
       }
@@ -508,6 +511,7 @@ const getFreelanceProfileById = async (req, res) => {
         rating: 1,
         projectsCompleted: 1,
         createdAt: 1,
+        likedBy: 1,
       }
     );
 
@@ -519,8 +523,6 @@ const getFreelanceProfileById = async (req, res) => {
       return res.status(404).json({ message: "Freelancer profile not set" });
     }
 
-    console.log("user: ", userId);
-    console.log("view: ", viewerId);
     if (
       viewerId &&
       viewerId != userId &&
@@ -544,6 +546,7 @@ const getFreelanceProfileById = async (req, res) => {
       rating: user.rating,
       projectsCompleted: user.projectsCompleted,
       createdAt: user.createdAt,
+      liked: user.likedBy?.includes(viewerId?.toString()) || false,
     };
 
     return res.status(200).json({
@@ -779,28 +782,23 @@ const getFreelancerPaymentHistory = async (req, res) => {
       return res.status(200).json({ onboardRequired: true });
     }
 
-    const orders = await Order.find({
+    const payouts = await PENDING_PAYOUT.find({
       freelancerId: freelancerId,
-      status: { $in: ["completed", "in_progress", "in_revision", "delivered"] },
     })
-      .populate("transactionId", "orderDeatils")
+      .populate("orderId", "title")
       .sort({
         createdAt: -1,
       });
 
-    const transformed = orders.map((e) => ({
-      title: e.title,
-      status:
-        e.transactionId.orderDeatils.status == "escrow_held"
-          ? "pending"
-          : e.transactionId.orderDeatils.status == "released_to_freelancer"
-          ? "completed"
-          : null,
-      amount: e.transactionId.orderDeatils.amountToBePaid,
-      tip: e.transactionId.orderDeatils.tip,
+    const transformed = payouts.map((e) => ({
+      _id: e._id,
+      orderId: e.orderId,
+      type: e.type,
+      title: e.orderId?.title,
+      status: e.transferred === true ? "completed" : "pending",
+      amount: e.amount,
       date: e.createdAt,
     }));
-
     return res.status(200).json({ data: transformed });
   } catch (err) {
     console.error("❌ Error getting payment History:", err);
@@ -814,43 +812,38 @@ const getMonthlyEarningsByFreelancer = async (req, res) => {
     const freelancerId = req.user?._id;
 
     if (!mongoose.Types.ObjectId.isValid(freelancerId)) {
-      return res.status(401).json({ message: "Invalid Freelancer" });
+      return res.status(400).json({ message: "Invalid freelancer ID" });
     }
 
     const freelancer = await FREELANCER.findById(freelancerId);
     if (!freelancer || freelancer.status === "deleted") {
-      return res.status(401).json({ message: "User not found!" });
+      return res.status(404).json({ message: "Freelancer not found" });
     }
-    if (freelancer.onboarded !== true) {
+
+    if (!freelancer.onboarded) {
       return res.status(200).json({ onboardRequired: true });
     }
 
-    // Get current year
+    // Current year boundaries
     const year = new Date().getFullYear();
+    const startOfYear = new Date(year, 0, 1);
+    const endOfYear = new Date(year, 11, 31, 23, 59, 59, 999);
 
-    const monthlyData = await TRANSACTION.aggregate([
+    const monthlyData = await PENDING_PAYOUT.aggregate([
       {
         $match: {
-          "orderDeatils.freelancerId": new mongoose.Types.ObjectId(
-            freelancerId
-          ),
-          mode: "order",
-          createdAt: {
-            $gte: new Date(`${year}-01-01T00:00:00.000Z`),
-            $lte: new Date(`${year}-12-31T23:59:59.999Z`),
-          },
+          freelancerId: new mongoose.Types.ObjectId(freelancerId),
+          transferred: true,
+          createdAt: { $gte: startOfYear, $lte: endOfYear },
         },
       },
       {
         $group: {
           _id: { $month: "$createdAt" },
-          totalAmount: { $sum: "$orderDeatils.amountToBePaid" },
-          orders: { $sum: 1 },
+          totalAmount: { $sum: "$amount" },
         },
       },
-      {
-        $sort: { _id: 1 },
-      },
+      { $sort: { _id: 1 } },
     ]);
 
     const monthNames = [
@@ -868,19 +861,18 @@ const getMonthlyEarningsByFreelancer = async (req, res) => {
       "Dec",
     ];
 
-    const result = monthNames.map((name, index) => {
-      const data = monthlyData.find((m) => m._id === index + 1);
+    const result = monthNames.map((month, idx) => {
+      const data = monthlyData.find((m) => m._id === idx + 1);
       return {
-        month: name,
-        totalAmount: data ? data.totalAmount : 0,
-        orders: data ? data.orders : 0,
+        month,
+        totalAmount: data?.totalAmount || 0,
       };
     });
 
-    return res.status(200).json({ data: result });
+    return res.status(200).json({ year, data: result });
   } catch (err) {
     console.error("❌ Error in getMonthlyEarningsByFreelancer:", err);
-    return res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -914,506 +906,8 @@ const getStripeFreelancerLogin = async (req, res) => {
     return res.status(200).json({ url: link.url });
   } catch (err) {
     console.error("❌ Error in getting stripe login link:", err);
-    return res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Error generating link", err });
   }
-};
-
-// check if paid for resume
-const checkPaidForResume = async (req, res) => {
-  try {
-    const userId = req.user?._id;
-    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: "Invalid User Id" });
-    }
-
-    const user = await FREELANCER.findById(userId);
-    if (user.status != "active") {
-      return res.status(400).json({
-        message: "Only Active Freelancers are allowed to build resumes",
-      });
-    }
-
-    const hasPaid = user.canDownloadResume === true;
-    if (hasPaid) {
-      return res.status(200).json({ hasPaid, amount: null });
-    }
-
-    const allPlans = await getMemorySubscriptionns();
-    const plan = allPlans.find((e) => e.mode === "resume");
-    if (!plan) {
-      return res.status(400).json({ message: "No Plan Avaiable" });
-    }
-    if (!plan.isActive) {
-      return res.status(400).json({ message: "Resume downloads are paused" });
-    }
-
-    const balance = await getStripeBalanceByAccountId(user.stripeAccountId);
-    const availableBalance =
-      balance.available.find((b) => b.currency === "usd")?.amount || 0;
-    const canPay = availableBalance >= plan.price * 100;
-
-    return res.status(200).json({ hasPaid, amount: plan.price, canPay });
-  } catch (err) {
-    console.log("❌ Erro checking if user has paid for resume: ", err);
-    return res.status(500).json({ message: err });
-  }
-};
-
-// pay for resume from freelancer balance
-// const downLoadResume = async (req, res) => {
-//   try {
-//     const userId = req.user?._id;
-//     const { html } = req.body;
-
-//     if (!html || !userId) {
-//       return res.status(400).json({ message: "Missing data" });
-//     }
-
-//     if (!mongoose.Types.ObjectId.isValid(userId)) {
-//       return res.status(400).json({ message: "Invalid User" });
-//     }
-
-//     const user = await FREELANCER.findById(userId).select(
-//       "status canDownloadResume createdResumes"
-//     );
-//     if (!user || user.status !== "active") {
-//       return res.status(400).json({ message: "Invalid User" });
-//     }
-
-//     if (user.canDownloadResume === true) {
-//       const browser = await puppeteer.launch({
-//         headless: "new",
-//         args: ["--no-sandbox", "--disable-setuid-sandbox"],
-//       });
-//       const page = await browser.newPage();
-//       const tailwindCDN = `<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">`;
-
-//       await page.setContent(
-//         `
-//         <!DOCTYPE html>
-//         <html>
-//           <head>${tailwindCDN}</head>
-//            <body style="height: 100%; margin: 0;">
-//               ${html}
-//             </body>
-//         </html>
-//         `,
-//         {
-//           waitUntil: "networkidle0",
-//         }
-//       );
-//       const pdfBuffer = await page.pdf({
-//         format: "A4",
-//         printBackground: true,
-//         // margin: { top: "20px", bottom: "20px", left: "20px", right: "20px" },
-//       });
-//       await browser.close();
-
-//       // TO-DO save resume to user
-//       if (!user.createdResumes) user.createdResumes = [];
-//       user.createdResumes.push({
-//         title: `${Date.now()}-${user._id}-resume.pdf`,
-//         url: "",
-//       });
-//       user.canDownloadResume = false;
-//       await user.save();
-
-//       // ✅ Send PDF buffer as response
-//       res.set({
-//         "Content-Type": "application/pdf",
-//         "Content-Disposition": 'attachment; filename="resume.pdf"',
-//       });
-
-//       return res.send(pdfBuffer);
-//     } else {
-//       return res
-//         .status(400)
-//         .json({ message: "Resume can be downloaded after payment" });
-//     }
-//   } catch (err) {
-//     console.log("❌ Error downloading: ", err);
-//     return res.status(500).json({ message: "Error downloading " + err });
-//   }
-// };
-const downLoadResume = async (req, res) => {
-  try {
-    const userId = req.user?._id;
-    const { html } = req.body;
-
-    if (!html || !userId) {
-      return res.status(400).json({ message: "Missing data" });
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: "Invalid User" });
-    }
-
-    const user = await FREELANCER.findById(userId).select(
-      "status canDownloadResume createdResumes"
-    );
-    if (!user || user.status !== "active") {
-      return res.status(400).json({ message: "Invalid User" });
-    }
-
-    if (user.canDownloadResume === true) {
-      const browser = await puppeteer.launch({
-        headless: "new",
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
-      });
-      const page = await browser.newPage();
-      const tailwindCDN = `<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">`;
-
-      await page.setContent(
-        `
-        <!DOCTYPE html>
-        <html>
-          <head>${tailwindCDN}</head>
-          <body style="margin:0; padding:0;">
-            <div id="resume-wrapper" style="width:100%;">
-              ${html}
-            </div>
-          </body>
-        </html>
-        `,
-        { waitUntil: "networkidle0" }
-      );
-
-      // Measure actual rendered height in px
-      const contentHeightPx = await page.evaluate(() => {
-        const el = document.getElementById("resume-wrapper");
-        return el ? el.scrollHeight : document.body.scrollHeight;
-      });
-
-      // Convert px → mm
-      const contentHeightMM = contentHeightPx * 0.264583;
-
-      // Generate PDF exactly to that size
-      const pdfBuffer = await page.pdf({
-        printBackground: true,
-        width: "210mm", // A4 width
-        height: `${contentHeightMM}mm`, // Exact content height
-        pageRanges: "1", // force only 1 page
-      });
-
-      await browser.close();
-
-      // Save to DB
-      if (!user.createdResumes) user.createdResumes = [];
-      user.createdResumes.push({
-        title: `${Date.now()}-${user._id}-resume.pdf`,
-        url: "",
-      });
-      user.canDownloadResume = false;
-      await user.save();
-
-      // Send file
-      res.set({
-        "Content-Type": "application/pdf",
-        "Content-Disposition": 'attachment; filename="resume.pdf"',
-      });
-
-      return res.send(pdfBuffer);
-    } else {
-      return res
-        .status(400)
-        .json({ message: "Resume can be downloaded after payment" });
-    }
-  } catch (err) {
-    console.log("❌ Error downloading: ", err);
-    return res.status(500).json({ message: "Error downloading " + err });
-  }
-};
-
-// check paid for cover letter
-const checkPaidForCoverLetter = async (req, res) => {
-  try {
-    const userId = req.user?._id;
-    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: "Invalid User Id" });
-    }
-
-    const user = await FREELANCER.findById(userId);
-    if (user.status != "active") {
-      return res.status(400).json({
-        message: "Only Active Freelancers are allowed to build resumes",
-      });
-    }
-
-    const hasPaid = user.canDownloadCover === true;
-    if (hasPaid) {
-      return res.status(200).json({ hasPaid, amount: null });
-    }
-
-    const allPlans = await getMemorySubscriptionns();
-    const plan = allPlans.find((e) => e.mode === "cover");
-    if (!plan) {
-      return res.status(400).json({ message: "No Plan Avaiable" });
-    }
-    if (!plan.isActive) {
-      return res.status(400).json({ message: "Cover downloads are paused" });
-    }
-
-    const balance = await getStripeBalanceByAccountId(user.stripeAccountId);
-    const availableBalance =
-      balance.available.find((b) => b.currency === "usd")?.amount || 0;
-    const canPay = availableBalance >= plan.price * 100;
-
-    return res.status(200).json({ hasPaid, amount: plan.price, canPay });
-  } catch (err) {
-    console.log("❌ Erro checking if user has paid for cover: ", err);
-    return res.status(500).json({ message: err });
-  }
-};
-
-// downlaod cover
-// const downLoadCover = async (req, res) => {
-//   try {
-//     const userId = req.user?._id;
-//     const { html } = req.body;
-
-//     if (!html || !userId) {
-//       return res.status(400).json({ message: "Missing data" });
-//     }
-
-//     if (!mongoose.Types.ObjectId.isValid(userId)) {
-//       return res.status(400).json({ message: "Invalid User" });
-//     }
-
-//     const user = await FREELANCER.findById(userId).select(
-//       "status canDownloadCover createdCovers"
-//     );
-//     if (!user || user.status !== "active") {
-//       return res.status(400).json({ message: "Invalid User" });
-//     }
-
-//     if (user.canDownloadCover === true) {
-//       const browser = await puppeteer.launch({
-//         headless: "new",
-//         args: ["--no-sandbox", "--disable-setuid-sandbox"],
-//       });
-//       const page = await browser.newPage();
-//       const tailwindCDN = `<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">`;
-
-//       await page.setContent(
-//         `
-//         <!DOCTYPE html>
-//         <html>
-//           <head>${tailwindCDN}</head>
-//            <body style="height: 100%; margin: 0;">
-//               ${html}
-//             </body>
-//         </html>
-//         `,
-//         {
-//           waitUntil: "networkidle0",
-//         }
-//       );
-//       const pdfBuffer = await page.pdf({
-//         format: "A4",
-//         printBackground: true,
-//         // margin: { top: "20px", bottom: "20px", left: "20px", right: "20px" },
-//       });
-//       await browser.close();
-
-//       // TO-DO upload file and get url
-//       user.canDownloadCover = false;
-//       user.createdCovers = [
-//         ...(user.createdCovers || []),
-//         {
-//           title: `${Date.now()}-${user._id}-cover.pdf`,
-//           url: "no",
-//         },
-//       ];
-//       user.markModified("createdCovers");
-//       await user.save();
-
-//       res.set({
-//         "Content-Type": "application/pdf",
-//         "Content-Disposition": 'attachment; filename="cover_letter.pdf"',
-//       });
-
-//       return res.send(pdfBuffer);
-//     } else {
-//       return res
-//         .status(400)
-//         .json({ message: "Cover Letter can be downloaded after payment" });
-//     }
-//   } catch (err) {
-//     console.log("❌ Error downloading: ", err);
-//     return res.status(500).json({ message: "Error downloading : " + err });
-//   }
-// };
-const downLoadCover = async (req, res) => {
-  try {
-    const userId = req.user?._id;
-    const { html } = req.body;
-
-    if (!html || !userId) {
-      return res.status(400).json({ message: "Missing data" });
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: "Invalid User" });
-    }
-
-    const user = await FREELANCER.findById(userId).select(
-      "status canDownloadCover createdCovers"
-    );
-    if (!user || user.status !== "active") {
-      return res.status(400).json({ message: "Invalid User" });
-    }
-
-    if (user.canDownloadCover === true) {
-      const browser = await puppeteer.launch({
-        headless: "new",
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
-      });
-      const page = await browser.newPage();
-      const tailwindCDN = `<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">`;
-
-      await page.setContent(
-        `
-        <!DOCTYPE html>
-        <html>
-          <head>${tailwindCDN}</head>
-          <body style="margin:0; padding:0;">
-            <div id="cover-wrapper" style="width:100%;">
-              ${html}
-            </div>
-          </body>
-        </html>
-        `,
-        { waitUntil: "networkidle0" }
-      );
-
-      // Measure actual rendered height in px
-      const contentHeightPx = await page.evaluate(() => {
-        const el = document.getElementById("cover-wrapper");
-        return el ? el.scrollHeight : document.body.scrollHeight;
-      });
-
-      // Convert px → mm
-      const contentHeightMM = contentHeightPx * 0.264583;
-
-      // Generate PDF exactly to that size
-      const pdfBuffer = await page.pdf({
-        printBackground: true,
-        width: "210mm", // A4 width
-        height: `${contentHeightMM}mm`, // Exact content height
-        pageRanges: "1", // ensure 1 page only
-      });
-
-      await browser.close();
-
-      // Save to DB
-      if (!user.createdCovers) user.createdCovers = [];
-      user.createdCovers.push({
-        title: `${Date.now()}-${user._id}-cover.pdf`,
-        url: "",
-      });
-      user.canDownloadCover = false;
-      await user.save();
-
-      // Send file
-      res.set({
-        "Content-Type": "application/pdf",
-        "Content-Disposition": 'attachment; filename="cover_letter.pdf"',
-      });
-
-      return res.send(pdfBuffer);
-    } else {
-      return res
-        .status(400)
-        .json({ message: "Cover Letter can be downloaded after payment" });
-    }
-  } catch (err) {
-    console.log("❌ Error downloading: ", err);
-    return res.status(500).json({ message: "Error downloading : " + err });
-  }
-};
-
-// create connected account
-const createFreelacneStripeAccount = async (req, res) => {
-  // try {
-  //   const userId = req.user._id;
-  //   if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
-  //     return res.status(400).json({ message: "Invalid user ID" });
-  //   }
-  //   const user = await FREELANCER.findById(userId);
-  //   if (!user || user.status == "deleted") {
-  //     return res.status(401).json({ message: "User not found1" });
-  //   }
-  //   if (user.status == "suspended") {
-  //     return res
-  //       .status(400)
-  //       .json({ message: "Suspended Accounts cannot be onboarded" });
-  //   }
-  //   if (user.onboarded === true) {
-  //     return res
-  //       .status(400)
-  //       .json({ message: "User has completed onboarding process" });
-  //   }
-  //   if (user.stripeAccountId) {
-  //     return res.status(200).json({ accountId: user.stripeAccountId });
-  //   } else {
-  //     const account = await createStripeAccount2(user.email);
-  //     user.stripeAccountId = account.id;
-  //     await user.save();
-  //     return res.status(200).json({ accountId: account.id });
-  //   }
-  // } catch (err) {
-  //   console.log("❌ Error creating account for user: " + err);
-  //   return res
-  //     .status(500)
-  //     .json({ message: "Error creating stripe account", err });
-  // }
-};
-
-// create onboarding session secret
-const createFreelacneStripeAccountOnBoardSession = async (req, res) => {
-  // try {
-  //   const userId = req.user._id;
-  //   if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
-  //     return res.status(400).json({ message: "Invalid user ID" });
-  //   }
-  //   const { accountId } = req.body;
-  //   if (!accountId) {
-  //     return res.status(400).json({ error: "Account ID is required" });
-  //   }
-  //   const session = await createAccountOnbaordSession2(accountId);
-  //   res.status(200).json({ clientSecret: session.client_secret });
-  // } catch (err) {
-  //   console.log("❌ Error creating session for user: " + err);
-  //   return res
-  //     .status(500)
-  //     .json({ message: "Error creating stripe account session", err });
-  // }
-};
-
-// check acount status
-const checkFreelancerStripeAccountStatus = async (req, res) => {
-  // try {
-  //   const userId = req.user._id;
-  //   if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
-  //     return res.status(400).json({ message: "Invalid user ID" });
-  //   }
-  //   const { accountId } = req.query;
-  //   if (!accountId) {
-  //     return res.status(400).json({ error: "Account ID is required" });
-  //   }
-  //   const account = await retriveStripeAccount(accountId);
-  //   res.status(200).json({
-  //     detailsSubmitted: account.details_submitted,
-  //     payoutsEnabled: account.payouts_enabled,
-  //     chargesEnabled: account.charges_enabled,
-  //     requirements: account.requirements,
-  //   });
-  // } catch (err) {
-  //   console.log("❌ Error retriveing stripe account for user: " + err);
-  //   return res
-  //     .status(500)
-  //     .json({ message: "Error retriveing stripe account", err });
-  // }
 };
 
 export {
@@ -1432,11 +926,4 @@ export {
   getFreelancerPaymentHistory,
   getMonthlyEarningsByFreelancer,
   getStripeFreelancerLogin,
-  checkPaidForResume,
-  downLoadResume,
-  checkPaidForCoverLetter,
-  downLoadCover,
-  createFreelacneStripeAccount,
-  createFreelacneStripeAccountOnBoardSession,
-  checkFreelancerStripeAccountStatus,
 };
