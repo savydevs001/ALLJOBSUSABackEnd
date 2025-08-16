@@ -7,7 +7,6 @@ import {
   findOrCreateCustomer,
   getStripeAccountbyId,
   getStripeBalanceByAccountId,
-  getStripeSession,
   getTotalIncomeAndMonthlyChange,
   retriveStripePaymentIntent,
   retriveSubscription,
@@ -447,18 +446,6 @@ const createPaymentIntents = async (req, res) => {
 
       case "resume":
         try {
-          // if (req.user.role !== "freelancer") {
-          //   return res.status(400).json({
-          //     message: "Only freelancers are allowed to pay for resumes",
-          //   });
-          // }
-
-          // const user = await FREELANCER.findById(userId).select(
-          //   "status stripeAccountId currentBalance"
-          // );
-          // if (!user || user.status !== "active") {
-          //   return res.status(400).json({ message: "Invalid User", paid });
-          // }
           // plans
           const allPlans = await getMemorySubscriptionns();
           const plan = allPlans.find((e) => e.mode === "resume");
@@ -527,18 +514,6 @@ const createPaymentIntents = async (req, res) => {
 
       case "cover":
         try {
-          // if (req.user.role !== "freelancer") {
-          //   return res.status(400).json({
-          //     message: "Only freelancers are allowed to pay for cover letters",
-          //   });
-          // }
-
-          // const user = await FREELANCER.findById(userId).select(
-          //   "status stripeAccountId currentBalance"
-          // );
-          // if (!user || user.status !== "active") {
-          //   return res.status(400).json({ message: "Invalid User", paid });
-          // }
           // plans
           const allPlans = await getMemorySubscriptionns();
           const plan = allPlans.find((e) => e.mode === "cover");
@@ -740,122 +715,52 @@ const createFreelancerPayout = async (req, res) => {
 };
 
 // verify session
-const verifyStripeSession = async (req, res) => {
-  const { sessionId } = req.body;
-  if (!sessionId)
+const verifyStripePaymentInetnt = async (req, res) => {
+  const { clientSecret } = req.body;
+  if (!clientSecret)
     return res
       .status(400)
-      .json({ success: false, message: "Missing session ID" });
+      .json({ success: false, message: "Missing clientSecret" });
 
   try {
-    const session = await getStripeSession(sessionId);
-    if (!session) {
+    const paymentIntentId = clientSecret.split("_secret_")[0];
+
+    if (!paymentIntentId) {
+      throw new Error("Invalid client secret format");
+    }
+
+    const intent = await retriveStripePaymentIntent(paymentIntentId);
+    if (!intent) {
       return res
         .status(404)
-        .json({ success: false, message: "Invalid session id" });
+        .json({ success: false, message: "Invalid intent" });
     }
 
-    const metadata = session.metadata;
-    const purpose = metadata.purpose;
-
-    if (purpose == "profile-subscription") {
-      //  validate metadata
-      const transactionId = metadata.transactionId;
-      if (!transactionId) {
-        return res.status(404).json({
-          success: false,
-          message: "Transaction Id not found in metadata",
-        });
-      }
-      const userId = metadata.userId;
-      if (!userId) {
-        return res.status(404).json({
-          success: false,
-          message: "user Id not found in metadata",
-        });
-      }
-
-      // validate user
-      const user = await EMPLOYER.findById(userId);
-      if (!user) {
+    switch (intent.status) {
+      case "succeeded":
         return res
-          .status(404)
-          .json({ success: false, message: "User not found!" });
-      }
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: "User not found",
-        });
-      }
-
-      // validate transaction
-      const transaction = await TRANSACTION.findOne({
-        _id: transactionId,
-        mode: "profile-subscription",
-        "subscriptionDetails.sessionId": sessionId,
-      });
-      if (!transaction) {
-        return res.status(404).json({
-          success: false,
-          message: "transaction not found",
-        });
-      }
-
-      if (transaction.subscriptionDetails.status === "completed") {
+          .status(200)
+          .json({ success: true, message: "Payment succeeded!" });
+      case "processing":
+        return res
+          .status(200)
+          .json({ success: false, message: "Your payment is processing." });
+      case "requires_payment_method":
         return res.status(200).json({
-          success: true,
-          message: "transaction succeed",
-        });
-      }
-
-      return res
-        .status(400)
-        .json({ message: "Payment not successful", success: false });
-    } else if (purpose == "order-payment") {
-      const { transactionId, employerId, orderId } = metadata;
-      if (!transactionId || !orderId || !employerId) {
-        return res.status(400).json({
           success: false,
-          message: "Missing data in session",
+          message: "Your payment was not successful, please try again.",
         });
-      }
-
-      // validate order;
-      const order = await Order.findById(orderId);
-      if (!order || order.status !== "in_progress") {
-        return res
-          .status(400)
-          .json({ success: false, message: "Invalid order" });
-      }
-
-      // validate employer
-      if (order.employerId.toString() !== employerId.toString()) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Invalid Employer" });
-      }
-
-      // validate transaction
-      const transaction = await TRANSACTION.findById(transactionId);
-      if (!transaction || transaction.orderDeatils.status != "escrow_held") {
-        return res
-          .status(400)
-          .json({ success: false, message: "Invalid Transaction" });
-      }
-
-      return res
-        .status(200)
-        .json({ message: "Session verified", success: true });
+      default:
+        return res.status(200).json({
+          success: false,
+          message: `Unexpected status: ${paymentIntent.status}`,
+        });
     }
-
-    return res.status(400).json({
-      message: "Payment not successful, invalid purpose",
-      success: false,
-    });
   } catch (err) {
-    console.error("❌ Stripe session verification failed:", err);
-    return res.status(500).json({ message: "Server error", success: false });
+    console.error("❌ Stripe intent verification failed:", err);
+    return res
+      .status(500)
+      .json({ message: "verification failed", success: false });
   }
 };
 
@@ -1196,5 +1101,5 @@ export {
   checkPaidForCoverLetter,
   downLoadResume,
   downLoadCover,
-  verifyStripeSession,
+  verifyStripePaymentInetnt,
 };

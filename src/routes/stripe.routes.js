@@ -7,11 +7,11 @@ import {
   checkFreelancerPayoutSattus,
   createFreelancerPayout,
   createPaymentIntents,
-  verifyStripeSession,
   checkPaidForResume,
   checkPaidForCoverLetter,
   downLoadResume,
   downLoadCover,
+  verifyStripePaymentInetnt,
 } from "../controllers/stripe.controller.js";
 
 const StripeRouter = Router();
@@ -35,7 +35,7 @@ StripeRouter.get(
   a(checkPaidForCoverLetter)
 );
 
-StripeRouter.post("/verify-session", verifyStripeSession);
+StripeRouter.post("/verify-intent", verifyStripePaymentInetnt);
 
 StripeRouter.post(
   "/cancel-job-subscription",

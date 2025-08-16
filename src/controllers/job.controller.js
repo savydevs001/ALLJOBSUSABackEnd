@@ -6,7 +6,6 @@ import EMPLOYER from "../database/models/employers.model.js";
 import getDateNDaysFromNow from "../utils/date-and-days.js";
 import calculateJobMatchPercentage from "../utils/calculate-job-match.js";
 import JOBSEEKER from "../database/models/job-seeker.model.js";
-import { Target } from "puppeteer";
 
 // POST job
 const createJobZODSchema = z.object({
