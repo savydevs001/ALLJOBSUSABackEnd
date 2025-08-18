@@ -9,6 +9,14 @@ const resumeOrCoverSchema = mongoose.Schema(
   { _id: false }
 );
 
+export const blockSchema = mongoose.Schema(
+  {
+    userId: String,
+    at: Date,
+  },
+  { _id: false }
+);
+
 const employerSchema = mongoose.Schema(
   {
     email: { type: String, required: true },
@@ -75,6 +83,9 @@ const employerSchema = mongoose.Schema(
     canDownloadCover: { type: Boolean, default: false },
     createdResumes: [resumeOrCoverSchema],
     createdCovers: [resumeOrCoverSchema],
+
+    // blocked
+    blocked: [blockSchema],
   },
   {
     timestamps: true,

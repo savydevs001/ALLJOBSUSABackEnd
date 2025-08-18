@@ -7,6 +7,7 @@ import EMPLOYER from "../database/models/employers.model.js";
 import enqueueEmail from "../services/emailSender.js";
 import JOBSEEKER from "../database/models/job-seeker.model.js";
 import { notifyUser } from "./notification.controller.js";
+import { sendOfferCreationMessage } from "../socket/init-socket.js";
 
 function getTotalYearsWorkedWithMerging(employers) {
   if (!Array.isArray(employers)) return 0;
@@ -66,6 +67,7 @@ const createOffer = async (req, res, next) => {
   try {
     const jobId = req.params.jobid || "";
     const employerId = req.query.employerId || "";
+    const sendMessage = req.query.sendMessage || false;
 
     if (jobId && jobId !== "" && !mongoose.Types.ObjectId.isValid(jobId)) {
       return res.status(400).json({ message: "Invalid Job id" });
@@ -200,6 +202,17 @@ const createOffer = async (req, res, next) => {
 
       await session.commitTransaction();
       session.endSession();
+
+      if (sendMessage) {
+        sendOfferCreationMessage({
+          from: userId.toString(),
+          message: `New Offer: ${offer.title} at ${new Date()
+            .toISOString()
+            .slice(0, 10)}`,
+          to: employer._id.toString(),
+          offerId: offer._id.toString(),
+        });
+      }
 
       return res.status(200).json({
         message: "Offer created successfully",
@@ -705,10 +718,98 @@ const rejectOffer = async (req, res) => {
   });
 };
 
+// withdraw offer
+const withdrawOffer = async (req, res) => {
+  const offerId = req.params.id;
+
+  // Validate offer ID format
+  if (!mongoose.Types.ObjectId.isValid(offerId)) {
+    return res.status(400).json({ message: "Invalid offer ID" });
+  }
+
+  const offer = await Offer.findById(offerId);
+
+  if (!offer) {
+    return res.status(404).json({ message: "Offer not found" });
+  }
+
+  // Only the receiver can reject the offer
+  if (!offer.senderId.equals(req.user?._id)) {
+    return res
+      .status(403)
+      .json({ message: "You are not authorized to withdraw this offer" });
+  }
+
+  if (offer.status === "withdrawn") {
+    return res.status(400).json({ message: "Offer already withdrawn" });
+  }
+
+  // Ensure offer is still pending
+  if (!["pending", "reviewed", "interviewing"].includes(offer.status)) {
+    return res
+      .status(400)
+      .json({ message: "Only pending offers can be withdrawn" });
+  }
+
+  // Update status to 'rejected'
+  offer.status = "withdrawn";
+  await offer.save();
+
+  return res.status(200).json({
+    message: "Offer withdrawn successfully",
+  });
+};
+
+// get offer for message box
+const getOfferByIdForMessage = async (req, res) => {
+  const offerId = req.params?.id;
+
+  try {
+    if (!offerId || !mongoose.Types.ObjectId.isValid(offerId)) {
+      return res.status(404).json({ message: "Offer not found" });
+    }
+
+    const offer = await Offer.findById(offerId).populate(
+      "senderId",
+      "_id fullName profilePictureUrl rating"
+    );
+
+    if (!offer) {
+      return res.status(404).json({ message: "No Offer found" });
+    }
+
+    const transformedData = {
+      _id: offer._id,
+      title: offer.title,
+      description: offer.description,
+      price: offer.price,
+      duration: offer.duration,
+      status: offer.status,
+      createdAt: offer.createdAt,
+      orderId: offer.orderId,
+      receiverId: offer.receiverId?.toString(),
+      freelancer: {
+        _id: offer.senderId._id?.toString(),
+        fullName: offer.senderId.fullName,
+        profilePictureUrl: offer.senderId.profilePictureUrl,
+        isRated: offer.senderId.rating.isRated || false,
+        value: offer.senderId.rating.value || 0,
+      },
+    };
+
+    return res.status(200).json({ offer: transformedData });
+  } catch (err) {
+    console.error("❌ Error retrieving offer for id " + offerId + ": ", err);
+    return res.status(500).json({ message: "Error retrieving offer" });
+  }
+};
+
 export {
   createOffer,
   getUserOffers,
   getReceivedOffers,
   getOfferById,
   rejectOffer,
+  getOfferByIdForMessage,
+  withdrawOffer
 };

@@ -1,4 +1,5 @@
 import mongoose, { Types } from "mongoose";
+import { blockSchema } from "./employers.model.js";
 
 const resumeOrCoverSchema = mongoose.Schema(
   {
@@ -97,6 +98,9 @@ const jobSeekerSchema = mongoose.Schema(
     canDownloadCover: { type: Boolean, default: false },
     createdResumes: [resumeOrCoverSchema],
     createdCovers: [resumeOrCoverSchema],
+
+    // blocked
+    blocked: [blockSchema],
   },
   {
     timestamps: true,

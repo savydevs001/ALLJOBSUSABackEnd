@@ -19,6 +19,7 @@ const messageSchema = new Schema(
 
     message: { type: String, required: true },
     isSupoprt: Boolean,
+    offerId: String,
 
     sentAt: { type: Date, default: Date.now },
     seen: { type: Boolean, default: true },

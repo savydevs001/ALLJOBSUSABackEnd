@@ -175,7 +175,10 @@ const getReceivedJobApplications = async (req, res) => {
     }
 
     const textTerms = text
-      ? text.split(" ").map((t) => t.trim()).filter(Boolean)
+      ? text
+          .split(" ")
+          .map((t) => t.trim())
+          .filter(Boolean)
       : [];
 
     const baseFilter = {
@@ -263,20 +266,113 @@ const getReceivedJobApplications = async (req, res) => {
       status: a.status,
       createdAt: a.createdAt,
       appliedTo: a.jobTitle,
-    //   job: {
-    //     title: a.jobTitle,
-    //     budget: a.jobBudget,
-    //     type: a.jobType,
-    //   },
+      //   job: {
+      //     title: a.jobTitle,
+      //     budget: a.jobBudget,
+      //     type: a.jobType,
+      //   },
       sender: a.jobSeeker,
     }));
 
     return res.status(200).json({ applications: transformed });
   } catch (err) {
     console.error("❌ Error getting received applications:", err);
-    return res.status(500).json({ message: "Error getting received applications" });
+    return res
+      .status(500)
+      .json({ message: "Error getting received applications" });
   }
 };
 
+// get Application by Id
+const getApplicationById = async (req, res) => {
+  try {
+    const id = req.params.id;
+    const userId = req.user?._id;
 
-export { createApplication, getUserApplications, getReceivedJobApplications };
+    // Validate ID
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid Application Id" });
+    }
+
+    // Query with safe population
+    const application = await Application.findById(id)
+      .populate(
+        "jobId",
+        "title description status job simpleJobDetails jobId applicants deadline"
+      )
+      .populate(
+        "jobSeekerId",
+        "fullName phoneNumber profilePictureUrl profile.professionalTitle profile.bio profile.skills profile.hourlyRate"
+      )
+      .populate("employerId", "fullName profilePictureUrl about jobsCreated");
+
+    if (!application) {
+      return res.status(404).json({ message: "No Application found" });
+    }
+
+    if (
+      userId.toString() === application.employerId?._id?.toString() &&
+      application.status == "pending"
+    ) {
+      application.status = "reviewed";
+      await application.save();
+    }
+
+    const job = application.jobId || {};
+    const employer = application.employerId || {};
+    const applicant = application.jobSeekerId || {};
+
+    const transformed = {
+      _id: application._id,
+      status: application.status,
+      job: {
+        _id: job._id,
+        title: job.title,
+        description: job.description,
+        status: job.status,
+        jobType: job.simpleJobDetails?.jobType ?? null,
+        minSalary: job.simpleJobDetails?.minSalary ?? null,
+        maxSalary: job.simpleJobDetails?.maxSalary ?? null,
+        city: job.simpleJobDetails?.locationCity ?? null,
+        state: job.simpleJobDetails?.locationState ?? null,
+        experienceLevel: job.simpleJobDetails?.experienceLevel ?? null,
+        deadline: job.deadline ?? null,
+        alreadyApplied: (job.applicants || []).some(
+          (e) => e.userId?.toString() === userId?.toString()
+        ),
+      },
+      employer: {
+        _id: employer._id,
+        fullName: employer.fullName,
+        profilePictureUrl: employer.profilePictureUrl,
+        about: employer.about,
+        jobsCreated: employer.jobsCreated,
+      },
+      applicant: {
+        _id: applicant._id,
+        fullName: applicant.fullName,
+        phoneNumber: applicant.phoneNumber,
+        profilePictureUrl: applicant.profilePictureUrl,
+        professionalTitle: applicant.profile?.professionalTitle ?? "",
+        bio: applicant.profile?.bio ?? "",
+        skills: applicant.profile?.skills ?? [],
+        startingRate: applicant.profile?.hourlyRate ?? null,
+      },
+    };
+
+    return res.status(200).json({ application: transformed });
+  } catch (err) {
+    console.error("Error getting application by id: ", err);
+    return res.status(500).json({
+      message: "Error getting application by id",
+      error: err.message, // safer than returning full err
+    });
+  }
+};
+
+export {
+  createApplication,
+  getUserApplications,
+  getReceivedJobApplications,
+  getApplicationById,
+};

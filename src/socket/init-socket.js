@@ -15,9 +15,11 @@ import { getSupportAdminId } from "../controllers/support.controller.js";
 
 dotenv.config();
 
+let io;
+
 const initSocket = (httpServer) => {
   console.log("✅ Socket Server started");
-  const io = new Server(httpServer, {
+  io = new Server(httpServer, {
     cors: {
       origin: [process.env.FRONTEND_URL],
       methods: ["GET", "POST"],
@@ -66,50 +68,15 @@ const initSocket = (httpServer) => {
     socket.broadcast.emit("user-online", { userId });
 
     socket.on("message", async ({ to, content, fileName, fileUrl }) => {
+      await handleMessage({ to, content, fileName, fileUrl, userId: userId });
+    });
+
+    socket.on("message-seen", async ({ messageId }) => {
       try {
-        if (!to || !content) {
-          return;
-        }
-        if (
-          mongoose.Types.ObjectId.isValid(to) === false ||
-          mongoose.Types.ObjectId.isValid(userId) === false
-        ) {
-          console.log("Invalid userId or to");
-          return;
-        }
-
-        if (userId == to) {
-          console.log("Sender or Receiver could not be same");
-          return;
-        }
-
-        const details = {
-          senderId: userId,
-          message: content,
-          receiverId: to,
-        };
-        if (fileName && fileUrl) {
-          details.attachments = {
-            fileName,
-            fileUrl,
-          };
-        }
-        const message = new Message(details);
-        await message.save();
-        const receiver = getOnlineUser(to);
-        const sender = getOnlineUser(userId);
-
-        if (sender && sender.socketId) {
-          io.to(sender.socketId).emit("message", message);
-        }
-        if (receiver && receiver.socketId) {
-          io.to(receiver.socketId).emit("message", message);
-        } else {
-          message.seen = false;
-          await message.save();
-        }
+        console.log("messageId: ",messageId)
+        await Message.updateOne({ _id: messageId }, { seen: true });
       } catch (err) {
-        console.log("Error Sending Message: ", err);
+        console.log("Error updating message to seen");
       }
     });
 
@@ -218,5 +185,77 @@ const initSocket = (httpServer) => {
     });
   });
 };
+
+const handleMessage = async ({
+  to,
+  content,
+  fileName,
+  fileUrl,
+  offerId,
+  userId,
+}) => {
+  try {
+    if (!to || !content) {
+      return;
+    }
+    if (
+      mongoose.Types.ObjectId.isValid(to) === false ||
+      mongoose.Types.ObjectId.isValid(userId) === false
+    ) {
+      console.log("Invalid userId or to");
+      return;
+    }
+
+    if (userId == to) {
+      console.log("Sender or Receiver could not be same");
+      return;
+    }
+
+    const details = {
+      senderId: userId,
+      message: content,
+      receiverId: to,
+      seen: false,
+    };
+    if (fileName && fileUrl) {
+      details.attachments = {
+        fileName,
+        fileUrl,
+      };
+    }
+    if (offerId && mongoose.Types.ObjectId.isValid(offerId)) {
+      details.offerId = offerId;
+    }
+    // console.log("detais: ", details);
+    const message = new Message(details);
+    await message.save();
+
+    const sender = getOnlineUser(userId);
+    if (sender && sender.socketId) {
+      io.to(sender.socketId).emit("message", message);
+    }
+    const receiver = getOnlineUser(to);
+    if (receiver && receiver.socketId) {
+      io.to(receiver.socketId).emit("message", message);
+    }
+  } catch (err) {
+    console.log("Error Sending Message: ", err);
+  }
+};
+
+const sendOfferCreationMessage = async ({ to, message, offerId, from }) => {
+  try {
+    await handleMessage({
+      to: to,
+      content: message,
+      offerId: offerId,
+      userId: from,
+    });
+  } catch (err) {
+    console.log("Error sending message after offer creation");
+  }
+};
+
+export { sendOfferCreationMessage };
 
 export default initSocket;

@@ -234,7 +234,7 @@ const getJobById = async (req, res) => {
     const job = await Job.findById(jobId)
       .populate(
         "employerId",
-        "fullName profilePictureUrl jobsCreated ordersCompleted"
+        "fullName profilePictureUrl jobsCreated ordersCompleted about"
       )
       .lean();
     if (!job) {
@@ -252,10 +252,12 @@ const getJobById = async (req, res) => {
         (e) => e.userId?.toString() == userId?.toString()
       ),
       employerId: {
+        _id: job.employerId._id,
         fullName: job.employerId.fullName,
-        jobsCreated: job.employerId.fullName,
+        jobsCreated: job.employerId.jobsCreated,
         ordersCompleted: job.employerId.ordersCompleted,
         profilePictureUrl: job.employerId.profilePictureUrl,
+        about: job.employerId.about,
       },
       status: job.status,
       title: job.title,
@@ -310,9 +312,13 @@ const getAllJobs = async (req, res) => {
     // get user to check if he had saved this job
     let user;
     if (req.user.role == "freelancer") {
-      user = await FREELANCER.findById(userId).select("savedJobs");
+      user = await FREELANCER.findById(userId).select(
+        "savedJobs profile.bio profile.skills profile.professionalTitle"
+      );
     } else if (req.user.role === "job-seeker") {
-      user = await JOBSEEKER.findById(userId).select("savedJobs");
+      user = await JOBSEEKER.findById(userId).select(
+        "savedJobs profile.bio profile.skills profile.professionalTitle"
+      );
     }
 
     // Filter by job status
@@ -421,7 +427,7 @@ const getAllJobs = async (req, res) => {
       .select(
         "_id title description job status createdAt applicants simpleJobDetails.jobType simpleJobDetails.locationCity simpleJobDetails.locationState simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.budget"
       )
-      .populate("employerId", "fullName")
+      .populate("employerId", "fullName ")
       .lean();
 
     const transformedJobs = jobs.map((job) => {
@@ -432,7 +438,7 @@ const getAllJobs = async (req, res) => {
         ? calculateJobMatchPercentage(
             { title: job.title, description: job.description },
             {
-              bio: user.profile.bio || "",
+              bio: user.profile.professionalTitle + user.profile.bio || " ",
               skills: user.profile.skills || [],
             }
           )
@@ -454,7 +460,7 @@ const getAllJobs = async (req, res) => {
     });
   } catch (err) {
     console.log("❌ Error getting job: ", err);
-    return res.status(500).json({ message: "Server Error",err });
+    return res.status(500).json({ message: "Server Error", err });
   }
 };
 
@@ -925,8 +931,11 @@ const getJobApplicants = async (req, res) => {
     }
 
     const job = await Job.findOne({ _id: jobId, employerId: userId })
-      .select("title description applicants")
-      .populate("applicants.userId", "_id fullName profilePictureUrl");
+      .select("title description applicants job")
+      .populate(
+        "applicants.userId",
+        "_id fullName profilePictureUrl profile.professionalTitle profile.skills"
+      );
     if (!job) {
       return res.status(404).json({ message: "Job not found!" });
     }
@@ -935,14 +944,15 @@ const getJobApplicants = async (req, res) => {
       _id: job._id,
       title: job.title,
       description: job.description,
+      job: job.job,
       applicants: job.applicants.map((e) => ({
         _id: e.userId._id,
         fullName: e.userId?.fullName,
         profilePictureUrl: e.userId?.profilePictureUrl,
+        professionalTitle: e.userId?.profile.professionalTitle,
+        skills: e.userId?.profile.skills || [],
       })),
     };
-
-    console.log("job: ", tranformed);
 
     return res.status(200).json({ data: tranformed });
   } catch (err) {

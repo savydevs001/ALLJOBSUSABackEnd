@@ -3,7 +3,7 @@ import verifyTokenMiddleware from "../middlewares/verifyToken.middleware.js";
 import roleBasedAuthMiddleware from "../middlewares/roleBasedAuth.middleware.js";
 import {
   attachNewFilesToOrder,
-  createOrder,
+  // createOrder,
   delieverOrderForRevsions,
   getClientOrders,
   getFreelancerOrders,
@@ -57,16 +57,16 @@ orderRouter.get(
 orderRouter.get(
   "/:id",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["employer", "job-seeker", "freelancer"]),
+  roleBasedAuthMiddleware(["employer", "job-seeker", "freelancer", "admin", "manager"]),
   getOrderById
 );
 
-orderRouter.post(
-  "/",
-  verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["employer", "job-seeker"]),
-  createOrder
-);
+// orderRouter.post(
+//   "/",
+//   verifyTokenMiddleware(),
+//   roleBasedAuthMiddleware(["employer", "job-seeker"]),
+//   createOrder
+// );
 orderRouter.post(
   "/:id/mark-revision",
   verifyTokenMiddleware(),

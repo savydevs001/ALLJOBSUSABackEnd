@@ -1,4 +1,5 @@
 import mongoose, { Types } from "mongoose";
+import { blockSchema } from "./employers.model.js";
 
 const resumeOrCoverSchema = mongoose.Schema(
   {
@@ -140,6 +141,9 @@ const freelancerSchema = mongoose.Schema(
     },
 
     likedBy: { type: [String], default: [] },
+
+    // blocked
+    blocked: [blockSchema],
   },
   {
     timestamps: true,

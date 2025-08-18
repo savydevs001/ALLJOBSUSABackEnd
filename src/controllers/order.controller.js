@@ -29,201 +29,202 @@ const startOrderSchema = z.object({
   }),
 });
 
-const createOrder = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-  try {
-    const employerId = req.user?._id;
-    const employerRole = req.user?.role;
+// const createOrder = async (req, res) => {
+//   const session = await mongoose.startSession();
+//   session.startTransaction();
+//   try {
+//     const employerId = req.user?._id;
+//     const employerRole = req.user?.role;
 
-    if (!["employer", "job-seeker"].includes(employerRole)) {
-      return abortSessionWithMessage(
-        res,
-        session,
-        "Invalid EMployer role",
-        400
-      );
-    }
+//     if (!["employer", "job-seeker"].includes(employerRole)) {
+//       return abortSessionWithMessage(
+//         res,
+//         session,
+//         "Invalid EMployer role",
+//         400
+//       );
+//     }
 
-    // Validate body
-    const { offerId } = startOrderSchema.parse(req.body);
+//     // Validate body
+//     const { offerId } = startOrderSchema.parse(req.body);
 
-    // Check offer exists
-    const offer = await Offer.findById(offerId).session(session);
-    if (!offer || offer.status === "accepted") {
-      return abortSessionWithMessage(res, session, "Offer not Valid", 400);
-    }
-    //  else {
-    //   offer.status = "accepted";
-    //   await offer.save({ session });
-    // }
+//     // Check offer exists
+//     const offer = await Offer.findById(offerId).session(session);
+//     if (!offer || offer.status === "accepted") {
+//       return abortSessionWithMessage(res, session, "Offer not Valid", 400);
+//     }
 
-    if (offer.receiverId.toString() != employerId.toString()) {
-      return abortSessionWithMessage(
-        res,
-        session,
-        "You are not allowed to accept this offerr",
-        403
-      );
-    }
+//     if (offer.receiverId.toString() != employerId.toString()) {
+//       return abortSessionWithMessage(
+//         res,
+//         session,
+//         "You are not allowed to accept this offerr",
+//         403
+//       );
+//     }
 
-    // validate the freelancer
-    const freelancer = await FREELANCER.findById(offer.senderId);
-    if (!freelancer || freelancer.status != "active") {
-      return abortSessionWithMessage(res, session, "Invalid Freelancer", 400);
-    }
+//     // validate the freelancer
+//     const freelancer = await FREELANCER.findById(offer.senderId);
+//     if (!freelancer || freelancer.status != "active") {
+//       return abortSessionWithMessage(res, session, "Invalid Freelancer", 400);
+//     }
 
-    // check job
-    let job = null;
-    if (offer.jobId) {
-      job = await Job.findById(offer.jobId);
-      if (!job || job.status != "empty") {
-        return abortSessionWithMessage(
-          res,
-          session,
-          "This job is not empty",
-          400
-        );
-      }
-      if (job.job != "freelance") {
-        return abortSessionWithMessage(
-          res,
-          session,
-          "This is not a freelance job",
-          400
-        );
-      }
-    }
+//     // check job
+//     let job = null;
+//     if (offer.jobId) {
+//       job = await Job.findById(offer.jobId);
+//       if (!job || job.status != "empty") {
+//         return abortSessionWithMessage(
+//           res,
+//           session,
+//           "This job is not empty",
+//           400
+//         );
+//       }
+//       if (job.job != "freelance") {
+//         return abortSessionWithMessage(
+//           res,
+//           session,
+//           "This is not a freelance job",
+//           400
+//         );
+//       }
+//     }
 
-    // Prevent duplicate order for same offer
-    const existingOrder = await Order.findOne({ offerId }).session(session);
-    if (existingOrder) {
-      if (existingOrder.status == "") {
-      } else {
-        return abortSessionWithMessage(
-          res,
-          session,
-          "Order already exists for this offer",
-          409
-        );
-      }
-    }
+//     // Prevent duplicate order for same offer
+//     const existingOrder = await Order.findOne({ offerId }).session(session);
+//     if (existingOrder) {
+//       if (existingOrder.status == "") {
+//       } else {
+//         return abortSessionWithMessage(
+//           res,
+//           session,
+//           "Order already exists for this offer",
+//           409
+//         );
+//       }
+//     }
 
-    const totalAmount = offer.price;
-    let companyCut = 0;
-    const plateform = (await PlatformSettings.find({}))[0];
-    if (plateform.pricing.platformCommissionPercentageActive === true) {
-      companyCut = Math.round(
-        totalAmount * (plateform.pricing.platformCommissionPercentage / 100)
-      );
-    }
+//     const totalAmount = offer.price;
+//     let companyCut = 0;
+//     const plateform = (await PlatformSettings.find({}))[0];
+//     if (plateform.pricing.platformCommissionPercentageActive === true) {
+//       companyCut = Math.round(
+//         totalAmount * (plateform.pricing.platformCommissionPercentage / 100)
+//       );
+//     }
 
-    // create transaction
-    const transaction = new TRANSACTION({
-      mode: "order",
-      orderDeatils: {
-        freelancerId: offer.senderId,
-        totalAmount: totalAmount,
-        amountToBePaid: totalAmount - companyCut,
-      },
-    });
+//     // create transaction
+//     const transaction = new TRANSACTION({
+//       mode: "order",
+//       orderDeatils: {
+//         freelancerId: offer.senderId,
+//         totalAmount: totalAmount,
+//         amountToBePaid: totalAmount - companyCut,
+//       },
+//     });
 
-    // Create Order
-    const now = new Date();
-    // let tempAttachedFiles = [];
-    // if (job) {
-    //   console.log("freelanceJobDetails: ",  job.freelanceJobDetails)
-    //   tempAttachedFiles = [...(job.freelanceJobDetails?.files || [])].map(
-    //     (e) => ({
-    //       fileUrl: e.url,
-    //       fileName: e.name,
-    //     })
-    //   );
-    // }
-    // console.log("tempAttachedFiles: ", tempAttachedFiles)
-    const order = new Order({
-      offerId: offer._id,
-      jobId: job ? job._id : null,
-      employerId,
-      employerModel:
-        employerRole == "job-seeker"
-          ? "jobSeeker"
-          : employerRole == "employer"
-          ? "employer"
-          : "",
-      freelancerId: offer.senderId,
-      title: `${job ? job.title : offer.title ? offer.title : "Project"}`,
-      description: job
-        ? job.description
-        : offer.description
-        ? offer.description
-        : "description",
-      totalAmount: offer.price,
-      status: "payment_pending",
-      deadline: now.setDate(now.getDate() + offer.duration),
-      milestones: offer.milestones || [],
-      transactionId: transaction.id,
-      attachedFiles: tempAttachedFiles,
-    });
-    transaction.orderDeatils.orderId = order.id;
+//     let tempAttachedFiles = [];
+//     if (job) {
+//       tempAttachedFiles = [...(job.freelanceJobDetails?.files || [])].map(
+//         (e) => ({
+//           fileUrl: e.url,
+//           fileName: e.name,
+//         })
+//       );
+//     }
 
-    let url = undefined;
-    try {
-      // create stripe payment ceckout
-      const session = await createCheckoutSession({
-        customerEmail: freelancer.email,
-        name: job ? job.title : offer ? offer.title : "name not described",
-        description: job
-          ? job.description
-          : offer
-          ? offer.description
-          : "description",
-        amount: offer.price,
-        successUrl:
-          FRONTEND_URL +
-          `/stripe/payment?session_id={CHECKOUT_SESSION_ID}&orderId=${order._id}`,
-        cancelUrl: FRONTEND_URL + "/stripe/payment/failed",
-        metadata: {
-          purpose: "order-payment",
-          orderId: order._id.toString(),
-          jobId: job && job._id.toString(),
-          offerId: offer._id.toString(),
-          employerId: employerId.toString(),
-          transactionId: transaction._id.toString(),
-          freelancerId: freelancer._id.toString(),
-        },
-      });
-      url = session.url;
-    } catch (stripeErr) {
-      console.log("Stripe error on order creation: ", stripeErr);
-      return abortSessionWithMessage(
-        res,
-        session,
-        "Error generating stripe checkout",
-        500
-      );
-    }
+//     // Create Order
+//     const now = new Date();
+//     const order = new Order({
+//       offerId: offer._id,
+//       jobId: job ? job._id : null,
+//       employerId,
+//       employerModel:
+//         employerRole == "job-seeker"
+//           ? "jobSeeker"
+//           : employerRole == "employer"
+//           ? "employer"
+//           : "",
+//       freelancerId: offer.senderId,
+//       title: `${job ? job.title : offer.title ? offer.title : "Project"}`,
+//       description: job
+//         ? job.description
+//         : offer.description
+//         ? offer.description
+//         : "description",
+//       totalAmount: offer.price,
+//       status: "payment_pending",
+//       deadline: now.setDate(now.getDate() + offer.duration),
+//       milestones: offer.milestones || [],
+//       transactionId: transaction.id,
+//       attachedFiles: tempAttachedFiles,
+//     });
+//     transaction.orderDeatils.orderId = order.id;
 
-    if (!url) {
-      return abortSessionWithMessage(res, session, 500, "Server Error");
-    }
+//     let url = undefined;
+//     try {
+//       // create stripe payment ceckout
+//       const session = await createCheckoutSession({
+//         customerEmail: freelancer.email,
+//         name: job ? job.title : offer ? offer.title : "name not described",
+//         description: job
+//           ? job.description
+//           : offer
+//           ? offer.description
+//           : "description",
+//         amount: offer.price,
+//         successUrl:
+//           FRONTEND_URL +
+//           `/stripe/payment?session_id={CHECKOUT_SESSION_ID}&orderId=${order._id}`,
+//         cancelUrl: FRONTEND_URL + "/stripe/payment/failed",
+//         metadata: {
+//           purpose: "order-payment",
+//           orderId: order._id.toString(),
+//           jobId: job && job._id.toString(),
+//           offerId: offer._id.toString(),
+//           employerId: employerId.toString(),
+//           transactionId: transaction._id.toString(),
+//           freelancerId: freelancer._id.toString(),
+//         },
+//       });
+//       url = session.url;
+//     } catch (stripeErr) {
+//       console.log("Stripe error on order creation: ", stripeErr);
+//       return abortSessionWithMessage(
+//         res,
+//         session,
+//         "Error generating stripe checkout",
+//         500
+//       );
+//     }
 
-    await order.save({ session });
-    await transaction.save({ session });
-    await session.commitTransaction();
-    session.endSession();
+//     if (!url) {
+//       return abortSessionWithMessage(res, session, 500, "Server Error");
+//     }
 
-    return res.status(201).json({
-      message: "Order created successfully",
-      orderId: order._id,
-      url,
-    });
-  } catch (error) {
-    console.log("❌Error creating order: ", error);
-    return abortSessionWithMessage(res, session, "Error creating order");
-  }
-};
+//     // update offer;
+//     offer.status = "accepted";
+//     offer.orderId = order._id;
+//     offer.acceptedAt = new Date();
 
+//     await order.save({ session });
+//     await transaction.save({ session });
+//     await offer.save({ session });
+
+//     await session.commitTransaction();
+//     session.endSession();
+
+//     return res.status(201).json({
+//       message: "Order created successfully",
+//       orderId: order._id,
+//       url,
+//     });
+//   } catch (error) {
+//     console.log("❌Error creating order: ", error);
+//     return abortSessionWithMessage(res, session, "Error creating order");
+//   }
+// };
 
 const getFreelancerOrders = async (req, res) => {
   try {
@@ -763,7 +764,7 @@ const getRecentOrders = async (req, res) => {
   }
 };
 export {
-  createOrder,
+  // createOrder,
   getFreelancerOrders,
   getClientOrders,
   markOrderAsComplete,

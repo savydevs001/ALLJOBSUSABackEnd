@@ -136,12 +136,12 @@ const getEmployerProfile = async (req, res) => {
       }
     } else {
       user.currentSubscription = null;
-      await user.save()
+      await user.save();
     }
   }
 
   const tempUser = {
-    _id: user.id,
+    _id: user._id,
     fullName: user.fullName,
     email: user.email,
     profilePictureUrl: user.profilePictureUrl,
@@ -162,38 +162,63 @@ const getEmployerProfile = async (req, res) => {
   });
 };
 
-// const getEmployerProfileById = async (req, res) => {
-//   const { id } = req.params;
-//   if (!id) {
-//     return res.status(400).json({ message: "No ID" });
-//   }
+const getEmployerProfileById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ message: "No ID" });
+    }
 
-//   if (!mongoose.Types.ObjectId.isValid(id)) {
-//     return res.status(400).json({ message: "Invalid ID" });
-//   }
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid ID" });
+    }
 
-//   const user = await User.findOne(
-//     { _id: id, status: { $nin: ["deleted"] } },
-//     {
-//       email: 1,
-//       status: 1,
-//       profile: 1,
-//       employerDetails: 1,
-//     }
-//   );
+    const user = await EMPLOYER.findOne(
+      { _id: id, status: { $nin: ["deleted"] } },
+      {
+        email: 1,
+        fullName: 1,
+        profilePictureUrl: 1,
+        status: 1,
+        about: 1,
+        location: 1,
+        website: 1,
+        phoneNumber: 1,
+        bannerUrl: 1,
+        jobsCreated: 1,
+        ordersCompleted: 1,
+        createdAt: 1,
+      }
+    );
 
-//   if (!user) {
-//     return res.status(404).json({ message: "User not found" });
-//   }
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
-//   if (!user.employerDetails) {
-//     return res.status(404).json({ message: "Employer profile not set" });
-//   }
+    const tempUser = {
+      _id: user._id,
+      fullName: user.fullName,
+      email: user.email,
+      profilePictureUrl: user.profilePictureUrl,
+      status: user.status,
+      bannerUrl: user.bannerUrl,
+      about: user.about,
+      location: user.location,
+      website: user.website,
+      phoneNumber: user.phoneNumber,
+      jobsCreated: user.jobsCreated,
+      ordersCompleted: user.ordersCompleted,
+      createdAt: user.createdAt,
+    };
 
-//   return res.status(200).json({
-//     user: user,
-//   });
-// };
+    return res.status(200).json({
+      user: tempUser,
+    });
+  } catch (err) {
+    console.log("❌ Error getting employer profile by id: ", err);
+    return res.status(500).json("Error getting employer profile", err);
+  }
+};
 
 // const getAllEmployers = async (req, res) => {
 //   // Parse query parameters
@@ -245,7 +270,7 @@ const getEmployerDashboardData = async (req, res) => {
     if (user.currentSubscription) {
       if (new Date(user.currentSubscription.end) < new Date()) {
         user.currentSubscription = null;
-        await user.save()
+        await user.save();
       }
     }
 
@@ -306,4 +331,4 @@ const getEmployerDashboardData = async (req, res) => {
   }
 };
 
-export { getEmployerDashboardData, editEmployerProfile, getEmployerProfile };
+export { getEmployerDashboardData, editEmployerProfile, getEmployerProfile, getEmployerProfileById };

@@ -1,4 +1,3 @@
-// models/Offer.js
 import mongoose from "mongoose";
 const { Schema, model, Types } = mongoose;
 
@@ -12,35 +11,25 @@ const milestoneSchema = new Schema(
   { _id: false }
 );
 
-// const interviewSchema = new Schema(
-//   {
-//     time: Date,
-//     link: String,
-//     result: String,
-//   },
-//   {
-//     _id: false,
-//   }
-// );
 
 // Main Offer schema
 const offerSchema = new Schema(
   {
     jobId: { type: Types.ObjectId, ref: "Job" }, // Optional
     senderId: { type: Types.ObjectId, ref: "freelancer", required: true },
+    orderId: { type: Types.ObjectId, ref: "Order"}, // only when offer is accpeted
     receiverId: {
       type: Types.ObjectId,
       required: true,
-      refPath: "receiverModel", // 👈 Dynamic reference
+      refPath: "receiverModel", //
     },
 
     receiverModel: {
       type: String,
       required: true,
-      enum: ["employer", "jobSeeker"], // 👈 Specify valid models
+      enum: ["employer", "jobSeeker"], //
     },
-    // job: { type: String, enum: ["simple", "freelance"], required: true },
-
+  
     price: { type: Number, required: true },
     duration: { type: Number, required: true },
     title: { type: String, required: true },
@@ -60,7 +49,6 @@ const offerSchema = new Schema(
       ],
       default: "pending",
     },
-    // interviewDetails: interviewSchema,
     rejectionDetails: String,
     emailUpdates: { type: Boolean, default: false },
     acceptedAt: { type: Date },

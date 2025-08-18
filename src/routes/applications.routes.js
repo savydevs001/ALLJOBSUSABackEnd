@@ -4,6 +4,7 @@ import roleBasedAuthMiddleware from "../middlewares/roleBasedAuth.middleware.js"
 import a from "../utils/a.js";
 import {
   createApplication,
+  getApplicationById,
   getReceivedJobApplications,
   getUserApplications,
 } from "../controllers/applications.controller.js";
@@ -23,6 +24,8 @@ ApplicationRouter.get(
   roleBasedAuthMiddleware(["employer"]),
   a(getReceivedJobApplications)
 );
+
+ApplicationRouter.get("/:id", verifyTokenMiddleware(), a(getApplicationById));
 
 ApplicationRouter.post(
   "/",

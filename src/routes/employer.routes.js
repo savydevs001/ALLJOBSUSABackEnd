@@ -4,6 +4,7 @@ import {
   editEmployerProfile,
   getEmployerDashboardData,
   getEmployerProfile,
+  getEmployerProfileById,
 } from "../controllers/employer.controler.js";
 import a from "../utils/a.js";
 import verifyTokenMiddleware from "../middlewares/verifyToken.middleware.js";
@@ -22,6 +23,7 @@ EmployerRouter.get(
   roleBasedAuthMiddleware(["employer"]),
   a(getEmployerProfile)
 );
+EmployerRouter.get("/profile/:id", a(getEmployerProfileById));
 
 EmployerRouter.put(
   "/profile/edit",
@@ -29,18 +31,5 @@ EmployerRouter.put(
   roleBasedAuthMiddleware(["employer"]),
   a(editEmployerProfile)
 );
-
-// EmployerRouter.get("/", a(getEmployerProfile));
-// EmployerRouter.get(
-//     "/all",
-//     roleBasedAuthMiddleware(["admin"]),
-//     a(getAllEmployers)
-// );
-// EmployerRouter.get("/:id", a(getEmployerProfileById));
-
-// EmployerRouter.post("/", a(addEmployerProfile));
-// EmployerRouter.post("/activate", a(enableEmployerProfile));
-
-// EmployerRouter.put("/", a(editEmployerProfile));
 
 export default EmployerRouter;

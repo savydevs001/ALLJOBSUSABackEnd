@@ -7,6 +7,7 @@ import JOBSEEKER from "../database/models/job-seeker.model.js";
 const getMessagesWithProfile = async (req, res) => {
   try {
     const userId = req.user?._id;
+    const currentUserRole = req.user?.role;
     const withUserId = req.params?.id;
 
     if (
@@ -20,6 +21,24 @@ const getMessagesWithProfile = async (req, res) => {
 
     const { limit = 50, skip = 0 } = req.query;
 
+    let currentUser;
+    switch (currentUserRole) {
+      case "employer":
+        currentUser = await EMPLOYER.findById(userId);
+        break;
+      case "freelancer":
+        currentUser = await FREELANCER.findById(userId);
+        break;
+      case "job-seeker":
+        currentUser = await JOBSEEKER.findById(userId);
+        break;
+      default:
+        break;
+    }
+    if (!currentUser) {
+      return res.status(404).json({ message: "User not found!" });
+    }
+
     const filters = {
       $or: [
         { senderId: userId, receiverId: withUserId },
@@ -28,11 +47,14 @@ const getMessagesWithProfile = async (req, res) => {
     };
 
     let user = null;
+    let userRole = "employer";
     user = await EMPLOYER.findById(withUserId);
     if (!user) {
       user = await FREELANCER.findById(withUserId);
+      userRole = "freelancer";
       if (!user) {
         user = await JOBSEEKER.findById(withUserId);
+        userRole = "job-seeker";
         if (!user) {
           return res
             .status(400)
@@ -40,11 +62,28 @@ const getMessagesWithProfile = async (req, res) => {
         }
       }
     }
+
+    // const other user blocked this user
+    const isBlockedByOther = (user.blocked || []).some(
+      (e) => currentUser._id.toString() === e.userId.toString()
+    );
+
     const receiver = {
       _id: user._id,
       fullName: user.fullName,
       profilePictureUrl: user.profilePictureUrl,
+      userRole,
+      blocked: isBlockedByOther,
     };
+
+    const isblocked = (currentUser.blocked || []).some(
+      (e) => e.userId === withUserId.toString()
+    );
+    if (isblocked) {
+      return res
+        .status(200)
+        .json({ blocked: true, data: { receiver, messages: [] }, new: false });
+    }
 
     const messages = await Message.find(filters)
       .sort({ sentAt: -1 }) // ascending
@@ -57,6 +96,7 @@ const getMessagesWithProfile = async (req, res) => {
         new: true,
         message: "No message exists",
         data: { messages: [], receiver },
+        blocked: false,
       });
     }
 
@@ -76,6 +116,7 @@ const getMessagesWithProfile = async (req, res) => {
     return res.status(200).json({
       data: { receiver, messages },
       new: false,
+      blocked: false,
     });
   } catch (error) {
     console.error("❌ Failed to fetch messages:", error);
@@ -86,8 +127,27 @@ const getMessagesWithProfile = async (req, res) => {
 const getConversations = async (req, res) => {
   try {
     const userId = req.user?._id;
+    const userRole = req.user?.role;
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ message: "Invalid sender or receiver Id" });
+    }
+
+    let user;
+    switch (userRole) {
+      case "employer":
+        user = await EMPLOYER.findById(userId);
+        break;
+      case "freelancer":
+        user = await FREELANCER.findById(userId);
+        break;
+      case "job-seeker":
+        user = await JOBSEEKER.findById(userId);
+        break;
+      default:
+        break;
+    }
+    if (!user) {
+      return res.status(404).json({ message: "User not found!" });
     }
 
     const conversations = await Message.aggregate([
@@ -165,13 +225,13 @@ const getConversations = async (req, res) => {
 
     const [freelancers, employers, jobseekers] = await Promise.all([
       FREELANCER.find({ _id: { $in: userIds } }).select(
-        "fullName profilePictureUrl"
+        "fullName profilePictureUrl blocked"
       ),
       EMPLOYER.find({ _id: { $in: userIds } }).select(
-        "fullName profilePictureUrl"
+        "fullName profilePictureUrl blocked"
       ),
       JOBSEEKER.find({ _id: { $in: userIds } }).select(
-        "fullName profilePictureUrl"
+        "fullName profilePictureUrl blocked"
       ),
     ]);
 
@@ -181,35 +241,56 @@ const getConversations = async (req, res) => {
         _id: user._id,
         fullName: user.fullName,
         profilePictureUrl: user.profilePictureUrl,
+        blocked: user.blocked || [],
       });
     });
 
-    const enrichedConversations = conversations.map((msg) => {
-      const isSender = msg.senderId.toString() === userId.toString();
-      const otherId = isSender
-        ? msg.receiverId.toString()
-        : msg.senderId.toString();
-      const userInfo = userMap.get(otherId) || {
-        _id: "",
-        fullName: "Unknown",
-        profilePictureUrl: null,
-      };
+    const enrichedConversations = conversations
+      .map((msg) => {
+        const isSender = msg.senderId.toString() === userId.toString();
+        const otherId = isSender
+          ? msg.receiverId.toString()
+          : msg.senderId.toString();
+        const userInfo = userMap.get(otherId) || {
+          _id: "",
+          fullName: "Unknown",
+          profilePictureUrl: null,
+          blocked: [],
+        };
 
-      const enriched = {
-        message: msg.latestMessage,
-        senderId: msg.senderId,
-        receiverId: msg.receiverId,
-        sentAt: msg.sentAt,
-        attachments: msg.attachments,
-        user: userInfo,
-      };
+        const enriched = {
+          message: msg.latestMessage,
+          senderId: msg.senderId,
+          receiverId: msg.receiverId,
+          sentAt: msg.sentAt,
+          attachments: msg.attachments,
+          user: {
+            _id: userInfo._id,
+            fullName: userInfo.fullName,
+            profilePictureUrl: userInfo.profilePictureUrl,
+          },
+        };
 
-      if (msg.unseenCount > 0) {
         enriched.unseenCount = msg.unseenCount;
-      }
 
-      return enriched;
-    });
+        // current user blocked other user
+        const isBlocked = (user.blocked || []).some(
+          (e) => e.userId.toString() === userInfo._id.toString()
+        );
+        enriched.isBlocked = isBlocked;
+
+        // const other user blocked this user
+        const isBlockedByOther = (userInfo.blocked || []).some(
+          (e) => user._id.toString() === e.userId.toString()
+        );
+        enriched.isBlockedByOther = isBlockedByOther;
+
+        return enriched;
+      })
+      .sort((a, b) => {
+        if (a.isBlocked === b.isBlocked) return 0;
+        return a.isBlocked ? 1 : -1;
+      });
 
     return res.json({ chats: enrichedConversations });
   } catch (err) {
@@ -296,9 +377,170 @@ const getTotalUnseenMessages = async (req, res) => {
   }
 };
 
+// block a user
+const blockConversation = async (req, res) => {
+  const { blockUserId } = req.body;
+  try {
+    const userId = req.user?._id;
+    const userRole = req.user?.role;
+
+    if (!mongoose.Types.ObjectId.isValid(blockUserId)) {
+      return res.status(400).json({ message: "Inalid block user Id" });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Inalid user Id" });
+    }
+
+    let user;
+    switch (userRole) {
+      case "employer":
+        user = await EMPLOYER.findById(userId);
+        break;
+      case "freelancer":
+        user = await FREELANCER.findById(userId);
+        break;
+      case "job-seeker":
+        user = await JOBSEEKER.findById(userId);
+        break;
+      default:
+        break;
+    }
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found!" });
+    }
+
+    const isAlreadyBlocked = (user.blocked || []).some(
+      (e) => e.userId === blockUserId
+    );
+    if (isAlreadyBlocked) {
+      return res.status(400).json({ message: "User already blocked" });
+    }
+
+    user.blocked = [
+      ...(user.blocked || []),
+      {
+        userId: blockUserId,
+        at: new Date(),
+      },
+    ];
+    await user.save();
+
+    return res.status(200).json({ message: "User blocked" });
+  } catch (err) {
+    console.log("Error blocking a user: " + blockUserId, err);
+    return res
+      .status(500)
+      .json({ message: "Error blocking user: ", err: err.message });
+  }
+};
+
+// un block a user
+const unblockConversation = async (req, res) => {
+  const { blockUserId } = req.body;
+  try {
+    const userId = req.user?._id;
+    const userRole = req.user?.role;
+
+    if (!mongoose.Types.ObjectId.isValid(blockUserId)) {
+      return res.status(400).json({ message: "Inalid block user Id" });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Inalid user Id" });
+    }
+
+    let user;
+    switch (userRole) {
+      case "employer":
+        user = await EMPLOYER.findById(userId);
+        break;
+      case "freelancer":
+        user = await FREELANCER.findById(userId);
+        break;
+      case "job-seeker":
+        user = await JOBSEEKER.findById(userId);
+        break;
+      default:
+        break;
+    }
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found!" });
+    }
+
+    const isAlreadyBlocked = (user.blocked || []).some(
+      (e) => e.userId === blockUserId
+    );
+    if (isAlreadyBlocked) {
+      user.blocked = (user.blocked || []).filter(
+        (e) => e.userId !== blockUserId
+      );
+      await user.save();
+      return res.status(200).json({ message: "User un-blocked successfully" });
+    }
+
+    return res.status(400).json({ message: "User not in blocked list" });
+  } catch (err) {
+    console.log("Error blocking a user: " + blockUserId, err);
+    return res
+      .status(500)
+      .json({ message: "Error blocking user: ", err: err.message });
+  }
+};
+
+// get blocked users;
+const getBlockedUsers = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    const userRole = req.user?.role;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Inalid user Id" });
+    }
+
+    let user;
+    switch (userRole) {
+      case "employer":
+        user = await EMPLOYER.findById(userId);
+        break;
+      case "freelancer":
+        user = await FREELANCER.findById(userId);
+        break;
+      case "job-seeker":
+        user = await JOBSEEKER.findById(userId);
+        break;
+      default:
+        break;
+    }
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found!" });
+    }
+
+    const blocked = (user.blocked || []).map((e) => e.userId?.toString());
+
+    return res.status(200).json({ blocked });
+  } catch (err) {
+    console.log("Error blocking a user: " + blockUserId, err);
+    return res
+      .status(500)
+      .json({ message: "Error blocking user: ", err: err.message });
+  }
+};
+
+// // create a messaage
+// const createMessage = async(req, res)=>{
+
+// }
+
 export {
   getMessagesWithProfile,
   getConversations,
   // getUnreadMessageCount,
   getTotalUnseenMessages,
+  blockConversation,
+  unblockConversation,
+  getBlockedUsers,
 };
