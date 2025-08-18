@@ -29,12 +29,15 @@ const initSocket = (httpServer) => {
 
   io.use((socket, next) => {
     const token = socket.handshake.auth.token;
+    if (!token) {
+      return next(new Error("Unauthorized: No token provided"));
+    }
     const user = verifyToken(token);
     if (user) {
       socket.user = user;
       return next();
     } else {
-      return next(new Error("Un Authorized"));
+      return next(new Error("Un Authorized, Invalid Token"));
     }
   });
 
@@ -73,7 +76,7 @@ const initSocket = (httpServer) => {
 
     socket.on("message-seen", async ({ messageId }) => {
       try {
-        console.log("messageId: ",messageId)
+        console.log("messageId: ", messageId);
         await Message.updateOne({ _id: messageId }, { seen: true });
       } catch (err) {
         console.log("Error updating message to seen");
