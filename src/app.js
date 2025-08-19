@@ -35,6 +35,7 @@ import ManagerRouter from "./routes/manager.routes.js";
 // stripe
 import { stripeWebhook } from "./services/stripe.service.js";
 import ChatBotRouter from "./routes/chatbot.routes.js";
+import TrendinJobRouter from "./routes/trending-job-route.js";
 
 dotenv.config();
 
@@ -77,6 +78,7 @@ apiRouter.use("/orders", orderRouter);
 apiRouter.use("/payments", express.json(), transactionRouter);
 apiRouter.use("/subscriptions", SubscriptionRouter);
 apiRouter.use("/testimonials", TestimonialRouter);
+apiRouter.use("/trending-jobs", TrendinJobRouter);
 apiRouter.use("/upload", uploadRouter);
 apiRouter.use("/stripe", StripeRouter);
 apiRouter.use("/support", SupportRouter);

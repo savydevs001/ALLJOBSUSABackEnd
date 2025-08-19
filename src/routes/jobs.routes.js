@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  applyToJob,
   closeAJob,
   createJob,
   getAllJobs,
@@ -24,7 +25,11 @@ const JobRouter = Router();
 
 JobRouter.get("/all", verifyTokenMiddleware("strict"), a(getAllJobs));
 JobRouter.get("/saved", verifyTokenMiddleware("strict"), a(getAllSavedJobs));
-JobRouter.get("/my-postings", verifyTokenMiddleware("strict"), a(myJobPostings));
+JobRouter.get(
+  "/my-postings",
+  verifyTokenMiddleware("strict"),
+  a(myJobPostings)
+);
 JobRouter.get(
   "/:id/save",
   verifyTokenMiddleware(),
@@ -55,11 +60,13 @@ JobRouter.get(
   roleBasedAuthMiddleware(["employer", "job-seeker"]),
   a(getJobApplicants)
 );
+JobRouter.get(
+  "/:id/apply",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["freelancer", "job-seeker"]),
+  a(applyToJob)
+);
 JobRouter.get("/:id", verifyTokenMiddleware(), a(getJobById));
-
-// JobRouter.get("/save/:id", a(saveAJob));
-// JobRouter.get("/unsave/:id", a(removeSavedJob));
-// JobRouter.get("/:id", a(jobById));
 
 JobRouter.post(
   "/",

@@ -35,6 +35,7 @@ const employerSchema = mongoose.Schema(
       enum: ["active", "suspended", "deleted"],
       default: "active",
     },
+    isDeletedByAdmin: Boolean,
     about: String,
     location: String,
     website: String,

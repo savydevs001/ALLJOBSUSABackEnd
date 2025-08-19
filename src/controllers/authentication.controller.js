@@ -128,8 +128,12 @@ const signUp = async (req, res) => {
       const existing = await FREELANCER.findOne({
         email: email,
       });
-      if (existing)
+      if (existing){
+        if(existing.status === "deleted"){
+          return res.status(404).json({ message: "You have no acess to ALLJOBSUSA" });
+        }
         return res.status(409).json({ message: "Email already registered" });
+      }
 
       user = new FREELANCER(userDetails);
       await user.save();
@@ -192,11 +196,13 @@ const signIn = async (req, res) => {
       return res.status(401).json({ message: "No User found!" });
     }
 
-    if (user.status == "suspended") {
-      return res.status(403).json({ message: "Account is not active" });
-    }
-    if (user.status === "deleted") {
-      return res.status(403).json({ message: "No user found!" });
+    if (user.status == "deleted") {
+      if (user.isDeletedByAdmin === true) {
+        return res
+          .status(400)
+          .json({ message: "You are restricted from acessing platefrom" });
+      }
+      return res.status(404).json({ message: "No User found" });
     }
 
     if (!user.password.hash || !user.password.salt) {
@@ -272,13 +278,17 @@ const forgotPassword = async (req, res) => {
         .json({ message: "User not found with this email" });
     }
 
-    // if (
-    //   user.password?.lastResetTokenTime &&
-    //   Date.now() - new Date(user.password.lastResetTokenTime).getTime() <
-    //     1000 * 60 * 5
-    // ) {
-    //   return res.status(400).json({ message: "Please try again in 5 minutes" });
-    // }
+    if (user.status == "deleted") {
+      return res.status(404).json({ message: "No User found" });
+    }
+
+    if (
+      user.password?.lastResetTokenTime &&
+      Date.now() - new Date(user.password.lastResetTokenTime).getTime() <
+        1000 * 60 * 5
+    ) {
+      return res.status(400).json({ message: "Please try again in 5 minutes" });
+    }
 
     // Generate secure token
     const token = crypto.randomBytes(32).toString("hex");
@@ -336,6 +346,10 @@ const resetPassword = async (req, res) => {
 
   if (!user) {
     return res.status(404).json({ message: "User not found" });
+  }
+
+  if (user.status == "deleted") {
+    return res.status(404).json({ message: "No User found" });
   }
 
   if (
@@ -428,8 +442,9 @@ const googleCallback = async (req, res) => {
     let newUser = false;
 
     // search Employers
+    let user;
     if (role == "employer") {
-      let user = await EMPLOYER.findOneAndUpdate(
+      user = await EMPLOYER.findOneAndUpdate(
         { email: email },
         { lastLogin: new Date() }
       );
@@ -442,7 +457,7 @@ const googleCallback = async (req, res) => {
     }
     // Search Freelancers or Job-Seekers
     else if (role == "freelancer") {
-      let user = await FREELANCER.findOneAndUpdate(
+      user = await FREELANCER.findOneAndUpdate(
         { email: email },
         { lastLogin: new Date() }
       );
@@ -453,7 +468,7 @@ const googleCallback = async (req, res) => {
         token = jwtToken(user, role, true);
       }
     } else if (role == "job-seeker") {
-      let user = await JOBSEEKER.findOneAndUpdate(
+      user = await JOBSEEKER.findOneAndUpdate(
         { email: email },
         { lastLogin: new Date() }
       );
@@ -467,6 +482,15 @@ const googleCallback = async (req, res) => {
     // Invalid role
     else {
       return res.status(400).json({ message: "Invalid user role" });
+    }
+
+    if (user.status == "deleted") {
+      if (user.isDeletedByAdmin === true) {
+        return res
+          .status(400)
+          .json({ message: "You are restricted from acessing platefrom" });
+      }
+      return res.status(404).json({ message: "No User found" });
     }
 
     if (!newUser && token === null) {

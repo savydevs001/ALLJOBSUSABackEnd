@@ -16,6 +16,7 @@ const jobSeekerSchema = mongoose.Schema(
     email: { type: String, required: true },
     phoneNumber: String,
     profilePictureUrl: String,
+    category: String,
     password: {
       hash: String,
       salt: String,
@@ -29,6 +30,7 @@ const jobSeekerSchema = mongoose.Schema(
       enum: ["active", "suspended", "deleted"],
       default: "active",
     },
+    isDeletedByAdmin: Boolean,
 
     //   profile
     profile: {

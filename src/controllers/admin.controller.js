@@ -1476,6 +1476,91 @@ const approveRefunds = async (req, res) => {
   }
 };
 
+// suspend Freelancer
+const suspendFreelancer = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid User Id" });
+    }
+
+    const user = await FREELANCER.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found!" });
+    }
+
+    if (user.status === "active") {
+      user.status = "suspended";
+      await user.save();
+      return res.status(200).json({ message: "Account suspended successfully" });
+    }
+
+    return res
+      .status(400)
+      .json({ message: "Only Active account can be suspended" });
+  } catch (err) {
+    console.log("Error Suspending a user: ", err);
+    return res
+      .status(500)
+      .json({ message: "Error suspending user", err: err.message });
+  }
+};
+
+// delete user
+const deleteUser = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const userRole = req.query?.role;
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid User Id" });
+    }
+
+    if(!userRole){
+      return res.status(400).json({ message: "No role in query parameters" });
+    }
+
+    let user;
+    switch (userRole) {
+      case "freelancer":
+        user = await FREELANCER.findById(userId);
+        break;
+      case "job-seeker":
+        user = await JOBSEEKER.findById(userId);
+        break;
+      case "employer":
+        user = await EMPLOYER.findById(userId);
+        break;
+      default:
+        break;
+    }
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found!" });
+    }
+
+    if (user.status == "deleted") {
+      return res.status(400).json({ message: "User account already deleted" });
+    }
+
+    if (user.status === "active" || user.status === "suspended") {
+      user.status = "deleted";
+      user.isDeletedByAdmin = true;
+      await user.save();
+      return res.status(200).json({ message: "Account deleted successfully" });
+    }
+
+    return res
+      .status(400)
+      .json({ message: "Only Active/suspended account can be deleted" });
+  } catch (err) {
+    console.log("Error Suspending a user: ", err);
+    return res
+      .status(500)
+      .json({ message: "Error suspending user", err: err.message });
+  }
+};
+
 export {
   createAdminAccount,
   loginAdminAccount,
@@ -1499,4 +1584,6 @@ export {
   getRefunds,
   rejectRefunds,
   approveRefunds,
+  suspendFreelancer,
+  deleteUser,
 };

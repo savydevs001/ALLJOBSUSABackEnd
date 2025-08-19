@@ -14,6 +14,7 @@ const createProfileZODSchema = z.object({
   profilePictureUrl: z.string().optional(),
   bannerUrl: z.string().optional(),
   resumeUrl: z.string().optional(),
+  category: z.string(),
   professionalTitle: z
     .string()
     .min(5, "Min 5 chracter required")
@@ -67,6 +68,7 @@ const creatJobSeekerProfile = async (req, res) => {
 
     user.fullName = data.fullName;
     user.phoneNumber = data.phoneNumber;
+    user.category = data.category;
     if (data.profilePictureUrl) {
       user.profilePictureUrl = data.profilePictureUrl;
     }
@@ -110,6 +112,7 @@ const getJobSeekerProfile = async (req, res) => {
         email: 1,
         profilePictureUrl: 1,
         profile: 1,
+        category: 1,
       }
     );
 
@@ -125,6 +128,7 @@ const getJobSeekerProfile = async (req, res) => {
       fullName: user.fullName,
       email: user.email,
       phoneNumber: user.phoneNumber,
+      category: user.category,
       ...user.profile,
       profilePictureUrl: user.profilePictureUrl,
     };
@@ -397,6 +401,9 @@ const getJobSeekerList = async (req, res) => {
     const skip = parseInt(req.query.skip) || 0;
     const limit = parseInt(req.query.limit) || 10;
     const text = req.query.text?.trim() || "";
+    const experience = parseInt(req.query.experience?.trim()) || 0;
+    const skill = req.query.skill?.trim() || "";
+    const category = req.query.category?.trim() || "";
     const userId = req.user?._id;
 
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
@@ -434,10 +441,18 @@ const getJobSeekerList = async (req, res) => {
 
       filter.$or = terms.flatMap((term) => [
         { fullName: { $regex: term } },
-        // { "profile.professionalTitle": { $regex: term } },
-        // { "profile.bio": { $regex: term } },
-        { "profile.skills": { $regex: term } }, // works for exact matches in skill array
+        { "profile.professionalTitle": { $regex: term } },
+        { "profile.bio": { $regex: term } },
+        { "profile.skills": { $regex: term } },
       ]);
+    }
+
+    if (skill) {
+      filter["profile.skills"] = skill;
+    }
+
+    if (category) {
+      filter["category"] = category;
     }
 
     let users = await JOBSEEKER.find(filter)
@@ -454,6 +469,30 @@ const getJobSeekerList = async (req, res) => {
       .skip(skip)
       .limit(limit)
       .lean();
+
+    if (experience > 0) {
+      users = users.filter((f) => {
+        const totalExpYears = (f.profile.experiences || []).reduce(
+          (acc, exp) => {
+            const start = new Date(exp.startDate);
+            const end = exp.isCurrentJob
+              ? new Date()
+              : new Date(exp.endDate || new Date());
+            const diffYears =
+              (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 365);
+            return acc + (diffYears > 0 ? diffYears : 0);
+          },
+          0
+        );
+
+        // Apply range filtering
+        if (experience === 1) return totalExpYears < 2; // Basic
+        if (experience === 2) return totalExpYears >= 2 && totalExpYears <= 5; // Intermediate
+        if (experience === 3) return totalExpYears > 5; // Expert
+
+        return true;
+      });
+    }
 
     const formatted = users.map((f) => {
       const experiences = (f.profile.experiences || []).map((e) => ({

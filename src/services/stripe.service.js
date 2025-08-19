@@ -402,7 +402,7 @@ const stripeWebhook = async (req, res) => {
           // Update offer status
           const offer = await Offer.findByIdAndUpdate(
             offerId,
-            { status: "accepted" },
+            { status: "accepted", orderId: orderId },
             { session: mongooseSession }
           );
 
@@ -736,8 +736,6 @@ const getStripeSession = async (sessionId) => {
   const session = await stripe.checkout.sessions.retrieve(sessionId);
   return session;
 };
-
-
 
 const createStripePrice = async (
   amount,

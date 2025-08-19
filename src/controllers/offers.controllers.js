@@ -685,7 +685,10 @@ const rejectOffer = async (req, res) => {
     return res.status(400).json({ message: "Invalid offer ID" });
   }
 
-  const offer = await Offer.findById(offerId);
+  const offer = await Offer.findById(offerId).populate(
+    "receiverId",
+    "fullName"
+  );
 
   if (!offer) {
     return res.status(404).json({ message: "Offer not found" });
@@ -712,6 +715,16 @@ const rejectOffer = async (req, res) => {
   // Update status to 'rejected'
   offer.status = "rejected";
   await offer.save();
+
+  await notifyUser(
+    {
+      userId: offer.senderId.toString(),
+      title: "Offer Rejected",
+      message: offer.title,
+      from: offer.receiverId.fullName || "Employer",
+    },
+    session
+  );
 
   return res.status(200).json({
     message: "Offer rejected successfully",
@@ -811,5 +824,5 @@ export {
   getOfferById,
   rejectOffer,
   getOfferByIdForMessage,
-  withdrawOffer
+  withdrawOffer,
 };

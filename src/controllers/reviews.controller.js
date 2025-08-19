@@ -102,7 +102,7 @@ const createReview = async (req, res) => {
       user.rating.totalRatings = user.rating.totalRatings + 1;
       user.rating.totalRatingsSum = user.rating.totalRatingsSum + data.rating;
       user.rating.value = Number(
-        user.rating.totalRatingsSum / (user.rating.totalRatings || 1)
+        user.rating.totalRatingsSum / (user.rating.totalRatings || 1).toFixed(1)
       );
     }
 
@@ -122,4 +122,39 @@ const createReview = async (req, res) => {
   }
 };
 
-export { createReview };
+// get freelancer reveiews
+const getFreelancerReviews = async (req, res) => {
+  try {
+    const freelancerId = req.params.id;
+    const reveiews = await Review.find({
+      freelancerId: freelancerId,
+    }).populate("employerId", "_id fullName profilePictureUrl");
+
+    const transformed = reveiews.map((e) => ({
+      _id: e._id,
+      rating: e.rating,
+      comment: e.comment,
+      createdAt: e.createdAt,
+      employer: {
+        _id: e.employerId._id,
+        fullName: e.employerId.fullName,
+        profilePictureUrl: e.employerId.profilePictureUrl,
+        role:
+          e.employerModel == "jobSeeker"
+            ? "job-seeker"
+            : e.employerModel == "employer"
+            ? "employer"
+            : "",
+      },
+    }));
+
+    return res.status(200).json({ data: transformed });
+  } catch (err) {
+    console.log("❌ Error getting reviews for freelanceer: ", err);
+    return res
+      .status(500)
+      .json({ message: "Error getting reveiews", err: err.message });
+  }
+};
+
+export { createReview, getFreelancerReviews };

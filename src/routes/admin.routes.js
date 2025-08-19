@@ -7,6 +7,7 @@ import {
   changeFreelancerBadge,
   completeDisputedOrder,
   createAdminAccount,
+  deleteUser,
   getFreelancers,
   getFreelancerStats,
   getJobs,
@@ -22,6 +23,7 @@ import {
   markOrderAsDisputed,
   orderStats,
   rejectRefunds,
+  suspendFreelancer,
 } from "../controllers/admin.controller.js";
 import verifyTokenMiddleware from "../middlewares/verifyToken.middleware.js";
 import roleBasedAuthMiddleware from "../middlewares/roleBasedAuth.middleware.js";
@@ -62,7 +64,7 @@ AdminRouter.get(
 AdminRouter.get(
   "/jobs",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["admin" ,"manager"]),
+  roleBasedAuthMiddleware(["admin", "manager"]),
   a(getJobs)
 );
 AdminRouter.get(
@@ -120,7 +122,6 @@ AdminRouter.get(
   a(approveRefunds)
 );
 
-
 // AdminRouter.post("/signup", a(createAdminAccount));
 AdminRouter.post("/signin", a(loginAdminAccount));
 AdminRouter.post(
@@ -146,6 +147,18 @@ AdminRouter.post(
   verifyTokenMiddleware(),
   roleBasedAuthMiddleware(["admin", "manager"]),
   a(cancelDisputedOrder)
+);
+AdminRouter.post(
+  "/suspend-freelancer/:id",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["admin", "manager"]),
+  a(suspendFreelancer)
+);
+AdminRouter.post(
+  "/delete-user/:id",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["admin", "manager"]),
+  a(deleteUser)
 );
 
 AdminRouter.put(

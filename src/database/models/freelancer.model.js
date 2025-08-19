@@ -39,6 +39,7 @@ const freelancerSchema = mongoose.Schema(
       enum: ["active", "suspended", "deleted"],
       default: "active",
     },
+    isDeletedByAdmin: Boolean,
 
     //   Stripe
     stripeAccountId: String,

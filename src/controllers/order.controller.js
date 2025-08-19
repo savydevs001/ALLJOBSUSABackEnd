@@ -236,14 +236,15 @@ const getFreelancerOrders = async (req, res) => {
     const { status, fromDate, clientName } = req.query;
 
     // Build the query
-    const filter = { freelancerId };
+    const filter = { freelancerId, status: { $ne: "payment_pending" } };
 
-    // 1. Filter by status if provided
-    if (status) {
-      filter.status = status;
+    if (status && status !== "") {
+      filter.$and = [
+        { status: { $ne: "payment_pending" } },
+        { status: status },
+      ];
     }
 
-    // 2. Handle fromDate or period
     let dateFilter = null;
 
     if (fromDate) {
@@ -257,7 +258,6 @@ const getFreelancerOrders = async (req, res) => {
       filter.createdAt = { $gte: dateFilter };
     }
 
-    // 3. Fetch all matching orders
     let orders = await Order.find(filter)
       .select(
         "status title totalAmount deadline createdAt deliveryDate completionDate cancelledDate employerId employerModel"
@@ -269,7 +269,6 @@ const getFreelancerOrders = async (req, res) => {
       .sort({ createdAt: -1 }) // more accurate than "natural"
       .lean();
 
-    // 4. Filter by client name if provided (after population)
     if (clientName) {
       const regex = new RegExp(clientName, "i");
       orders = orders.filter(
@@ -278,7 +277,6 @@ const getFreelancerOrders = async (req, res) => {
       );
     }
 
-    // 5. Format response
     const formatted = orders.map((order) => ({
       _id: order._id.toString(),
       status: order.status,
@@ -696,6 +694,7 @@ const getOrderById = async (req, res) => {
 
     const order = await Order.findById(orderId)
       .populate("freelancerId")
+      .populate("employerId")
       .populate("jobId");
     if (!order) {
       return res.status(404).json({ message: "Order not found!" });
@@ -730,6 +729,17 @@ const getOrderById = async (req, res) => {
         location: order.freelancerId.profile?.loaction,
         isRated: order.freelancerId.rating?.isRated,
         rating: order.freelancerId.rating?.value || 0,
+      },
+      employer: {
+        _id: order.employerId._id,
+        fullName: order.employerId.fullName,
+        profilePictureUrl: order.employerId.profilePictureUrl || "",
+        role:
+          order.employerModel === "jobSeeker"
+            ? "job-seeker"
+            : order.employerModel === "employer"
+            ? "employer"
+            : "",
       },
     };
 

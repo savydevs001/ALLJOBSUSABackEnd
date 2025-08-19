@@ -306,7 +306,7 @@ const getFreelancerEarnings = async (req, res) => {
     const data = {
       currentBalance: user.currentBalance.toFixed(1),
       totalEarning: user.totalEarning.toFixed(1),
-      pending: user.pendingClearence.toFixed(1),
+      pending: user.pendingClearence.toFixed(1) > 0 ? user.pendingClearence.toFixed(1) : 0,
       tip: user.tip.toFixed(1),
       withdrawlMethods,
     };
@@ -909,6 +909,7 @@ const getStripeFreelancerLogin = async (req, res) => {
     return res.status(500).json({ message: "Error generating link", err });
   }
 };
+
 
 export {
   creatFreelancerProfile,
