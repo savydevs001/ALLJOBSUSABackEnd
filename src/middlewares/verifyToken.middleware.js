@@ -62,7 +62,7 @@ const verifyTokenMiddleware =
             console.log("Error getting employer in verify middleware: ", err);
           }
         }
-        console.log("tempUser: ", tempUser)
+        // console.log("tempUser: ", tempUser)
         if (tempUser && tempUser.status == "deleted") {
           return res.status(401).json({ message: "No User Acccount found!" });
         }

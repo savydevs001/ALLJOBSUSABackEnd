@@ -36,16 +36,16 @@ const createTrendingJob = async (req, res) => {
 const getAllTrendingJobs = async (req, res) => {
   try {
     if (memoryTrendingJobs) {
-      res.status(200).json({ jobs: memoryTrendingJobs });
+      return res.status(200).json({ jobs: memoryTrendingJobs });
     }
     const data = await TRENDING_JOB.find().sort({
       createdAt: -1,
     });
     memoryTrendingJobs = data;
-    res.status(200).json({ jobs: data });
+    return res.status(200).json({ jobs: data });
   } catch (error) {
     console.log("Error fetching trending jobs: ", error);
-    res
+    return res
       .status(500)
       .json({ message: "Error fetching trending jobs", err: error.message });
   }
@@ -63,9 +63,9 @@ const updateTrendingJOb = async (req, res) => {
     );
     if (!updated) return res.status(404).json({ message: "Not found" });
     memoryTrendingJobs = null;
-    res.status(200).json({ message: "Updated successfully" });
+    return res.status(200).json({ message: "Updated successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Error updating trending job", error });
+    return res.status(500).json({ message: "Error updating trending job", error });
   }
 };
 
@@ -74,9 +74,9 @@ const deleteTrendingjob = async (req, res) => {
     const deleted = await TRENDING_JOB.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ message: "Not found" });
     memoryTrendingJobs = null;
-    res.status(200).json({ message: "Deleted successfully" });
+    return res.status(200).json({ message: "Deleted successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Error deleting trending job", error });
+    return res.status(500).json({ message: "Error deleting trending job", error });
   }
 };
 
