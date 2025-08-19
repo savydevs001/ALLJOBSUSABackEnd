@@ -322,7 +322,10 @@ const createPaymentIntents = async (req, res) => {
           let companyCut = 0;
           const platformSettings = await PlatformSettings.findOne();
 
-          if (platformSettings?.pricing?.platformCommissionPercentageActive) {
+          if (
+            platformSettings?.pricing?.platformCommissionPercentageActive ===
+            true
+          ) {
             companyCut = Math.round(
               totalAmount *
                 (platformSettings.pricing.platformCommissionPercentage / 100)
@@ -590,6 +593,135 @@ const createPaymentIntents = async (req, res) => {
 };
 
 // check freelancer account status for payout
+// const checkFreelancerPayoutSattus = async (req, res) => {
+//   try {
+//     const userId = req.user?._id;
+
+//     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+//       return res.status(400).json({ message: "Invalid user id" });
+//     }
+//     const user = await FREELANCER.findById(userId);
+//     if (!user || !user.stripeAccountId) {
+//       return res.status(400).json({
+//         message: "Stripe account not connected.",
+//       });
+//     }
+
+//     // Fetch Stripe account info
+//     const account = await getStripeAccountbyId(user.stripeAccountId);
+
+//     // Stripe provides restriction reasons here
+//     const isRestricted =
+//       account.requirements?.currently_due?.length > 0 ||
+//       account.requirements?.eventually_due?.length > 0 ||
+//       !!account.requirements?.disabled_reason;
+
+//     // Check if payouts are enabled
+//     const enabled = account.payouts_enabled && !isRestricted;
+//     if (!enabled) {
+//       return res
+//         .status(400)
+//         .json({ message: "Payouts Paused!,  Please update Withdrawl Method" });
+//     }
+
+//     // Available payout methods from external accounts
+//     const methods = [];
+//     if (account.external_accounts?.data?.length) {
+//       for (const acc of account.external_accounts.data) {
+//         if (acc.object === "bank_account") {
+//           methods.push({
+//             id: acc.id,
+//             type: "bank_account",
+//             details: `**** ${acc.last4} (${acc.bank_name})`,
+//           });
+//         } else if (acc.object === "card") {
+//           methods.push({
+//             id: acc.id,
+//             type: "card",
+//             details: `**** ${acc.last4} (${acc.brand})`,
+//           });
+//         }
+//       }
+//     }
+
+//     return res.json({ enabled, methods });
+//   } catch (err) {
+//     console.error("Error fetching payout status:", err);
+//     return res.status(500).json({
+//       message: "Failed to fetch payout info.",
+//     });
+//   }
+// };
+const fieldMessages = {
+  // --- Business profile ---
+  "business_profile.mcc": "Business category is missing",
+  "business_profile.url": "Business website or profile link is missing",
+  "business_profile.name": "Business name is missing",
+  "business_profile.support_email": "Support email address is missing",
+  "business_profile.support_phone": "Support phone number is missing",
+  "business_profile.support_url": "Support website or help link is missing",
+  "business_profile.product_description": "Business product/service description is missing",
+
+  // --- External accounts (bank or debit card) ---
+  "external_account": "Bank account or debit card details are missing",
+
+  // --- Terms acceptance ---
+  "tos_acceptance.date": "Terms of Service acceptance is required",
+  "tos_acceptance.ip": "IP address for Terms of Service acceptance is missing",
+
+  // --- Individual (freelancer / sole proprietor) ---
+  "individual.first_name": "First name is missing",
+  "individual.last_name": "Last name is missing",
+  "individual.email": "Email address is missing",
+  "individual.phone": "Phone number is missing",
+  "individual.dob.day": "Day of birth is missing",
+  "individual.dob.month": "Month of birth is missing",
+  "individual.dob.year": "Year of birth is missing",
+  "individual.address.line1": "Address line 1 is missing",
+  "individual.address.city": "City is missing",
+  "individual.address.postal_code": "Postal code is missing",
+  "individual.address.state": "State/Province is missing",
+  "individual.id_number": "Government ID number is missing",
+  "individual.ssn_last_4": "Last 4 digits of SSN are missing",
+  "individual.verification.document": "Identity document (ID) needs to be uploaded",
+  "individual.verification.additional_document": "Additional identity document is required",
+
+  // --- Company / Business (if registered business account) ---
+  "company.name": "Company name is missing",
+  "company.tax_id": "Company tax ID is missing",
+  "company.phone": "Company phone number is missing",
+  "company.address.line1": "Company address line 1 is missing",
+  "company.address.city": "Company city is missing",
+  "company.address.postal_code": "Company postal code is missing",
+  "company.address.state": "Company state/province is missing",
+  "company.verification.document": "Company verification document is required",
+
+  // --- Representative / Owners ---
+  "representative.first_name": "Representative's first name is missing",
+  "representative.last_name": "Representative's last name is missing",
+  "representative.email": "Representative's email is missing",
+  "representative.phone": "Representative's phone number is missing",
+  "representative.dob.day": "Representative's day of birth is missing",
+  "representative.dob.month": "Representative's month of birth is missing",
+  "representative.dob.year": "Representative's year of birth is missing",
+  "representative.address.line1": "Representative's address line 1 is missing",
+  "representative.address.city": "Representative's city is missing",
+  "representative.address.postal_code": "Representative's postal code is missing",
+  "representative.address.state": "Representative's state/province is missing",
+  "representative.verification.document": "Representative's identity document is missing",
+  "representative.verification.additional_document": "Representative's additional identity document is required",
+
+  // --- Directors / Owners (for larger businesses in some countries) ---
+  "directors": "Information about company directors is missing",
+  "owners": "Information about company owners is missing",
+};
+
+function translateRequirements(requirements) {
+  return requirements.map(
+    (req) => fieldMessages[req] || `Update required: ${req}`
+  );
+}
+
 const checkFreelancerPayoutSattus = async (req, res) => {
   try {
     const userId = req.user?._id;
@@ -597,20 +729,41 @@ const checkFreelancerPayoutSattus = async (req, res) => {
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ message: "Invalid user id" });
     }
+
     const user = await FREELANCER.findById(userId);
     if (!user || !user.stripeAccountId) {
       return res.status(400).json({
         message: "Stripe account not connected.",
+        enabled: false,
       });
     }
 
     // Fetch Stripe account info
     const account = await getStripeAccountbyId(user.stripeAccountId);
 
-    // Check if payouts are enabled
-    const enabled = account.payouts_enabled;
+    // Stripe provides restriction reasons here
+    const isRestricted =
+      account.requirements?.currently_due?.length > 0 ||
+      account.requirements?.eventually_due?.length > 0 ||
+      !!account.requirements?.disabled_reason;
 
-    // Available payout methods from external accounts
+    // Payouts enabled flag
+    const enabled = account.payouts_enabled && !isRestricted;
+
+    if (!enabled) {
+      return res.status(200).json({
+        message:
+          "Your Stripe account is restricted or payouts are paused. Please update your account information.",
+        enabled: false,
+        restrictions: {
+          currently_due:
+            translateRequirements(account.requirements?.currently_due || []) || [],
+          disabled_reason: account.requirements?.disabled_reason || null,
+        },
+      });
+    }
+
+    // Collect payout methods if account is fine
     const methods = [];
     if (account.external_accounts?.data?.length) {
       for (const acc of account.external_accounts.data) {
@@ -630,11 +783,12 @@ const checkFreelancerPayoutSattus = async (req, res) => {
       }
     }
 
-    return res.json({ enabled, methods });
+    return res.json({ enabled: true, methods });
   } catch (err) {
     console.error("Error fetching payout status:", err);
     return res.status(500).json({
       message: "Failed to fetch payout info.",
+      enabled: false,
     });
   }
 };
@@ -677,9 +831,25 @@ const createFreelancerPayout = async (req, res) => {
 
     // Ensure payouts are enabled
     const account = await getStripeAccountbyId(user.stripeAccountId);
-    if (!account.payouts_enabled) {
+    // Stripe provides restriction reasons here
+    const isRestricted =
+      account.requirements?.currently_due?.length > 0 ||
+      account.requirements?.eventually_due?.length > 0 ||
+      !!account.requirements?.disabled_reason;
+
+    // Payouts enabled flag
+    const enabled = account.payouts_enabled && !isRestricted;
+
+    if (!enabled) {
       return res.status(400).json({
-        error: { message: "Payouts are not enabled for this account." },
+        message:
+          "Your Stripe account is restricted or payouts are paused. Please update your account information.",
+        enabled: false,
+        restrictions: {
+          currently_due:
+            translateRequirements(account.requirements?.currently_due || []) || [],
+          disabled_reason: account.requirements?.disabled_reason || null,
+        },
       });
     }
 

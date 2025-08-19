@@ -311,7 +311,6 @@ const enableProfileSubscription = async (req, res) => {
       );
       url = checkout.url;
     } else if (requestedSubscription.mode == "oneTime") {
-
       const checkout = await genrateStripeCheckoutSession(
         user.email,
         requestedSubscription.stripePriceId,
@@ -384,7 +383,7 @@ const updateProfileSubscriptions = async (req, res) => {
       let updateFields = {};
 
       // Check if price changed
-      if (currentSub.price !== newSub.price) {
+      if (currentSub.mode != "free" && currentSub.price !== newSub.price) {
         // create new price
         let priceObj = null;
 
@@ -423,6 +422,12 @@ const updateProfileSubscriptions = async (req, res) => {
       // Check if isActive changed
       if (currentSub.isActive !== newSub.isActive) {
         updateFields.isActive = newSub.isActive;
+      }
+
+      // change days instead of price for free mode
+      if (currentSub.mode == "free" && currentSub.totalDays != newSub.price) {
+        updateFields.totalDays = newSub.totalDays;
+        updateFields.interval_count = newSub.totalDays;
       }
 
       // Update only if something changed

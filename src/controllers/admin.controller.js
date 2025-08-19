@@ -462,7 +462,6 @@ const getUsers = async (req, res) => {
         query.$or = [
           { fullName: { $regex: text, $options: "i" } },
           { email: { $regex: text, $options: "i" } },
-          ,
         ];
       }
     }
@@ -1493,7 +1492,9 @@ const suspendFreelancer = async (req, res) => {
     if (user.status === "active") {
       user.status = "suspended";
       await user.save();
-      return res.status(200).json({ message: "Account suspended successfully" });
+      return res
+        .status(200)
+        .json({ message: "Account suspended successfully" });
     }
 
     return res
@@ -1516,7 +1517,7 @@ const deleteUser = async (req, res) => {
       return res.status(400).json({ message: "Invalid User Id" });
     }
 
-    if(!userRole){
+    if (!userRole) {
       return res.status(400).json({ message: "No role in query parameters" });
     }
 

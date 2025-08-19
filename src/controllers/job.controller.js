@@ -7,6 +7,7 @@ import getDateNDaysFromNow from "../utils/date-and-days.js";
 import calculateJobMatchPercentage from "../utils/calculate-job-match.js";
 import JOBSEEKER from "../database/models/job-seeker.model.js";
 import { notifyUser } from "./notification.controller.js";
+import { getMemorySubscriptionns } from "./subscriptions.controller.js";
 
 // POST job
 const createJobZODSchema = z.object({
@@ -305,7 +306,7 @@ const getAllJobs = async (req, res) => {
 
     const userId = req.user?._id;
 
-    const filters = {
+    let filters = {
       deadline: {
         $gt: new Date(),
       },

@@ -499,7 +499,10 @@ const stripeWebhook = async (req, res) => {
             let companyCut = 0;
             const platformSettings = await PlatformSettings.findOne();
 
-            if (platformSettings?.pricing?.platformCommissionPercentageActive) {
+            if (
+              platformSettings?.pricing?.platformCommissionPercentageActive ===
+              true
+            ) {
               companyCut = Math.round(
                 totalAmount *
                   (platformSettings.pricing.platformCommissionPercentage / 100)
@@ -527,6 +530,20 @@ const stripeWebhook = async (req, res) => {
 
             transaction.orderDeatils.tip = Number(
               (transaction.orderDeatils.tip || 0) + (totalAmount - companyCut)
+            );
+
+            await notifyUser(
+              {
+                userId: freelancerId,
+                title: "Bonus Received",
+                message:
+                  "You got a bouns of $" +
+                  (totalAmount - companyCut) +
+                  " for order: " +
+                  orderId,
+                from: "System",
+              },
+              mongooseSession
             );
 
             await pendingPayout.save({ session: mongooseSession });
