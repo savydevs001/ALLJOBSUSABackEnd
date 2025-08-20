@@ -60,12 +60,12 @@ JobRouter.get(
   roleBasedAuthMiddleware(["employer", "job-seeker"]),
   a(getJobApplicants)
 );
-JobRouter.get(
-  "/:id/apply",
-  verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["freelancer", "job-seeker"]),
-  a(applyToJob)
-);
+// JobRouter.get(
+//   "/:id/apply",
+//   verifyTokenMiddleware(),
+//   roleBasedAuthMiddleware(["freelancer", "job-seeker"]),
+//   a(applyToJob)
+// );
 JobRouter.get("/:id", verifyTokenMiddleware(), a(getJobById));
 
 JobRouter.post(
@@ -76,7 +76,5 @@ JobRouter.post(
 );
 
 JobRouter.put("/:id", a(updateJob));
-
-// JobRouter.delete("/:id", a(deleteJob));
 
 export default JobRouter;
