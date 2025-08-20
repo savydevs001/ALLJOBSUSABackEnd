@@ -51,7 +51,8 @@ const createStripeExpressAcount = async ({
     settings: {
       payouts: {
         schedule: {
-          interval: "manual", // Disable automatic payouts
+          // interval: "manual", // Disable automatic payouts
+          interval: "daily" 
         },
         debit_negative_balances: false, // Optional: Prevent overdrafts
       },
@@ -214,9 +215,10 @@ const stripeWebhook = async (req, res) => {
 
     try {
       event = stripe.webhooks.constructEvent(req.body, sig, WEB_HOOK_SECRET);
+      // console.log("event:", event)
     } catch (err) {
       console.error("❌ Webhook signature verification failed:", err.message);
-      return res.status(400).send(`Webhook Error: ${err.message}`);
+      return res.status(400).send(`Webhook signature Error: ${err}`);
     }
 
     if (event.type == "account.updated") {

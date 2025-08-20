@@ -14,7 +14,7 @@ const ApplicationRouter = Router();
 ApplicationRouter.get(
   "/my-applications",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["job-seeker"]),
+  roleBasedAuthMiddleware(["job-seeker", "freelancer"]),
   a(getUserApplications)
 );
 
@@ -30,7 +30,7 @@ ApplicationRouter.get("/:id", verifyTokenMiddleware(), a(getApplicationById));
 ApplicationRouter.post(
   "/",
   verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["job-seeker"]),
+  roleBasedAuthMiddleware(["job-seeker", "freelancer"]),
   a(createApplication)
 );
 

@@ -3,6 +3,7 @@ import {
   cancelStripeSubscription,
   createStripePaymentIntent,
   createStripePayout,
+  createStripeTransfer,
   createStripeTransferToPlatform,
   findOrCreateCustomer,
   getStripeAccountbyId,
@@ -23,6 +24,7 @@ import Order from "../database/models/order.model.js";
 import PlatformSettings from "../database/models/palteform.model.js";
 import puppeteer from "puppeteer";
 import uploadPdfBufferToStorage from "../utils/uploadPdfBuffer.js";
+import { notifyUser } from "./notification.controller.js";
 
 const calculateTotalSubscriptionEarning = async (req, res) => {
   try {
@@ -660,10 +662,11 @@ const fieldMessages = {
   "business_profile.support_email": "Support email address is missing",
   "business_profile.support_phone": "Support phone number is missing",
   "business_profile.support_url": "Support website or help link is missing",
-  "business_profile.product_description": "Business product/service description is missing",
+  "business_profile.product_description":
+    "Business product/service description is missing",
 
   // --- External accounts (bank or debit card) ---
-  "external_account": "Bank account or debit card details are missing",
+  external_account: "Bank account or debit card details are missing",
 
   // --- Terms acceptance ---
   "tos_acceptance.date": "Terms of Service acceptance is required",
@@ -683,8 +686,10 @@ const fieldMessages = {
   "individual.address.state": "State/Province is missing",
   "individual.id_number": "Government ID number is missing",
   "individual.ssn_last_4": "Last 4 digits of SSN are missing",
-  "individual.verification.document": "Identity document (ID) needs to be uploaded",
-  "individual.verification.additional_document": "Additional identity document is required",
+  "individual.verification.document":
+    "Identity document (ID) needs to be uploaded",
+  "individual.verification.additional_document":
+    "Additional identity document is required",
 
   // --- Company / Business (if registered business account) ---
   "company.name": "Company name is missing",
@@ -706,14 +711,17 @@ const fieldMessages = {
   "representative.dob.year": "Representative's year of birth is missing",
   "representative.address.line1": "Representative's address line 1 is missing",
   "representative.address.city": "Representative's city is missing",
-  "representative.address.postal_code": "Representative's postal code is missing",
+  "representative.address.postal_code":
+    "Representative's postal code is missing",
   "representative.address.state": "Representative's state/province is missing",
-  "representative.verification.document": "Representative's identity document is missing",
-  "representative.verification.additional_document": "Representative's additional identity document is required",
+  "representative.verification.document":
+    "Representative's identity document is missing",
+  "representative.verification.additional_document":
+    "Representative's additional identity document is required",
 
   // --- Directors / Owners (for larger businesses in some countries) ---
-  "directors": "Information about company directors is missing",
-  "owners": "Information about company owners is missing",
+  directors: "Information about company directors is missing",
+  owners: "Information about company owners is missing",
 };
 
 function translateRequirements(requirements) {
@@ -757,7 +765,8 @@ const checkFreelancerPayoutSattus = async (req, res) => {
         enabled: false,
         restrictions: {
           currently_due:
-            translateRequirements(account.requirements?.currently_due || []) || [],
+            translateRequirements(account.requirements?.currently_due || []) ||
+            [],
           disabled_reason: account.requirements?.disabled_reason || null,
         },
       });
@@ -795,6 +804,8 @@ const checkFreelancerPayoutSattus = async (req, res) => {
 
 // create freelancer payout
 const createFreelancerPayout = async (req, res) => {
+  const mongooseSession = await mongoose.startSession();
+  mongooseSession.startTransaction();
   try {
     const { amount } = req.body;
     const userId = req.user?._id;
@@ -809,24 +820,33 @@ const createFreelancerPayout = async (req, res) => {
       });
     }
 
-    const user = await FREELANCER.findById(userId);
+    const user = await FREELANCER.findById(userId).session(mongooseSession);
     if (!user) {
-      return res.status(404).json({
-        message: "User not found!.",
-      });
+      return abortSessionWithMessage(
+        res,
+        mongooseSession,
+        "User not found",
+        404
+      );
     }
 
     if (!user.stripeAccountId) {
-      return res.status(400).json({
-        message: "Stripe account not connected.",
-      });
+      return abortSessionWithMessage(
+        res,
+        mongooseSession,
+        "Stripe account not connected.",
+        400
+      );
     }
 
     // check how much user can withdraw
     if (amount > user.currentBalance) {
-      return res.status(400).json({
-        message: "Not enough balance",
-      });
+      return abortSessionWithMessage(
+        res,
+        mongooseSession,
+        "Not enough balance.",
+        400
+      );
     }
 
     // Ensure payouts are enabled
@@ -841,25 +861,42 @@ const createFreelancerPayout = async (req, res) => {
     const enabled = account.payouts_enabled && !isRestricted;
 
     if (!enabled) {
+      await mongooseSession.abortTransaction();
+      await mongooseSession.endSession();
       return res.status(400).json({
         message:
           "Your Stripe account is restricted or payouts are paused. Please update your account information.",
         enabled: false,
         restrictions: {
           currently_due:
-            translateRequirements(account.requirements?.currently_due || []) || [],
+            translateRequirements(account.requirements?.currently_due || []) ||
+            [],
           disabled_reason: account.requirements?.disabled_reason || null,
         },
       });
     }
 
     // Stripe amounts are in cents
-    const payout = await createStripePayout(amount, user.stripeAccountId);
+    // const payout = await createStripePayout(amount, user.stripeAccountId);
+    const transfer = await createStripeTransfer(
+      amount,
+      user.stripeAccountId,
+      "Tranfer"
+    );
+
+    if (!transfer) {
+      return abortSessionWithMessage(
+        res,
+        mongooseSession,
+        "Unable to create tranfer",
+        400
+      );
+    }
 
     user.payoutHistory.push({
       amount,
-      stripePayoutId: payout.id,
-      status: payout.status,
+      stripeTransferId: transfer.id,
+      status: transfer.status,
       createdAt: new Date(),
     });
 
@@ -873,14 +910,29 @@ const createFreelancerPayout = async (req, res) => {
     }
 
     user.currentBalance = user.currentBalance - amount;
-    await user.save();
+    await notifyUser({
+      userId: userId,
+      title: "Payment Transfer",
+      message: `You payment of ${amount} will reach you account in 1-2 working days`,
+      from: "ALLJOBSUSA"
+    })
+    await user.save({ session: mongooseSession });
 
-    return res.json({ message: "Payout created successfully", payout });
+    await mongooseSession.commitTransaction();
+    await mongooseSession.endSession();
+
+    return res.json({
+      message: "Payout created successfully",
+      transferId: transfer.id,
+    });
   } catch (err) {
     console.error("Error creating payout:", err);
-    return res.status(500).json({
-      message: "Failed to create withdraw.",
-    });
+    return abortSessionWithMessage(
+      res,
+      mongooseSession,
+      "Failed to create withdraw",
+      500
+    );
   }
 };
 

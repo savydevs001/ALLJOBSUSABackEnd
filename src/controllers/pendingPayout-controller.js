@@ -9,7 +9,7 @@ const runScheduledPayouts = async () => {
     const now = new Date();
 
     const pendingPayouts = await PENDING_PAYOUT.find({
-      // releaseDate: { $lte: now },
+      releaseDate: { $lte: now },
       transferred: false,
     });
 
@@ -17,19 +17,23 @@ const runScheduledPayouts = async () => {
 
     for (const payout of pendingPayouts) {
       try {
-        const trasnfer = await createStripeTransfer(
-          payout.amount,
-          payout.stripeAccountId,
-          payout.transferGroup
-        );
+        // const trasnfer = await createStripeTransfer(
+        //   payout.amount,
+        //   payout.stripeAccountId,
+        //   payout.transferGroup
+        // );
 
-        if (!trasnfer) {
-          continue;
-        }
+        // if (!trasnfer) {
+        //   continue;
+        // }
 
+        // await PENDING_PAYOUT.updateOne(
+        //   { _id: payout._id },
+        //   { transferred: true, transferId: trasnfer.id }
+        // );
         await PENDING_PAYOUT.updateOne(
           { _id: payout._id },
-          { transferred: true, transferId: trasnfer.id }
+          { transferred: true }
         );
 
         if (payout.transactionId) {
@@ -74,7 +78,7 @@ const runScheduledPayouts = async () => {
         );
       } catch (err) {
         console.log(
-          "❌ Error creating tranfor for pending payout: ",
+          "❌ Error creating tranfer for pending payout: ",
           payout._id
         );
         console.log(err);

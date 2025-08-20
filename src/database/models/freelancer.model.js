@@ -13,7 +13,7 @@ const resumeOrCoverSchema = mongoose.Schema(
 const payoutSchema = new mongoose.Schema(
   {
     amount: Number,
-    stripePayoutId: String,
+    stripeTransferId: String,
     status: String,
     createdAt: Date,
   },

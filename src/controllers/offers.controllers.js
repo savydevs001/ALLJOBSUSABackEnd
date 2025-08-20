@@ -547,8 +547,9 @@ const getOfferById = async (req, res) => {
     const offer = await Offer.findById(offerId)
       .populate(
         "senderId",
-        "_id fullName email profilePictureUrl profile.resumeUrl profile.professionalTitle profile.experiences rating"
+        "_id fullName email profilePictureUrl profile.bio profile.skills profile.resumeUrl profile.professionalTitle profile.experiences rating"
       )
+      .populate("receiverId", "_id fullName profilePictureUrl about jobsCreated")
       .populate(
         "jobId",
         "_id title description job status simpleJobDetails.locationState simpleJobDetails.locationCity deadline simpleJobDetails.experienceLevel freelanceJobDetails.experienceLevel applicants simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.budget"
@@ -562,7 +563,7 @@ const getOfferById = async (req, res) => {
       if (
         ![
           offer.senderId._id.toString(),
-          offer.receiverId.toString(), // since not populated
+          offer.receiverId._id.toString(), // since not populated
         ].includes(userId)
       ) {
         return res
@@ -575,11 +576,19 @@ const getOfferById = async (req, res) => {
       _id: offer._id,
       title: offer.title,
       description: offer.description,
+      orderId: offer.orderId,
       price: offer.price,
       duration: offer.duration,
       status: offer.status,
       createdAt: offer.createdAt,
-      receiverId: offer.receiverId,
+      receiver: {
+        _id: offer.receiverId._id,
+        about: offer.receiverId.about,
+        fullName: offer.receiverId.fullName,
+        profilePictureUrl: offer.receiverId.profilePictureUrl || "",
+        jobsCreated: offer.receiverId.jobsCreated || 0,
+        role: offer.receiverModel == "jobSeeker" ? "job-seeker" : "employer"
+      },
 
       sender: {
         _id: offer.senderId._id,
@@ -593,6 +602,8 @@ const getOfferById = async (req, res) => {
         yearsOfExperience: getTotalYearsWorkedWithMerging(
           offer.senderId.profile?.experiences || []
         ),
+        bio: offer.senderId.profile?.bio || "",
+        skills: offer.senderId.profile?.skills || [],
       },
     };
 
@@ -723,7 +734,6 @@ const rejectOffer = async (req, res) => {
       message: offer.title,
       from: offer.receiverId.fullName || "Employer",
     },
-    session
   );
 
   return res.status(200).json({

@@ -4,6 +4,8 @@ import Job from "../database/models/jobs.model.js";
 import JOBSEEKER from "../database/models/job-seeker.model.js";
 import EMPLOYER from "../database/models/employers.model.js";
 import Application from "../database/models/applications.model.js";
+import FREELANCER from "../database/models/freelancer.model.js";
+import { notifyUser } from "./notification.controller.js";
 
 const applyZodSchema = z.object({
   jobId: z.string(),
@@ -11,9 +13,10 @@ const applyZodSchema = z.object({
 const createApplication = async (req, res) => {
   const parsed = applyZodSchema.parse(req.body);
   try {
-    const jobSeekerId = req.user?._id;
-    if (!jobSeekerId || !mongoose.Types.ObjectId.isValid(jobSeekerId)) {
-      return res.status(400).json({ message: "Invalid jobseeker Id" });
+    const userId = req.user?._id;
+    const userRole = req.user?.role;
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid user Id" });
     }
 
     // job seeker validation
@@ -22,32 +25,46 @@ const createApplication = async (req, res) => {
       return res.status(400).json({ message: "Invalid job Id" });
     }
 
-    const jobSeeker = await JOBSEEKER.findById(jobSeekerId);
-    if (!jobSeeker) {
-      return res.status(400).json({ message: "Job Seeker not found" });
+    let user;
+    switch (userRole) {
+      case "freelancer":
+        user = await FREELANCER.findById(userId);
+        break;
+      case "job-seeker":
+        user = await JOBSEEKER.findById(userId);
+        break;
+      default:
+        break;
     }
-    if (jobSeeker.status != "active") {
+
+    if (!user) {
+      return res.status(400).json({ message: "User not found" });
+    }
+    if (user.status != "active") {
       return res
         .status(400)
         .json({ message: "Only Active accounts are allowed to apply" });
     }
 
     // job validation
-    const job = await Job.findById(jobId).populate("employerId", "fullName");
+    const job = await Job.findById(jobId);
     if (!job) {
       return res.status(404).json({ message: "Job not found" });
     }
     if (job.status != "empty") {
       return res.status(400).json({ message: "Job not active" });
     }
-    if (job.job != "simple") {
+    if (userRole == "job-seeker" && job.job != "simple") {
       return res.status(400).json({ message: "Job is not a Professinal" });
+    }
+    if (userRole == "freelancer" && job.job != "freelance") {
+      return res.status(400).json({ message: "Job is not a Freelance" });
     }
 
     // check if an application already exists
     const AlreadyApplied = await Application.countDocuments({
       jobId: job._id,
-      jobSeekerId: jobSeeker._id,
+      applicantId: user._id,
     });
     if (AlreadyApplied > 0) {
       return res.status(400).json({ message: "Already applied to this job" });
@@ -64,55 +81,64 @@ const createApplication = async (req, res) => {
         .json({ message: "Employer account suspended or deleted" });
     }
 
-    if (employer.email === jobSeeker.email) {
+    if (employer.email === user.email) {
       return res
         .status(400)
         .json({ message: "Sender and receiver cannot be the same person" });
     }
 
+    const mongooseSession = await mongoose.startSession();
+    mongooseSession.startTransaction();
     try {
-      const mongooseSession = await mongoose.startSession();
-      mongooseSession.startTransaction();
-
       // create application
       const application = new Application({
         jobId: job._id,
-        jobSeekerId: jobSeekerId,
+        applicantId: user._id,
         employerId: employer._id,
+        applicantModel:
+          userRole == "job-seeker"
+            ? "jobSeeker"
+            : userRole == "freelancer"
+            ? "freelancer"
+            : "",
       });
 
-      // update job stats
+      // // update job stats
       const alreadyApplied = job.applicants.some(
-        (app) =>
-          app.userId?.toString() === jobSeekerId.toString() &&
-          app.role === "jobSeeker"
+        (app) => app.userId?.toString() === userId.toString()
       );
 
       if (!alreadyApplied) {
         job.applicants.push({
-          userId: jobSeekerId,
-          role: "jobSeeker",
+          userId: userId,
+          role: application.applicantModel,
         });
       }
 
-      // update job seeker activity
       // Add to recent activity
-      jobSeeker.activity.unshift({
+      user.activity.unshift({
         title: `Applied to ${job.title}`,
         subTitle: employer.fullName,
         at: new Date(),
       });
 
-      if (jobSeeker.activity.length > 3) {
-        jobSeeker.activity.splice(3);
+      if (user.activity.length > 3) {
+        user.activity.splice(3);
       }
 
-      jobSeeker.profile.jobActivity.applicationsSent =
-        (jobSeeker.profile?.jobActivity?.applicationsSent || 0) + 1;
+      user.profile.jobActivity.applicationsSent =
+        (user.profile?.jobActivity?.applicationsSent || 0) + 1;
+
+      await notifyUser({
+        userId: employer._id.toString(),
+        from: user.fullName,
+        message: "Applied to job: " + job._id.toString(),
+        title: "New Application",
+      });
 
       await application.save({ session: mongooseSession });
       await job.save({ session: mongooseSession });
-      await jobSeeker.save({ session: mongooseSession });
+      await user.save({ session: mongooseSession });
 
       await mongooseSession.commitTransaction();
       mongooseSession.endSession();
@@ -125,11 +151,13 @@ const createApplication = async (req, res) => {
       console.error("❌ Error creating application:", err);
       await mongooseSession.abortTransaction();
       mongooseSession.endSession();
-      return res.status(500).json({ message: "Server Error" });
+      return res
+        .status(500)
+        .json({ message: "Server Error", err: err.message });
     }
   } catch (err) {
     console.log("❌ Error creating application: ", err);
-    return res.status(500).json({ message: "Server Error" });
+    return res.status(500).json({ message: "Server Error", err: err.message });
   }
 };
 
@@ -144,7 +172,7 @@ const getUserApplications = async (req, res) => {
       return res.status(401).json({ message: "Invalid user" });
     }
 
-    const applications = await Application.find({ jobSeekerId: userId })
+    const applications = await Application.find({ applicantId: userId })
       .populate("employerId", "_id fullName")
       .populate("jobId", "title description")
       .sort({ createdAt: -1 })
@@ -152,12 +180,30 @@ const getUserApplications = async (req, res) => {
       .limit(parseInt(limit))
       .lean();
 
+    const tranfromed = applications.map((e) => ({
+      _id: e._id,
+      jobId: {
+        _id: e.jobId._id,
+        title: e.jobId.title,
+        description: e.jobId.description,
+      },
+      userId: userId,
+      employerId: {
+        _id: e.employerId._id,
+        fullName: e.employerId.fullName,
+      },
+      status: e.status,
+      createdAt: e.createdAt,
+    }));
+
     return res.status(200).json({
-      applications,
+      applications: tranfromed,
     });
   } catch (err) {
     console.log("❌ Error fetching Applications: ", err);
-    return res.status(500).json({ message: "Server Error" });
+    return res
+      .status(500)
+      .json({ message: "Error fetching Applications", err: err.message });
   }
 };
 
@@ -181,29 +227,8 @@ const getReceivedJobApplications = async (req, res) => {
           .filter(Boolean)
       : [];
 
-    const baseFilter = {
-      employerId: new mongoose.Types.ObjectId(userId),
-    };
-
-    if (status) {
-      baseFilter.status = status;
-    }
-
-    const matchStages = [baseFilter];
-
-    if (textTerms.length > 0) {
-      const orConditions = textTerms.map((term) => {
-        const regex = new RegExp(term, "i");
-        return {
-          $or: [
-            { "job.title": { $regex: regex } },
-            { "jobSeeker.fullName": { $regex: regex } },
-            { status: { $regex: regex } },
-          ],
-        };
-      });
-      matchStages.push(...orConditions);
-    }
+    const baseFilter = { employerId: new mongoose.Types.ObjectId(userId) };
+    if (status) baseFilter.status = status;
 
     const applications = await Application.aggregate([
       { $match: baseFilter },
@@ -219,62 +244,95 @@ const getReceivedJobApplications = async (req, res) => {
       },
       { $unwind: "$job" },
 
-      // Join with Job Seeker info
+      // Lookup applicant dynamically
+      {
+        $lookup: {
+          from: "freelancers",
+          localField: "applicantId",
+          foreignField: "_id",
+          as: "freelancer",
+        },
+      },
       {
         $lookup: {
           from: "jobseekers",
-          localField: "jobSeekerId",
+          localField: "applicantId",
           foreignField: "_id",
           as: "jobSeeker",
         },
       },
-      { $unwind: "$jobSeeker" },
 
-      ...(textTerms.length > 0 ? [{ $match: { $and: matchStages } }] : []),
+      // Merge applicant into single field
+      {
+        $addFields: {
+          applicant: {
+            $cond: {
+              if: { $eq: ["$applicantModel", "freelancer"] },
+              then: { $arrayElemAt: ["$freelancer", 0] },
+              else: { $arrayElemAt: ["$jobSeeker", 0] },
+            },
+          },
+        },
+      },
+
+      // Apply text search if provided
+      ...(textTerms.length > 0
+        ? [
+            {
+              $match: {
+                $and: textTerms.map((term) => {
+                  const regex = new RegExp(term, "i");
+                  return {
+                    $or: [
+                      { "job.title": { $regex: regex } },
+                      { "applicant.fullName": { $regex: regex } },
+                      { status: { $regex: regex } },
+                    ],
+                  };
+                }),
+              },
+            },
+          ]
+        : []),
 
       { $sort: { createdAt: -1 } },
       { $skip: skip },
       { $limit: limit },
 
+      // Final projection
       {
         $project: {
           _id: 1,
           jobId: 1,
           status: 1,
           createdAt: 1,
-          jobTitle: "$job.title",
+          appliedTo: "$job.title",
           jobBudget: "$job.budget",
           jobType: "$job.type",
-
-          jobSeeker: {
-            _id: "$jobSeeker._id",
-            fullName: "$jobSeeker.fullName",
-            email: "$jobSeeker.email",
+          applicant: {
+            _id: "$applicant._id",
+            fullName: "$applicant.fullName",
+            role: "$applicantModel",
+            email: "$applicant.email",
             profilePictureUrl: {
-              $ifNull: ["$jobSeeker.profilePictureUrl", ""],
+              $ifNull: ["$applicant.profilePictureUrl", ""],
             },
-            country: "$jobSeeker.country",
-            experience: "$jobSeeker.experience",
+            country: "$applicant.country",
+            experience: "$applicant.experience",
           },
         },
       },
     ]);
 
-    const transformed = applications.map((a) => ({
-      _id: a._id,
-      jobId: a.jobId,
-      status: a.status,
-      createdAt: a.createdAt,
-      appliedTo: a.jobTitle,
-      //   job: {
-      //     title: a.jobTitle,
-      //     budget: a.jobBudget,
-      //     type: a.jobType,
-      //   },
-      sender: a.jobSeeker,
+    const tranformed = applications.map((e) => ({
+      ...e,
+      applicant: {
+        ...e.applicant,
+        role: e.applicant.role == "jobSeeker" ? "job-seeker" : e.applicant.role,
+      },
     }));
 
-    return res.status(200).json({ applications: transformed });
+    return res.status(200).json({ applications: tranformed });
   } catch (err) {
     console.error("❌ Error getting received applications:", err);
     return res
@@ -298,10 +356,10 @@ const getApplicationById = async (req, res) => {
     const application = await Application.findById(id)
       .populate(
         "jobId",
-        "title description status job simpleJobDetails jobId applicants deadline"
+        "title description status job simpleJobDetails freelanceJobDetails jobId applicants deadline"
       )
       .populate(
-        "jobSeekerId",
+        "applicantId",
         "fullName phoneNumber profilePictureUrl profile.professionalTitle profile.bio profile.skills profile.hourlyRate"
       )
       .populate("employerId", "fullName profilePictureUrl about jobsCreated");
@@ -320,7 +378,7 @@ const getApplicationById = async (req, res) => {
 
     const job = application.jobId || {};
     const employer = application.employerId || {};
-    const applicant = application.jobSeekerId || {};
+    const applicant = application.applicantId || {};
 
     const transformed = {
       _id: application._id,
@@ -330,12 +388,31 @@ const getApplicationById = async (req, res) => {
         title: job.title,
         description: job.description,
         status: job.status,
-        jobType: job.simpleJobDetails?.jobType ?? null,
-        minSalary: job.simpleJobDetails?.minSalary ?? null,
-        maxSalary: job.simpleJobDetails?.maxSalary ?? null,
-        city: job.simpleJobDetails?.locationCity ?? null,
-        state: job.simpleJobDetails?.locationState ?? null,
-        experienceLevel: job.simpleJobDetails?.experienceLevel ?? null,
+        jobType:
+          job.job == "simple" ? job.simpleJobDetails?.jobType : "Freelance",
+        minSalary:
+          job.job == "simple"
+            ? job.simpleJobDetails?.minSalary
+            : job.freelanceJobDetails.budget?.budgetType == "Fixed"
+            ? job.freelanceJobDetails.budget?.minimum
+            : job.freelanceJobDetails.budget?.budgetType == "Start"
+            ? job.freelanceJobDetails.budget?.price
+            : "",
+        maxSalary:
+          job.job == "simple"
+            ? job.simpleJobDetails?.maxSalary
+            : job.freelanceJobDetails.budget?.budgetType == "Fixed"
+            ? job.freelanceJobDetails.budget?.maximum
+            : job.freelanceJobDetails.budget?.budgetType == "Start"
+            ? job.freelanceJobDetails.budget?.price
+            : "",
+        city:
+          job.job == "simple" ? job.simpleJobDetails?.locationCity : "Remote",
+        state: job.job == "simple" ? job.simpleJobDetails?.locationState : null,
+        experienceLevel:
+          job.job == "simple"
+            ? job.simpleJobDetails?.experienceLevel
+            : job.freelanceJobDetails.experienceLevel || "",
         deadline: job.deadline ?? null,
         alreadyApplied: (job.applicants || []).some(
           (e) => e.userId?.toString() === userId?.toString()

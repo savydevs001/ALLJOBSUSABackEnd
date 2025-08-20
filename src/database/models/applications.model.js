@@ -3,10 +3,15 @@ import mongoose from "mongoose";
 const applicationSchema = new mongoose.Schema(
   {
     jobId: { type: mongoose.Types.ObjectId, ref: "Job", required: true },
-    jobSeekerId: {
+    applicantId: {
       type: mongoose.Types.ObjectId,
-      ref: "jobSeeker",
+      refPath: "applicantModel",
       required: true,
+    },
+    applicantModel: {
+      type: String,
+      required: true,
+      enum: ["freelancer", "jobSeeker"],
     },
     employerId: {
       type: mongoose.Types.ObjectId,

@@ -405,7 +405,7 @@ const getAllJobs = async (req, res) => {
         .filter((t) => t);
       const textFilters = textTerms.map((term) => ({
         $or: [
-          { title: { $regex: term, $options: "i" } },
+          { title: { $regex: text, $options: "i" } },
           { description: { $regex: term, $options: "i" } },
           { "simpleJobDetails.category": { $regex: term, $options: "i" } },
           { "simpleJobDetails.locationCity": { $regex: term, $options: "i" } },
@@ -1103,6 +1103,7 @@ const applyToJob = async (req, res) => {
     return res.status(500).json({ message: "Server Error", err: err.message });
   }
 };
+
 
 export {
   createJob,
