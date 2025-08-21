@@ -33,6 +33,7 @@ const createProfileZODSchema = z.object({
   projects: z.array(z.string()).default([]),
   samples: z.array(z.string()).default([]),
   loaction: z.string().optional(),
+  category: z.string(),
 });
 
 // Controllers
@@ -51,6 +52,7 @@ const creatFreelancerProfile = async (req, res) => {
 
     freelancer.profile = data;
     freelancer.profile.freelancerWork = data.freelancerWork === "true";
+    freelancer.category = data.category || "";
     if (data.profilePictureUrl) {
       freelancer.profilePictureUrl = data.profilePictureUrl;
     }
@@ -85,6 +87,7 @@ const getFreelancerProfile = async (req, res) => {
         rating: 1,
         projectsCompleted: 1,
         createdAt: 1,
+        category: 1,
       }
     );
 
@@ -99,6 +102,7 @@ const getFreelancerProfile = async (req, res) => {
     const data = {
       _id: user._id,
       fullName: user.fullName,
+      category: user.category,
       ...user.profile,
       profilePictureUrl: user.profilePictureUrl,
       rating: user.rating,
@@ -306,7 +310,10 @@ const getFreelancerEarnings = async (req, res) => {
     const data = {
       currentBalance: user.currentBalance.toFixed(1),
       totalEarning: user.totalEarning.toFixed(1),
-      pending: user.pendingClearence.toFixed(1) > 0 ? user.pendingClearence.toFixed(1) : 0,
+      pending:
+        user.pendingClearence.toFixed(1) > 0
+          ? user.pendingClearence.toFixed(1)
+          : 0,
       tip: user.tip.toFixed(1),
       withdrawlMethods,
     };
@@ -569,6 +576,7 @@ const getFreelancerList = async (req, res) => {
     const budget = parseInt(req.query.budget) || 0;
     const maxBudget = parseInt(req.query.maxBudget) || 0;
     const userId = req.user?._id;
+    const category = req.query?.category;
 
     const filter = {
       status: "active",
@@ -577,6 +585,10 @@ const getFreelancerList = async (req, res) => {
       "profile.skills": { $exists: true, $ne: [] },
       "profile.freelancerWork": true,
     };
+
+    if (category && category != "") {
+      filter.category = category;
+    }
 
     // Text search on name, title or bio
     if (text) {
@@ -909,7 +921,6 @@ const getStripeFreelancerLogin = async (req, res) => {
     return res.status(500).json({ message: "Error generating link", err });
   }
 };
-
 
 export {
   creatFreelancerProfile,

@@ -484,7 +484,7 @@ const googleCallback = async (req, res) => {
       return res.status(400).json({ message: "Invalid user role" });
     }
 
-    if (user.status == "deleted") {
+    if (!newUser && user.status == "deleted") {
       if (user.isDeletedByAdmin === true) {
         return res
           .status(400)

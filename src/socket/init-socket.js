@@ -113,7 +113,7 @@ const initSocket = (httpServer) => {
 
           const details = {
             ticketId: ticketId,
-            message,
+            message: message,
             seen: true,
           };
           if (fileName && fileUrl) {
@@ -198,7 +198,10 @@ const handleMessage = async ({
   userId,
 }) => {
   try {
-    if (!to || !content) {
+    // console.log("c: ", content);
+    // console.log("fileUrl: ", fileUrl);
+    // console.log("fileName: ", fileName);
+    if (!to || (!content && !fileUrl && !fileName)) {
       return;
     }
     if (
@@ -259,6 +262,13 @@ const sendOfferCreationMessage = async ({ to, message, offerId, from }) => {
   }
 };
 
-export { sendOfferCreationMessage };
+const sendNewNotification = (to, notificationId) => {
+  const receiver = getOnlineUser(to);
+  if (receiver && receiver.socketId) {
+    io.to(receiver.socketId).emit("new-notification", { id: notificationId });
+  }
+};
+
+export { sendOfferCreationMessage, sendNewNotification };
 
 export default initSocket;

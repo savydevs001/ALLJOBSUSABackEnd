@@ -76,9 +76,17 @@ const createReview = async (req, res) => {
       );
     }
 
+    let lateDelievery = false;
+    if (order.deadline && order.completionDate) {
+      if (new Date(order.completionDate) < new Date(order.deadline)) {
+        lateDelievery = true;
+      }
+    }
+
     const review = new Review({
       orderId: data.orderId,
       employerId: employerId,
+      isLateDelivery: lateDelievery,
       employerModel:
         role == "employer"
           ? "employer"
@@ -106,8 +114,11 @@ const createReview = async (req, res) => {
       );
     }
 
+    order.reviewId = review._id;
+
     await user.save({ session });
     await review.save({ session });
+    await order.save({ session });
 
     await session.commitTransaction();
     session.endSession();

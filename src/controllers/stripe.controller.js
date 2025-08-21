@@ -190,6 +190,7 @@ const createPaymentIntents = async (req, res) => {
 
         if (requestedSubscription.mode == "subscription") {
           const { renew } = req.body;
+          console.log("renew: ", renew)
 
           // get or create a customer for recurring
           let customerId = user.stripeCustomerId;
@@ -595,65 +596,6 @@ const createPaymentIntents = async (req, res) => {
 };
 
 // check freelancer account status for payout
-// const checkFreelancerPayoutSattus = async (req, res) => {
-//   try {
-//     const userId = req.user?._id;
-
-//     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
-//       return res.status(400).json({ message: "Invalid user id" });
-//     }
-//     const user = await FREELANCER.findById(userId);
-//     if (!user || !user.stripeAccountId) {
-//       return res.status(400).json({
-//         message: "Stripe account not connected.",
-//       });
-//     }
-
-//     // Fetch Stripe account info
-//     const account = await getStripeAccountbyId(user.stripeAccountId);
-
-//     // Stripe provides restriction reasons here
-//     const isRestricted =
-//       account.requirements?.currently_due?.length > 0 ||
-//       account.requirements?.eventually_due?.length > 0 ||
-//       !!account.requirements?.disabled_reason;
-
-//     // Check if payouts are enabled
-//     const enabled = account.payouts_enabled && !isRestricted;
-//     if (!enabled) {
-//       return res
-//         .status(400)
-//         .json({ message: "Payouts Paused!,  Please update Withdrawl Method" });
-//     }
-
-//     // Available payout methods from external accounts
-//     const methods = [];
-//     if (account.external_accounts?.data?.length) {
-//       for (const acc of account.external_accounts.data) {
-//         if (acc.object === "bank_account") {
-//           methods.push({
-//             id: acc.id,
-//             type: "bank_account",
-//             details: `**** ${acc.last4} (${acc.bank_name})`,
-//           });
-//         } else if (acc.object === "card") {
-//           methods.push({
-//             id: acc.id,
-//             type: "card",
-//             details: `**** ${acc.last4} (${acc.brand})`,
-//           });
-//         }
-//       }
-//     }
-
-//     return res.json({ enabled, methods });
-//   } catch (err) {
-//     console.error("Error fetching payout status:", err);
-//     return res.status(500).json({
-//       message: "Failed to fetch payout info.",
-//     });
-//   }
-// };
 const fieldMessages = {
   // --- Business profile ---
   "business_profile.mcc": "Business category is missing",

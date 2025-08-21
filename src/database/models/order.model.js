@@ -51,6 +51,7 @@ const disputeSchema = new Schema(
 const orderSchema = new Schema(
   {
     offerId: { type: Types.ObjectId, ref: "Offer", required: true },
+    reviewId: { type: Types.ObjectId, ref: "Review"},
     jobId: { type: Types.ObjectId, ref: "Job" }, // optional
     employerId: {
       type: Types.ObjectId,
@@ -87,6 +88,8 @@ const orderSchema = new Schema(
     },
 
     deadline: Date,
+    requestedDeadline: Date,
+    isDeadlineExtended: { type: Boolean, default: false },
     deliveryDate: Date,
     completionDate: Date,
     cancelledDate: Date,

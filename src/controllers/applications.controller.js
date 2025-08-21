@@ -215,6 +215,7 @@ const getReceivedJobApplications = async (req, res) => {
     const text = req.query.text?.trim();
     const status = req.query.status?.trim();
     const userId = req.user?._id;
+    const applicantRole = req.query?.role;
 
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(401).json({ message: "Invalid user" });
@@ -229,6 +230,9 @@ const getReceivedJobApplications = async (req, res) => {
 
     const baseFilter = { employerId: new mongoose.Types.ObjectId(userId) };
     if (status) baseFilter.status = status;
+    if(applicantRole){
+      baseFilter.applicantModel = applicantRole == "job-seeker" ? "jobSeeker": applicantRole == "freelancer" ? "freelancer": ""
+    }
 
     const applications = await Application.aggregate([
       { $match: baseFilter },

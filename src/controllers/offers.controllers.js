@@ -730,7 +730,7 @@ const rejectOffer = async (req, res) => {
   await notifyUser(
     {
       userId: offer.senderId.toString(),
-      title: "Offer Rejected",
+      title: `Offer ${offer._id.toString()} Rejected`,
       message: offer.title,
       from: offer.receiverId.fullName || "Employer",
     },

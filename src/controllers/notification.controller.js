@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Notification from "../database/models/notifications.model.js";
+import { sendNewNotification } from "../socket/init-socket.js";
 
 const notifyUser = async (
   { userId, title, message, from },
@@ -18,6 +19,8 @@ const notifyUser = async (
     } else {
       await notification.save();
     }
+
+    sendNewNotification(userId.toString(), notification._id.toString());
   } catch (error) {
     console.error("❌ Failed to create notification:", error.message);
   }

@@ -278,6 +278,7 @@ const getJobById = async (req, res) => {
           minimum: job.freelanceJobDetails?.budget?.minimum,
           maximum: job.freelanceJobDetails?.budget?.maximum,
         },
+        files: job.freelanceJobDetails.files || [],
       },
     };
 
@@ -1103,7 +1104,6 @@ const applyToJob = async (req, res) => {
     return res.status(500).json({ message: "Server Error", err: err.message });
   }
 };
-
 
 export {
   createJob,

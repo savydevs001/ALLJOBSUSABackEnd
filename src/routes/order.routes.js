@@ -2,6 +2,7 @@ import { Router } from "express";
 import verifyTokenMiddleware from "../middlewares/verifyToken.middleware.js";
 import roleBasedAuthMiddleware from "../middlewares/roleBasedAuth.middleware.js";
 import {
+  AcceptNewDeadline,
   attachNewFilesToOrder,
   // createOrder,
   delieverOrderForRevsions,
@@ -11,6 +12,7 @@ import {
   getRecentOrders,
   markAsDelieverd,
   markOrderAsComplete,
+  requestNewDeadline,
 } from "../controllers/order.controller.js";
 
 const orderRouter = Router();
@@ -61,17 +63,23 @@ orderRouter.get(
   getOrderById
 );
 
-// orderRouter.post(
-//   "/",
-//   verifyTokenMiddleware(),
-//   roleBasedAuthMiddleware(["employer", "job-seeker"]),
-//   createOrder
-// );
 orderRouter.post(
   "/:id/mark-revision",
   verifyTokenMiddleware(),
   roleBasedAuthMiddleware(["freelancer"]),
   delieverOrderForRevsions
+);
+orderRouter.post(
+  "/:id/request-new-deadline",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["freelancer"]),
+  requestNewDeadline
+);
+orderRouter.post(
+  "/:id/accept-new-deadline",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["employer", "job-seeker"]),
+  AcceptNewDeadline
 );
 orderRouter.post(
   "/:id/new-files",

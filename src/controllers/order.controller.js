@@ -695,7 +695,8 @@ const getOrderById = async (req, res) => {
     const order = await Order.findById(orderId)
       .populate("freelancerId")
       .populate("employerId")
-      .populate("jobId");
+      .populate("jobId")
+      .populate("reviewId");
     if (!order) {
       return res.status(404).json({ message: "Order not found!" });
     }
@@ -709,6 +710,15 @@ const getOrderById = async (req, res) => {
       }));
     }
 
+    const review = order.reviewId
+      ? {
+          _id: order.reviewId?._id,
+          rating: order.reviewId?.rating,
+          comment: order.reviewId?.comment,
+          createdAt: order.createdAt,
+        }
+      : null;
+
     const transformed = {
       _id: order._id,
       title: order.title,
@@ -719,9 +729,12 @@ const getOrderById = async (req, res) => {
         order.jobId?.freelanceJobDetails?.budget?.budgetType || "Fixed",
       startDate: order.createdAt,
       deadline: order.deadline,
+      requestedDeadline: order.requestedDeadline || null,
+      isDeadlineExtended: order.isDeadlineExtended || false,
       completionDate: order.completionDate,
       attachedFiles: attachedFiles,
       delieveryFiles: order.delieveryFiles || [],
+      tip: order.tip || null,
       freelancer: {
         _id: order.freelancerId._id,
         fullName: order.freelancerId.fullName,
@@ -741,6 +754,7 @@ const getOrderById = async (req, res) => {
             ? "employer"
             : "",
       },
+      review: review,
     };
 
     return res.status(200).json({ order: transformed });
@@ -773,6 +787,130 @@ const getRecentOrders = async (req, res) => {
     return res.status(500).json({ message: "Server Error" });
   }
 };
+
+// request new deadline
+const deadlineSchema = z.object({
+  deadline: z.coerce.date({
+    errorMap: () => ({ message: "Invalid date format" }),
+  }),
+});
+const requestNewDeadline = async (req, res) => {
+  const parsed = deadlineSchema.parse(req.body);
+  try {
+    const orderId = req.params?.id;
+    const userId = req.user?._id;
+    if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+      return res.status(400).json({ message: "Invalid order id" });
+    }
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ message: "Order not found!" });
+    }
+
+    if (order.freelancerId?.toString() != userId?.toString()) {
+      return res.status(400).json({
+        message: "Only Authorized freelancer can request a new deadline",
+      });
+    }
+
+    if (!["in_progress", "in_revision", "delivered"].includes(order.status)) {
+      return res.status(400).json({
+        message:
+          "Deadline cannot be extended for this order as it might have been completed or cancelled",
+      });
+    }
+
+    const newDeadline = new Date(parsed.deadline);
+    if (newDeadline < new Date()) {
+      return res.status(400).json({ message: "Deadline cannot be in Past" });
+    }
+
+    if (newDeadline < new Date(order?.deadline)) {
+      return res.status(400).json({
+        messae: "New Deadline must be greater than previous deadline",
+      });
+    }
+
+    order.requestedDeadline = newDeadline;
+    await order.save();
+
+    await notifyUser({
+      from: order.title,
+      message: `New Deadline ${newDeadline
+        .toISOString()
+        .slice(0, 10)} requested by Freelancer for order ${orderId}`,
+      title: "New Deadline requested",
+      userId: order.employerId?.toString(),
+    });
+
+    return res.status(200).json({ message: "Deadline extention Request sent" });
+  } catch (err) {
+    console.log("Error Extending deadline request: ", err);
+    return res.status(500).json({
+      message: "Error Sending deadline extention request",
+      err: err.message,
+    });
+  }
+};
+
+// accept new deadline
+const AcceptNewDeadline = async (req, res) => {
+  try {
+    const orderId = req.params?.id;
+    const userId = req.user?._id;
+    if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+      return res.status(400).json({ message: "Invalid order id" });
+    }
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ message: "Order not found!" });
+    }
+
+    if (order.employerId?.toString() != userId?.toString()) {
+      return res.status(400).json({
+        message: "Only Authorized User can accept a new deadline",
+      });
+    }
+
+    if (!["in_progress", "in_revision", "delivered"].includes(order.status)) {
+      return res.status(400).json({
+        message:
+          "Deadline cannot be extended for this order as it might have been completed or cancelled",
+      });
+    }
+
+    if (!order.requestedDeadline) {
+      return res
+        .status(400)
+        .json({ message: "No deadline extention request is present" });
+    }
+
+    const newDeadline = order.requestedDeadline;
+
+    order.isDeadlineExtended = true;
+    order.deadline = newDeadline;
+    order.requestedDeadline = null;
+
+    await order.save();
+
+    await notifyUser({
+      from: order.title,
+      message: `New Deadline ${newDeadline
+        .toISOString()
+        .slice(0, 10)} has been accepted by Employer for order ${orderId}`,
+      title: "New Deadline Accepted",
+      userId: order.freelancerId?.toString(),
+    });
+
+    return res.status(200).json({ message: "Deadline extened" });
+  } catch (err) {
+    console.log("Error Extending deadline: ", err);
+    return res
+      .status(500)
+      .json({ message: "Error Extending deadline", err: err.message });
+  }
+};
+
 export {
   // createOrder,
   getFreelancerOrders,
@@ -783,4 +921,6 @@ export {
   getRecentOrders,
   getOrderById,
   attachNewFilesToOrder,
+  requestNewDeadline,
+  AcceptNewDeadline,
 };

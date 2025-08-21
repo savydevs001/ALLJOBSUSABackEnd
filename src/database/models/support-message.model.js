@@ -18,7 +18,7 @@ const supportMessageSchema = new Schema(
     receiverId: String,
     ticketId: { type: String, required: true },
 
-    message: { type: String, required: true },
+    message: String,
 
     sentAt: { type: Date, default: Date.now },
     seen: { type: Boolean, default: true },

@@ -17,7 +17,7 @@ const messageSchema = new Schema(
     senderId: { type: String, required: true },
     receiverId: { type: String, required: true },
 
-    message: { type: String, required: true },
+    message: String,
     isSupoprt: Boolean,
     offerId: String,
 

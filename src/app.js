@@ -31,11 +31,12 @@ import ContactRouter from "./routes/contact.route.js";
 import ApplicationRouter from "./routes/applications.routes.js";
 import SupportRouter from "./routes/support.routes.js";
 import ManagerRouter from "./routes/manager.routes.js";
+import ChatBotRouter from "./routes/chatbot.routes.js";
+import TrendinJobRouter from "./routes/trending-job-route.js";
+import ReportRouter from "./routes/report.routes.js";
 
 // stripe
 import { stripeWebhook } from "./services/stripe.service.js";
-import ChatBotRouter from "./routes/chatbot.routes.js";
-import TrendinJobRouter from "./routes/trending-job-route.js";
 
 dotenv.config();
 
@@ -73,6 +74,7 @@ apiRouter.use("/notifications", NotificationRouter);
 apiRouter.use("/offers", OfferRouter);
 apiRouter.use("/applications", ApplicationRouter);
 apiRouter.use("/messages", MessageRouter);
+apiRouter.use("/reports", ReportRouter);
 apiRouter.use("/reviews", reviewRouter);
 apiRouter.use("/orders", orderRouter);
 apiRouter.use("/payments", express.json(), transactionRouter);

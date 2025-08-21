@@ -17,6 +17,8 @@ const reviewSchema = new Schema(
       enum: ["employer", "jobSeeker"],
     },
 
+    isLateDelivery: {type: Boolean, default: false},
+
     rating: {
       type: Number,
       min: 1,

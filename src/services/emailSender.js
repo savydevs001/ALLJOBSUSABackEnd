@@ -7,47 +7,58 @@ const {
   EMAIL_HOST,
   EMAIL_PORT,
   EMAIL_CLIENT,
-  EMAIL_CLIENT_SECRET,
-  EMAIL_CLIENT_ID,
-  EMAIL_CLIENT_REFRESH_TOKEN,
-  EMAIL_CLIENT_REDIRECT_URL,
+  EMAIL_PASS,
+  // EMAIL_CLIENT_SECRET,
+  // EMAIL_CLIENT_ID,
+  // EMAIL_CLIENT_REFRESH_TOKEN,
+  // EMAIL_CLIENT_REDIRECT_URL,
 } = process.env;
 if (
   !EMAIL_HOST ||
   !EMAIL_PORT ||
   !EMAIL_CLIENT ||
-  !EMAIL_CLIENT_SECRET ||
-  !EMAIL_CLIENT_ID ||
-  !EMAIL_CLIENT_REFRESH_TOKEN ||
-  !EMAIL_CLIENT_REDIRECT_URL
+  !EMAIL_PASS
+  // !EMAIL_CLIENT_SECRET ||
+  // !EMAIL_CLIENT_ID ||
+  // !EMAIL_CLIENT_REFRESH_TOKEN ||
+  // !EMAIL_CLIENT_REDIRECT_URL
 ) {
   console.error("Some of variables missing for email sender (nodemailer)");
   process.exit(0);
 }
 
 // google client
-const oAuth2Client = new google.auth.OAuth2(
-  EMAIL_CLIENT_ID,
-  EMAIL_CLIENT_SECRET,
-  EMAIL_CLIENT_REDIRECT_URL
-);
-oAuth2Client.setCredentials({ refresh_token: EMAIL_CLIENT_REFRESH_TOKEN });
+// const oAuth2Client = new google.auth.OAuth2(
+//   EMAIL_CLIENT_ID,
+//   EMAIL_CLIENT_SECRET,
+//   EMAIL_CLIENT_REDIRECT_URL
+// );
+// oAuth2Client.setCredentials({ refresh_token: EMAIL_CLIENT_REFRESH_TOKEN });
 
 const getTransporter = async () => {
-  const accessToken = await oAuth2Client.getAccessToken();
+  // const accessToken = await oAuth2Client.getAccessToken();
 
   return nodemailer.createTransport({
     service: "gmail",
     auth: {
-      type: "OAuth2",
+      // type: "OAuth2",
       user: EMAIL_CLIENT,
-      clientId: EMAIL_CLIENT_ID,
-      clientSecret: EMAIL_CLIENT_SECRET,
-      refreshToken: EMAIL_CLIENT_REFRESH_TOKEN,
-      accessToken: accessToken.token,
+      pass: EMAIL_PASS,
+      // clientId: EMAIL_CLIENT_ID,
+      // clientSecret: EMAIL_CLIENT_SECRET,
+      // refreshToken: EMAIL_CLIENT_REFRESH_TOKEN,
+      // accessToken: accessToken.token,
     },
   });
 };
+
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: EMAIL_CLIENT,
+    pass: EMAIL_PASS,
+  },
+});
 
 const emailQueue = [];
 
@@ -60,7 +71,6 @@ setInterval(async () => {
   if (emailQueue.length === 0) return;
 
   const { to, subject, html } = emailQueue.shift();
-  const transporter = await getTransporter();
   const mailOptions = {
     from: `"ALLJOBUSA" <${EMAIL_CLIENT}>`,
     to,

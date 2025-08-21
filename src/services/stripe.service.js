@@ -52,7 +52,7 @@ const createStripeExpressAcount = async ({
       payouts: {
         schedule: {
           // interval: "manual", // Disable automatic payouts
-          interval: "daily" 
+          interval: "daily",
         },
         debit_negative_balances: false, // Optional: Prevent overdrafts
       },
@@ -481,9 +481,10 @@ const stripeWebhook = async (req, res) => {
         }
 
         try {
-          const [freelancer, transaction] = await Promise.all([
+          const [freelancer, transaction, order] = await Promise.all([
             FREELANCER.findById(freelancerId),
             TRANSACTION.findOne({ "orderDeatils.orderId": orderId }),
+            Order.findById(orderId),
           ]);
 
           if (!freelancer || !transaction) {
@@ -534,6 +535,9 @@ const stripeWebhook = async (req, res) => {
               (transaction.orderDeatils.tip || 0) + (totalAmount - companyCut)
             );
 
+            // update tip for order
+            order.tip = (order.tip || 0) + totalAmount ;
+
             await notifyUser(
               {
                 userId: freelancerId,
@@ -550,7 +554,8 @@ const stripeWebhook = async (req, res) => {
 
             await pendingPayout.save({ session: mongooseSession });
             await freelancer.save({ session: mongooseSession });
-            await transaction.save({ session: mongooseSession });
+            await freelancer.save({ session: mongooseSession });
+            await order.save({ session: mongooseSession });
 
             await mongooseSession.commitTransaction();
             mongooseSession.endSession();
