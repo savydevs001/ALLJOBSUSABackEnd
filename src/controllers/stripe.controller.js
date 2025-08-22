@@ -903,16 +903,19 @@ const createFreelancerPayout = async (req, res) => {
     }
 
     user.currentBalance = user.currentBalance - amount;
-    await notifyUser({
-      userId: userId,
-      title: "Payment Transfer",
-      message: `You payment of ${amount} will reach you account in 1-2 working days`,
-      from: "ALLJOBSUSA",
-    });
     await user.save({ session: mongooseSession });
 
     await mongooseSession.commitTransaction();
     await mongooseSession.endSession();
+
+    await notifyUser({
+      userId: userId,
+      userMail: user.email,
+      ctaUrl: "freelancer/earnings",
+      title: "Payment Transfer",
+      message: `You payment of ${amount} will reach you account in 1-2 working days`,
+      from: "ALLJOBSUSA",
+    });
 
     return res.json({
       message: "Payout created successfully",
@@ -1317,5 +1320,5 @@ export {
   downLoadResume,
   downLoadCover,
   verifyStripePaymentInetnt,
-  ResumeAutoRenewlSusbcription
+  ResumeAutoRenewlSusbcription,
 };

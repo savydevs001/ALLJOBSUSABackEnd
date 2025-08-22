@@ -491,30 +491,28 @@ const markOrderAsComplete = async (req, res) => {
       );
     }
 
-    await notifyUser(
-      {
-        from: "System Message",
-        message: "Order " + order._id + ", completed",
-        title: "Order Completion",
-        userId: order.employerId,
-      },
-      mongooseSession
-    );
-    await notifyUser(
-      {
-        from: "System Message",
-        message: "Order " + order._id + ", completed",
-        title: "Order Completion",
-        userId: order.freelancerId,
-      },
-      mongooseSession
-    );
-
     await pendingPayout.save({ session: mongooseSession });
     await order.save({ session: mongooseSession });
 
     await mongooseSession.commitTransaction();
     mongooseSession.endSession();
+
+    await notifyUser({
+      from: "ALLJOBSUSA",
+      message: `Order ${order.title} has been Completed by you`,
+      title: "Order " + order._id + ", completed",
+      userId: order.employerId,
+      userMail: employer.email,
+      ctaUrl: `orders/${order._id.toString()}`,
+    });
+    await notifyUser({
+      from: employer.fullName,
+      message: `Order ${order.title} has been Completed`,
+      title: "Order " + order._id + ", completed",
+      userId: order.freelancerId,
+      userMail: freelancer.email,
+      ctaUrl: `orders/${order._id.toString()}`,
+    });
 
     return res.status(200).json({
       message: "Order marked as complete. Payout scheduled after 7 days.",
@@ -559,7 +557,10 @@ const delieverOrderForRevsions = async (req, res) => {
       return res.status(404).json({ message: "Freelancer not found" });
     }
 
-    const order = await Order.findOne({ _id: orderId, freelancerId });
+    const order = await Order.findOne({ _id: orderId, freelancerId }).populate(
+      "employerId",
+      "email"
+    );
     if (!order) return res.status(404).json({ message: "Order not found" });
 
     if (order.status != "in_progress") {
@@ -581,10 +582,12 @@ const delieverOrderForRevsions = async (req, res) => {
     order.deliveryDate = new Date();
     await order.save();
     await notifyUser({
-      userId: order.employerId,
-      title: "Order Deleivered",
-      message: "Your order " + order._id + ",  got delivered",
-      from: freelancer.fullName || "System Message",
+      userId: order.employerId._id.toString(),
+      from: freelancer.fullName || order.title,
+      message: `Order ${order.title} has been delivered`,
+      title: "Order " + order._id + ", Deleivered",
+      userMail: order.employerId?.email,
+      ctaUrl: `orders/${order._id.toString()}`,
     });
 
     return res.status(200).json({
@@ -655,7 +658,10 @@ const attachNewFilesToOrder = async (req, res) => {
       return res.status(400).json({ message: "Invalid freelancerId ID" });
     }
 
-    const order = await Order.findOne({ _id: orderId, freelancerId });
+    const order = await Order.findOne({ _id: orderId, freelancerId }).populate(
+      "employerId",
+      "email"
+    );
     if (!order) return res.status(404).json({ message: "Order not found" });
 
     const tempFile = data.files.map((e) => ({
@@ -668,10 +674,13 @@ const attachNewFilesToOrder = async (req, res) => {
 
     await order.save();
     await notifyUser({
-      userId: order.employerId,
-      title: "Order Got New Delivery File(s)",
-      message: "Your order " + order._id + ",  got some new files for you",
-      from: "System Message",
+      userId: order.employerId._id.toString(),
+      title: `Order ${order.title} has been new File(s)`,
+      message:
+        "Your order " + order._id.toString() + ",  got some new files for you",
+      from: order.title,
+      userMail: order.employerId?.email,
+      ctaUrl: `orders/${order._id.toString()}`,
     });
 
     return res.status(200).json({
@@ -802,7 +811,7 @@ const requestNewDeadline = async (req, res) => {
     if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
       return res.status(400).json({ message: "Invalid order id" });
     }
-    const order = await Order.findById(orderId);
+    const order = await Order.findById(orderId).populate("employerId", "email");
     if (!order) {
       return res.status(404).json({ message: "Order not found!" });
     }
@@ -839,8 +848,10 @@ const requestNewDeadline = async (req, res) => {
       message: `New Deadline ${newDeadline
         .toISOString()
         .slice(0, 10)} requested by Freelancer for order ${orderId}`,
-      title: "New Deadline requested",
-      userId: order.employerId?.toString(),
+      title: `New Deadline requested for order ${order.title}`,
+      userId: order.employerId._id?.toString(),
+      userMail: order.employerId?.email,
+      ctaUrl: `orders/${order._id.toString()}`,
     });
 
     return res.status(200).json({ message: "Deadline extention Request sent" });
@@ -861,7 +872,10 @@ const AcceptNewDeadline = async (req, res) => {
     if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
       return res.status(400).json({ message: "Invalid order id" });
     }
-    const order = await Order.findById(orderId);
+    const order = await Order.findById(orderId).populate(
+      "freelancerId",
+      "email"
+    );
     if (!order) {
       return res.status(404).json({ message: "Order not found!" });
     }
@@ -898,8 +912,10 @@ const AcceptNewDeadline = async (req, res) => {
       message: `New Deadline ${newDeadline
         .toISOString()
         .slice(0, 10)} has been accepted by Employer for order ${orderId}`,
-      title: "New Deadline Accepted",
-      userId: order.freelancerId?.toString(),
+      title: `New Deadline Accepted for order ${order.title}`,
+      userId: order.freelancerId?._id?.toString(),
+      userMail: order.freelancerId?.email,
+      ctaUrl: `orders/${order._id.toString()}`,
     });
 
     return res.status(200).json({ message: "Deadline extened" });

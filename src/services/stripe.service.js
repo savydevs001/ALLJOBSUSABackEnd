@@ -402,6 +402,11 @@ const stripeWebhook = async (req, res) => {
         mongooseSession.startTransaction();
 
         try {
+          // freelancer
+          const freelancer = await FREELANCER.findById(freelancerId).select({
+            email: 1,
+          });
+
           // Update offer status
           const offer = await Offer.findByIdAndUpdate(
             offerId,
@@ -426,8 +431,8 @@ const stripeWebhook = async (req, res) => {
           ).populate("employerId", "fullName");
 
           // Update transaction record
-          const aa = await TRANSACTION.findByIdAndUpdate(
-            transactionId,
+          await TRANSACTION.updateOne(
+            { _id: transactionId },
             {
               $set: {
                 "orderDeatils.status": "escrow_held",
@@ -441,7 +446,9 @@ const stripeWebhook = async (req, res) => {
           await notifyUser(
             {
               userId: freelancerId,
-              title: "Offer Accepted",
+              userMail: freelancer.email,
+              ctaUrl: `orders/${order._id.toString()}`,
+              title: "Offer Accepted & Order Created",
               message: offer.title,
               from: order.employerId?.fullName || "untitled",
             },
@@ -539,20 +546,6 @@ const stripeWebhook = async (req, res) => {
             // update tip for order
             order.tip = (order.tip || 0) + totalAmount;
 
-            await notifyUser(
-              {
-                userId: freelancerId,
-                title: "Bonus Received",
-                message:
-                  "You got a bouns of $" +
-                  (totalAmount - companyCut) +
-                  " for order: " +
-                  orderId,
-                from: "System",
-              },
-              mongooseSession
-            );
-
             await pendingPayout.save({ session: mongooseSession });
             await freelancer.save({ session: mongooseSession });
             await freelancer.save({ session: mongooseSession });
@@ -560,6 +553,19 @@ const stripeWebhook = async (req, res) => {
 
             await mongooseSession.commitTransaction();
             mongooseSession.endSession();
+
+            await notifyUser({
+              userId: freelancerId,
+              userMail: freelancer.email,
+              ctaUrl: "freelancer/earnings",
+              title: "Bonus Received",
+              message:
+                "You got a bouns of $" +
+                (totalAmount - companyCut) +
+                " for order: " +
+                orderId,
+              from: order.title,
+            });
 
             return res.status(200).json({
               message: "Bonus processed successfully",

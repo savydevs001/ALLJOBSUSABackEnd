@@ -10,6 +10,7 @@ const notificationSchema = new Schema(
     message: { type: String, required: true },
     from: String, // name of sender
     read: { type: Boolean, default: false },
+    ctaUrl: String,
 
     createdAt: {
       type: Date,
@@ -28,7 +29,6 @@ notificationSchema.index(
     expireAfterSeconds: 2592000, // 30 days in seconds
   }
 );
-
 
 const Notification = model("Notification", notificationSchema);
 export default Notification;

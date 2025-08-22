@@ -11,6 +11,7 @@ import {
   resetPassword,
   createGoogleSignInLink,
   googleCallback,
+  verifyEmailToken,
 } from "../controllers/authentication.controller.js";
 
 AuthenticationRouter.get("/google", a(createGoogleSignInLink));
@@ -26,5 +27,6 @@ AuthenticationRouter.post("/signin", a(signIn));
 AuthenticationRouter.post("/signout", a(signOut));
 AuthenticationRouter.post("/forgot-password", a(forgotPassword));
 AuthenticationRouter.post("/reset-password", a(resetPassword));
+AuthenticationRouter.post("/verify-email", a(verifyEmailToken));
 
 export default AuthenticationRouter;

@@ -186,16 +186,6 @@ const createOffer = async (req, res, next) => {
       user.profile.jobActivity.applicationsSent =
         (user.profile?.jobActivity?.applicationsSent || 0) + 1;
 
-      await notifyUser(
-        {
-          userId: employerId,
-          title: "New Offer received",
-          message: offer.title,
-          from: user.fullName,
-        },
-        session
-      );
-
       await offer.save({ session });
       if (job) await job.save({ session });
       await user.save({ session });
@@ -213,6 +203,15 @@ const createOffer = async (req, res, next) => {
           offerId: offer._id.toString(),
         });
       }
+
+      await notifyUser({
+        userId: employerId.toString(),
+        userMail: employer.email,
+        ctaUrl: `offers/${offer._id.toString()}`,
+        title: "New Offer received",
+        message: offer.title,
+        from: user.fullName,
+      });
 
       return res.status(200).json({
         message: "Offer created successfully",
@@ -549,7 +548,10 @@ const getOfferById = async (req, res) => {
         "senderId",
         "_id fullName email profilePictureUrl profile.bio profile.skills profile.resumeUrl profile.professionalTitle profile.experiences rating"
       )
-      .populate("receiverId", "_id fullName profilePictureUrl about jobsCreated")
+      .populate(
+        "receiverId",
+        "_id fullName profilePictureUrl about jobsCreated"
+      )
       .populate(
         "jobId",
         "_id title description job status simpleJobDetails.locationState simpleJobDetails.locationCity deadline simpleJobDetails.experienceLevel freelanceJobDetails.experienceLevel applicants simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.budget"
@@ -587,7 +589,7 @@ const getOfferById = async (req, res) => {
         fullName: offer.receiverId.fullName,
         profilePictureUrl: offer.receiverId.profilePictureUrl || "",
         jobsCreated: offer.receiverId.jobsCreated || 0,
-        role: offer.receiverModel == "jobSeeker" ? "job-seeker" : "employer"
+        role: offer.receiverModel == "jobSeeker" ? "job-seeker" : "employer",
       },
 
       sender: {
@@ -696,10 +698,9 @@ const rejectOffer = async (req, res) => {
     return res.status(400).json({ message: "Invalid offer ID" });
   }
 
-  const offer = await Offer.findById(offerId).populate(
-    "receiverId",
-    "fullName"
-  );
+  const offer = await Offer.findById(offerId)
+    .populate("receiverId", "fullName")
+    .populate("senderId", "email");
 
   if (!offer) {
     return res.status(404).json({ message: "Offer not found" });
@@ -727,14 +728,14 @@ const rejectOffer = async (req, res) => {
   offer.status = "rejected";
   await offer.save();
 
-  await notifyUser(
-    {
-      userId: offer.senderId.toString(),
-      title: `Offer ${offer._id.toString()} Rejected`,
-      message: offer.title,
-      from: offer.receiverId.fullName || "Employer",
-    },
-  );
+  await notifyUser({
+    userId: offer.senderId.toString(),
+    userMail: offer.senderId.email,
+    ctaUrl: `offers/${offer._id.toString()}`,
+    title: `Offer ${offer._id.toString()} Rejected`,
+    message: offer.title,
+    from: offer.receiverId.fullName || "Employer",
+  });
 
   return res.status(200).json({
     message: "Offer rejected successfully",

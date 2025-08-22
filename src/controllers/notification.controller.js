@@ -1,9 +1,13 @@
 import mongoose from "mongoose";
 import Notification from "../database/models/notifications.model.js";
 import { sendNewNotification } from "../socket/init-socket.js";
+import enqueueEmail from "../services/emailSender.js";
+import { getNotificationTemplate } from "../utils/email-templates.js";
+
+
 
 const notifyUser = async (
-  { userId, title, message, from },
+  { userId, userMail, title, message, from, ctaUrl },
   mongooseSession = null
 ) => {
   try {
@@ -12,6 +16,7 @@ const notifyUser = async (
       title,
       message,
       from,
+      ctaUrl,
     });
 
     if (mongooseSession) {
@@ -21,6 +26,15 @@ const notifyUser = async (
     }
 
     sendNewNotification(userId.toString(), notification._id.toString());
+    enqueueEmail(
+      userMail,
+      title,
+      getNotificationTemplate({
+        title: title,
+        message: message,
+        ctaUrl: ctaUrl,
+      })
+    );
   } catch (error) {
     console.error("❌ Failed to create notification:", error.message);
   }
@@ -54,6 +68,7 @@ const getAllNotifications = async (req, res) => {
       message: e.message,
       createdAt: e.createdAt,
       read: e.read,
+      ctaUrl: e.ctaUrl,
     }));
 
     res.status(200).json({
@@ -70,7 +85,6 @@ const getAllNotifications = async (req, res) => {
 
 const getNotificationById = async (req, res) => {
   try {
-    const userId = req.user?._id;
     const notificationId = req.params.id;
 
     if (!mongoose.Types.ObjectId.isValid(notificationId)) {
@@ -94,6 +108,7 @@ const getNotificationById = async (req, res) => {
       message: notification.message,
       createdAt: notification.createdAt,
       read: notification.read,
+      ctaUrl: notification.ctaUrl
     };
 
     res.status(200).json({

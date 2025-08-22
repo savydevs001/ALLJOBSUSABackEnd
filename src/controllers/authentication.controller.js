@@ -9,8 +9,13 @@ import EMPLOYER from "../database/models/employers.model.js";
 import FREELANCER from "../database/models/freelancer.model.js";
 import JOBSEEKER from "../database/models/job-seeker.model.js";
 import enqueueEmail from "../services/emailSender.js";
+import { getVerificationTemplate } from "../utils/email-templates.js";
+import generateVerificationCode from "../utils/create-verification-code.js";
+import mongoose from "mongoose";
 
 dotenv.config();
+
+let emailsWithThirdPartySignUp = [];
 
 const PASSWORD_REGEX =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d])[A-Za-z\d\S]{8,}$/;
@@ -80,6 +85,15 @@ const resetPasswordSchema = z.object({
     }),
   }),
 });
+const verifyEmailSchema = z.object({
+  code: z.string().length(6, "Verification code must be 6 digits"),
+  userId: z.string(),
+  role: z.enum(["employer", "freelancer", "job-seeker"], {
+    errorMap: () => ({
+      message: "Invalid User Role",
+    }),
+  }),
+});
 
 // Controllers
 const signUp = async (req, res) => {
@@ -108,53 +122,137 @@ const signUp = async (req, res) => {
 
     let token = null;
     let user;
+    let existing;
+    const emailVerified = emailsWithThirdPartySignUp.includes(email);
+    userDetails.emailVerified = emailVerified;
 
     if (role === "employer") {
       // Employer Signup
-      const existing = await EMPLOYER.findOne({
+      existing = await EMPLOYER.findOne({
         email: email,
       });
-      if (existing)
-        return res
-          .status(409)
-          .json({ message: "Email already registered as a employer" });
-
-      user = new EMPLOYER(userDetails);
-      await user.save();
-
-      token = jwtToken(user, "employer");
-    } else if (role == "freelancer") {
-      // Freelancer Signup
-      const existing = await FREELANCER.findOne({
+      if (!existing) {
+        user = new EMPLOYER(userDetails);
+        await user.save();
+        token = jwtToken(user, "employer");
+      }
+    }
+    // Freelancer Signup
+    else if (role == "freelancer") {
+      existing = await FREELANCER.findOne({
         email: email,
       });
-      if (existing){
-        if(existing.status === "deleted"){
-          return res.status(404).json({ message: "You have no acess to ALLJOBSUSA" });
-        }
-        return res.status(409).json({ message: "Email already registered" });
+      if (!existing) {
+        user = new FREELANCER(userDetails);
+        await user.save();
+        token = jwtToken(user, "freelancer");
+      }
+    }
+    // JOb seeker Signup
+    else if (role == "job-seeker") {
+      existing = await JOBSEEKER.findOne({
+        email: email,
+      });
+      if (!existing) {
+        user = new JOBSEEKER(userDetails);
+        await user.save();
+        token = jwtToken(user, "job-seeker");
+      }
+    }
+
+    if (existing && existing.emailVerified === true) {
+      return res
+        .status(409)
+        .json({ message: "Email already registered as " + role });
+    }
+
+    // new verification token;
+    const expireTime = Date.now() + 1000 * 60 * 5;
+    const verificationCode = generateVerificationCode();
+
+    if (
+      existing &&
+      existing.emailVerified === false &&
+      !emailsWithThirdPartySignUp.includes(existing.email)
+    ) {
+      // 5 mins is expiry for token
+      if (
+        existing.emailVerifyTokenExpiry &&
+        new Date() < new Date(existing.emailVerifyTokenExpiry)
+      ) {
+        return res.status(400).json({
+          message:
+            "Please verify your email with the link we sent you or Get New After 5 minutes",
+          err: "Verification mails can be sent only once in 5 minutes",
+        });
       }
 
-      user = new FREELANCER(userDetails);
-      await user.save();
-      token = jwtToken(user, "freelancer");
-    } else if (role == "job-seeker") {
-      // JOb seeker Signup
-      const existing = await JOBSEEKER.findOne({
-        email: email,
-      });
-      if (existing)
-        return res.status(409).json({ message: "Email already registered" });
+      existing.emailVerifyCode = verificationCode;
+      existing.emailVerifyTokenExpiry = new Date(expireTime);
 
-      user = new JOBSEEKER(userDetails);
+      enqueueEmail(
+        existing.email,
+        "Email verification for ALLJOBSUSA",
+        getVerificationTemplate({
+          title: "Email verification for ALLJOBSUSA",
+          message: "Here is your code to verify email on ALLJOBSUSA",
+          verificationCode: verificationCode,
+        })
+      );
+
+      await existing.save();
+      return res.status(200).json({
+        message: "Verification Link sent to Email",
+        emailSent: true,
+        userId: existing._id?.toString(),
+        role: role,
+        verifyEmail: true,
+      });
+    }
+
+    if (user && !emailsWithThirdPartySignUp.includes(user.email)) {
+      if (
+        user.emailVerifyTokenExpiry &&
+        new Date() < new Date(user.emailVerifyTokenExpiry)
+      ) {
+        return res.status(400).json({
+          message:
+            "Please verify your email with the link we sent you or Get New After 5 minutes",
+          err: "Verification mails can be sent only once in 5 minutes",
+        });
+      }
+      user.emailVerifyCode = verificationCode;
+      user.emailVerifyTokenExpiry = new Date(expireTime);
+
+      enqueueEmail(
+        user.email,
+        "Email verification for ALLJOBSUSA",
+        getVerificationTemplate({
+          title: "Email verification for ALLJOBSUSA",
+          message: "Here is your code to verify email on ALLJOBSUSA",
+          verificationCode: verificationCode,
+        })
+      );
+
       await user.save();
-      token = jwtToken(user, "job-seeker");
+      return res.status(200).json({
+        message: "Verification Link sent to Email",
+        emailSent: true,
+        userId: user._id?.toString(),
+        role: role,
+        verifyEmail: true,
+      });
     }
 
     if (token === null || !user) {
-      console.log("❌ Error creating jwt token");
-      return res.status(500).json({ message: "Server Error" });
+      console.log("❌ Error Signing Up User");
+      return res.status(500).json({ message: "Error generation token" });
     }
+
+    // Remove mail on Susccessful signup
+    emailsWithThirdPartySignUp = emailsWithThirdPartySignUp.filter(
+      (e) => e != email
+    );
     return res.status(201).json({
       message: "Signup successful",
       token,
@@ -221,13 +319,53 @@ const signIn = async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
+    // verify email
+    if (user.emailVerified === false) {
+      if (
+        user.emailVerifyTokenExpiry &&
+        new Date() < new Date(user.emailVerifyTokenExpiry)
+      ) {
+        return res.status(400).json({
+          message:
+            "Please verify your email with the link we sent you or Get a New One After 5 minutes",
+          err: "Verification mails can be sent only once in 5 minutes",
+        });
+      }
+      const expireTime = Date.now() + 1000 * 60 * 5;
+      const verificationCode = generateVerificationCode();
+      user.emailVerifyCode = verificationCode;
+      user.emailVerifyTokenExpiry = new Date(expireTime);
+
+      enqueueEmail(
+        user.email,
+        "Email verification for ALLJOBSUSA",
+        getVerificationTemplate({
+          title: "Email verification for ALLJOBSUSA",
+          message: "Here is your code to verify email on ALLJOBSUSA",
+          verificationCode: verificationCode,
+        })
+      );
+
+      await user.save();
+      return res.status(200).json({
+        message: "Verification Link sent to Email",
+        emailSent: true,
+        userId: user._id?.toString(),
+        role: role,
+        verifyEmail: true,
+      });
+    }
+
     user.lastLogin = new Date();
     user.activeRole = role;
     await user.save();
 
     const token = jwtToken(user, role, rememberMe);
     if (!token) {
-      return res.status(500).json({ message: "Server Error" });
+      return res.status(500).json({
+        message: "Error siginin in user",
+        err: "Unable to create token",
+      });
     }
 
     return res.status(200).json({
@@ -498,6 +636,10 @@ const googleCallback = async (req, res) => {
       return res.status(500).json({ message: "Server Error" });
     }
 
+    if (newUser) {
+      emailsWithThirdPartySignUp.push(email);
+    }
+
     return res.status(201).json({
       message: "Signup successful",
       token: newUser ? "" : token,
@@ -513,6 +655,78 @@ const googleCallback = async (req, res) => {
   }
 };
 
+const verifyEmailToken = async (req, res) => {
+  const paresed = verifyEmailSchema.parse(req.body);
+  try {
+    if (!mongoose.Types.ObjectId.isValid(paresed.userId)) {
+      return res.status(400).json({ message: "Invalid User Id" });
+    }
+
+    let user;
+    switch (paresed.role) {
+      case "employer":
+        user = await EMPLOYER.findById(paresed.userId);
+        break;
+      case "job-seeker":
+        user = await JOBSEEKER.findById(paresed.userId);
+        break;
+      case "freelancer":
+        user = await FREELANCER.findById(paresed.userId);
+        break;
+      default:
+        break;
+    }
+    if (!user) {
+      return res.status(404).json({ message: "User not found!" });
+    }
+
+    if (user.emailVerified === true) {
+      return res.status(404).json({ message: "Email LAready verified!" });
+    }
+
+    if (new Date() > new Date(user.emailVerifyTokenExpiry)) {
+      return res.status(400).json({ message: "Code Expired" });
+    }
+
+    if (user.emailVerifyCode === paresed.code) {
+      user.emailVerified = true;
+      user.emailVerifyCode = null;
+
+      const token = jwtToken(user, paresed.role);
+      if (!token) {
+        return res.status(400).json({
+          message: "Error verifying token",
+          err: "Unable to generate token",
+        });
+      }
+      // Remove mail on Susccessful signup
+      emailsWithThirdPartySignUp = emailsWithThirdPartySignUp.filter(
+        (e) => e != email
+      );
+
+      await user.save();
+
+      return res.status(200).json({
+        message: "Verifiction successful",
+        token,
+        user: {
+          _id: user?._id,
+          fullName: user?.fullName,
+          role: paresed.role,
+          profilePictureUrl: user?.profilePictureUrl,
+        },
+      });
+    } else {
+      return res.status(400).json({ message: "Inconrrect Verification code" });
+    }
+  } catch (err) {
+    console.log("Error verify token for email: ", err);
+    return res
+      .status(500)
+      .json({ message: "Unable to veriy Email", err: err.message });
+  }
+};
+
 export {
   signUp,
   signIn,
@@ -521,4 +735,5 @@ export {
   resetPassword,
   createGoogleSignInLink,
   googleCallback,
+  verifyEmailToken,
 };

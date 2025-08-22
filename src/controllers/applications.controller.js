@@ -129,19 +129,21 @@ const createApplication = async (req, res) => {
       user.profile.jobActivity.applicationsSent =
         (user.profile?.jobActivity?.applicationsSent || 0) + 1;
 
-      await notifyUser({
-        userId: employer._id.toString(),
-        from: user.fullName,
-        message: "Applied to job: " + job._id.toString(),
-        title: "New Application",
-      });
-
       await application.save({ session: mongooseSession });
       await job.save({ session: mongooseSession });
       await user.save({ session: mongooseSession });
 
       await mongooseSession.commitTransaction();
       mongooseSession.endSession();
+
+      await notifyUser({
+        userId: employer._id.toString(),
+        userMail: employer.email.toString(),
+        ctaUrl: `applications/${application._id.toString()}`,
+        from: user.fullName,
+        message: "Applied to job: " + job._id.toString(),
+        title: "New Application",
+      });
 
       return res.status(200).json({
         message: "Applied successfully",
@@ -230,8 +232,13 @@ const getReceivedJobApplications = async (req, res) => {
 
     const baseFilter = { employerId: new mongoose.Types.ObjectId(userId) };
     if (status) baseFilter.status = status;
-    if(applicantRole){
-      baseFilter.applicantModel = applicantRole == "job-seeker" ? "jobSeeker": applicantRole == "freelancer" ? "freelancer": ""
+    if (applicantRole) {
+      baseFilter.applicantModel =
+        applicantRole == "job-seeker"
+          ? "jobSeeker"
+          : applicantRole == "freelancer"
+          ? "freelancer"
+          : "";
     }
 
     const applications = await Application.aggregate([

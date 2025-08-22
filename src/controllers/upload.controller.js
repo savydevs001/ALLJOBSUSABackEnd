@@ -12,7 +12,7 @@ const uploadFile = async (req, res) => {
       .json({ message: "File uploaded successfully!", url: fileUrl });
   } catch (err) {
     console.log("❌ Error uploading file", err);
-    return res.status(500).json({ message: "Server Error" });
+    return res.status(500).json({ message: err.message });
   }
 };
 

@@ -984,134 +984,135 @@ const getJobApplicants = async (req, res) => {
 
 // apply on a job
 const applyToJob = async (req, res) => {
-  const jobId = req.params.id;
-  try {
-    if (!jobId || !mongoose.Types.ObjectId.isValid(jobId)) {
-      return res.status(400).json({ message: "Invalid job Id" });
-    }
-    const userId = req.user?._id;
-    const role = req.user.role;
-    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: "Invalid jobseeker Id" });
-    }
+  // const jobId = req.params.id;
+  // try {
+  //   if (!jobId || !mongoose.Types.ObjectId.isValid(jobId)) {
+  //     return res.status(400).json({ message: "Invalid job Id" });
+  //   }
+  //   const userId = req.user?._id;
+  //   const role = req.user.role;
+  //   if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+  //     return res.status(400).json({ message: "Invalid jobseeker Id" });
+  //   }
 
-    let user;
-    switch (role) {
-      case "freelancer":
-        user = await FREELANCER.findById(userId);
-        break;
-      case "job-seeker":
-        user = await JOBSEEKER.findById(userId);
-        break;
-      default:
-        break;
-    }
+  //   let user;
+  //   switch (role) {
+  //     case "freelancer":
+  //       user = await FREELANCER.findById(userId);
+  //       break;
+  //     case "job-seeker":
+  //       user = await JOBSEEKER.findById(userId);
+  //       break;
+  //     default:
+  //       break;
+  //   }
 
-    if (!user) {
-      return res.status(404).json({ message: "User not found!" });
-    }
-    if (user.status !== "active") {
-      return res
-        .status(400)
-        .json({ message: "Only Active user can apply to job" });
-    }
+  //   if (!user) {
+  //     return res.status(404).json({ message: "User not found!" });
+  //   }
+  //   if (user.status !== "active") {
+  //     return res
+  //       .status(400)
+  //       .json({ message: "Only Active user can apply to job" });
+  //   }
 
-    // job validation
-    const job = await Job.findById(jobId).populate("employerId", "fullName");
-    if (!job) {
-      return res.status(404).json({ message: "Job not found" });
-    }
-    if (job.status != "empty") {
-      return res.status(400).json({ message: "Job not active" });
-    }
-    if (role === "freelancer" && job.job != "freelance") {
-      return res.status(400).json({ message: "Job is not a Freelance job" });
-    } else if (role === "job-seeeker" && job.job != "simple") {
-      return res.status(400).json({ message: "Job is not a Professinal" });
-    }
+  //   // job validation
+  //   const job = await Job.findById(jobId).populate("employerId", "fullName");
+  //   if (!job) {
+  //     return res.status(404).json({ message: "Job not found" });
+  //   }
+  //   if (job.status != "empty") {
+  //     return res.status(400).json({ message: "Job not active" });
+  //   }
+  //   if (role === "freelancer" && job.job != "freelance") {
+  //     return res.status(400).json({ message: "Job is not a Freelance job" });
+  //   } else if (role === "job-seeeker" && job.job != "simple") {
+  //     return res.status(400).json({ message: "Job is not a Professinal" });
+  //   }
 
-    // check if an application already exists
-    const AlreadyApplied = job.applicants.some(
-      (e) => e.userId.toString() === userId.toString()
-    );
-    if (AlreadyApplied > 0) {
-      return res.status(400).json({ message: "Already applied to this job" });
-    }
+  //   // check if an application already exists
+  //   const AlreadyApplied = job.applicants.some(
+  //     (e) => e.userId.toString() === userId.toString()
+  //   );
+  //   if (AlreadyApplied > 0) {
+  //     return res.status(400).json({ message: "Already applied to this job" });
+  //   }
 
-    // employer validation
-    const employer = await EMPLOYER.findById(job.employerId);
-    if (!employer) {
-      return res.status(404).json({ message: "Invalid Employer" });
-    }
-    if (employer.status !== "active") {
-      return res
-        .status(400)
-        .json({ message: "Employer account suspended or deleted" });
-    }
+  //   // employer validation
+  //   const employer = await EMPLOYER.findById(job.employerId);
+  //   if (!employer) {
+  //     return res.status(404).json({ message: "Invalid Employer" });
+  //   }
+  //   if (employer.status !== "active") {
+  //     return res
+  //       .status(400)
+  //       .json({ message: "Employer account suspended or deleted" });
+  //   }
 
-    if (employer.email === user.email) {
-      return res
-        .status(400)
-        .json({ message: "Cannot apply to own created jobs" });
-    }
+  //   if (employer.email === user.email) {
+  //     return res
+  //       .status(400)
+  //       .json({ message: "Cannot apply to own created jobs" });
+  //   }
 
-    try {
-      const mongooseSession = await mongoose.startSession();
-      mongooseSession.startTransaction();
+  //   try {
+  //     const mongooseSession = await mongoose.startSession();
+  //     mongooseSession.startTransaction();
 
-      job.applicants.push({
-        userId: userId,
-        role:
-          role === "job-seeker"
-            ? "jobSeeker"
-            : role == "freelancer"
-            ? "freelancer"
-            : "",
-      });
+  //     job.applicants.push({
+  //       userId: userId,
+  //       role:
+  //         role === "job-seeker"
+  //           ? "jobSeeker"
+  //           : role == "freelancer"
+  //           ? "freelancer"
+  //           : "",
+  //     });
 
-      // update job seeker activity
-      // Add to recent activity
-      user.activity.unshift({
-        title: `Applied to ${job.title}`,
-        subTitle: employer.fullName,
-        at: new Date(),
-      });
+  //     // update job seeker activity
+  //     // Add to recent activity
+  //     user.activity.unshift({
+  //       title: `Applied to ${job.title}`,
+  //       subTitle: employer.fullName,
+  //       at: new Date(),
+  //     });
 
-      if (user.activity.length > 3) {
-        user.activity.splice(3);
-      }
+  //     if (user.activity.length > 3) {
+  //       user.activity.splice(3);
+  //     }
 
-      user.profile.jobActivity.applicationsSent =
-        (user.profile?.jobActivity?.applicationsSent || 0) + 1;
+  //     user.profile.jobActivity.applicationsSent =
+  //       (user.profile?.jobActivity?.applicationsSent || 0) + 1;
 
-      await notifyUser({
-        from: user.fullName,
-        message: `User Applied to job ${job._id}`,
-        title: "New Application",
-        to: employer._id.toString(),
-      });
+  //     // await notifyUser({
+  //     //   from: user.fullName,
+  //     //   message: `User Applied to job ${job._id}`,
+  //     //   title: "New Application",
+  //     //   userId: employer._id.toString(),
+  //     //   ctaUrl: `applications/${}`
+  //     // });
 
-      await job.save({ session: mongooseSession });
-      await user.save({ session: mongooseSession });
+  //     await job.save({ session: mongooseSession });
+  //     await user.save({ session: mongooseSession });
 
-      await mongooseSession.commitTransaction();
-      mongooseSession.endSession();
+  //     await mongooseSession.commitTransaction();
+  //     mongooseSession.endSession();
 
-      return res.status(200).json({
-        message: "Applied successfully",
-      });
-    } catch (err) {
-      console.error("❌ Error Applying to job:", err);
-      await mongooseSession.abortTransaction();
-      mongooseSession.endSession();
-      return res
-        .status(500)
-        .json({ message: "Error Applying to job", err: err.message });
-    }
-  } catch (err) {
-    console.log("❌ Error Applying to job: ", err);
-    return res.status(500).json({ message: "Server Error", err: err.message });
-  }
+  //     return res.status(200).json({
+  //       message: "Applied successfully",
+  //     });
+  //   } catch (err) {
+  //     console.error("❌ Error Applying to job:", err);
+  //     await mongooseSession.abortTransaction();
+  //     mongooseSession.endSession();
+  //     return res
+  //       .status(500)
+  //       .json({ message: "Error Applying to job", err: err.message });
+  //   }
+  // } catch (err) {
+  //   console.log("❌ Error Applying to job: ", err);
+  //   return res.status(500).json({ message: "Server Error", err: err.message });
+  // }
 };
 
 export {
