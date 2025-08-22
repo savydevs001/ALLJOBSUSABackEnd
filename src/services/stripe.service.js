@@ -335,15 +335,16 @@ const stripeWebhook = async (req, res) => {
 
           if (requestedSubscription.mode === "subscription") {
             // create subscription only when user selected to subscribe
-            if (user.susbscriptionRenew == true) {
-              const newStripeSubscription = await createStripeSubscription2({
-                customerId: paymentIntent.customer,
-                priceId: requestedSubscription.stripePriceId,
-                paymentMethodId: paymentIntent.payment_method,
-                metadata: paymentIntent.metadata,
-              });
-              user.stripeProfileSubscriptionId = newStripeSubscription.id;
-            }
+            const newStripeSubscription = await createStripeSubscription2({
+              customerId: paymentIntent.customer,
+              priceId: requestedSubscription.stripePriceId,
+              paymentMethodId: paymentIntent.payment_method,
+              metadata: paymentIntent.metadata,
+              autoRenew: user.susbscriptionRenew === true ? true : false,
+            });
+            user.stripeProfileSubscriptionId = newStripeSubscription.id;
+            console.log("hook: autornew: ", user.susbscriptionRenew);
+
             const now = new Date();
             const tempSub = {
               subId: stripeSubscriptionId,
@@ -536,7 +537,7 @@ const stripeWebhook = async (req, res) => {
             );
 
             // update tip for order
-            order.tip = (order.tip || 0) + totalAmount ;
+            order.tip = (order.tip || 0) + totalAmount;
 
             await notifyUser(
               {
@@ -1000,13 +1001,17 @@ const createStripeSubscription2 = async ({
   priceId,
   paymentMethodId,
   metadata,
+  autoRenew = false,
 }) => {
+  console.log("conntr: autornew: ", autoRenew);
   const subscription = await stripe.subscriptions.create({
     customer: customerId,
     items: [{ price: priceId }],
     default_payment_method: paymentMethodId, // From the successful payment
     metadata,
+    cancel_at_period_end: autoRenew === true ? false : true,
   });
+  console.log("sub: ", subscription);
   return subscription;
 };
 
@@ -1038,6 +1043,18 @@ const createStripePayout = async (amount, accountId) => {
     { stripeAccount: accountId }
   );
   return payout;
+};
+
+// pause subscription auto renewl
+const rseumeSusbscriptionById = async (subId) => {
+  try {
+    const updatedSubscription = await stripe.subscriptions.update(subId, {
+      cancel_at_period_end: false,
+    });
+    return { subscription: updatedSubscription, resumed: true, err: "" };
+  } catch (err) {
+    return { subscription: null, resumed: false, err: err };
+  }
 };
 
 export {
@@ -1074,4 +1091,5 @@ export {
   cancelStripeSubscription,
   createRefund,
   createStripePayout,
+  rseumeSusbscriptionById,
 };

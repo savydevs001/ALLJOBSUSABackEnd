@@ -12,6 +12,7 @@ import {
   downLoadResume,
   downLoadCover,
   verifyStripePaymentInetnt,
+  ResumeAutoRenewlSusbcription,
 } from "../controllers/stripe.controller.js";
 
 const StripeRouter = Router();
@@ -42,6 +43,12 @@ StripeRouter.post(
   verifyTokenMiddleware(),
   roleBasedAuthMiddleware(["employer"]),
   a(cancelAutoRenewl)
+);
+StripeRouter.post(
+  "/continue-job-subscription",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["employer"]),
+  a(ResumeAutoRenewlSusbcription)
 );
 StripeRouter.post(
   "/create-intent",

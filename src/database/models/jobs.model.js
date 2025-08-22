@@ -53,6 +53,7 @@ const jobSchema = new Schema(
         enum: ["Beginner", "Intermediate", "Expert"],
       },
       deadline: Date,
+      formLink: String,
     },
     freelanceJobDetails: {
       requiredSkills: [String],

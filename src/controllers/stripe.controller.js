@@ -11,6 +11,7 @@ import {
   getTotalIncomeAndMonthlyChange,
   retriveStripePaymentIntent,
   retriveSubscription,
+  rseumeSusbscriptionById,
 } from "../services/stripe.service.js";
 import EMPLOYER from "../database/models/employers.model.js";
 import FREELANCER from "../database/models/freelancer.model.js";
@@ -51,7 +52,7 @@ const cancelAutoRenewl = async (req, res) => {
 
     const employer = await EMPLOYER.findById(userId);
     if (!employer) {
-      return res.status(400).json({ message: "USer not found" });
+      return res.status(400).json({ message: "User not found" });
     }
 
     if (employer.susbscriptionRenew === false) {
@@ -93,6 +94,57 @@ const cancelAutoRenewl = async (req, res) => {
     return res
       .status(500)
       .json({ message: "Error cancelling subscription:", err });
+  }
+};
+
+const ResumeAutoRenewlSusbcription = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    const userRole = req.user?.role;
+    if (userRole != "employer") {
+      return res.status(400).json({
+        message: "Only employer can continue a job posting subscription",
+      });
+    }
+
+    const employer = await EMPLOYER.findById(userId);
+    if (!employer) {
+      return res.status(400).json({ message: "User not found" });
+    }
+
+    if (employer.susbscriptionRenew === true) {
+      return res
+        .status(400)
+        .json({ message: "Subscription Already set for renewal" });
+    }
+
+    if (!employer.stripeProfileSubscriptionId) {
+      return res
+        .status(400)
+        .json({ message: "No susbscription attached to user" });
+    }
+
+    const continued = await rseumeSusbscriptionById(
+      employer.stripeProfileSubscriptionId
+    );
+
+    employer.susbscriptionRenew = true;
+    await employer.save();
+
+    return res.status(200).json({
+      message: "Auto-renewal Continued",
+      subscription: {
+        id: continued.id,
+        status: continued.status,
+        cancel_at_period_end: continued.cancel_at_period_end,
+        current_period_end: continued.current_period_end,
+      },
+    });
+  } catch (err) {
+    console.log("❌ Error continuing subscription: ", err);
+    return res
+      .status(500)
+      .json({ message: "Error continuing subscription:", err });
   }
 };
 
@@ -190,7 +242,6 @@ const createPaymentIntents = async (req, res) => {
 
         if (requestedSubscription.mode == "subscription") {
           const { renew } = req.body;
-          console.log("renew: ", renew)
 
           // get or create a customer for recurring
           let customerId = user.stripeCustomerId;
@@ -856,8 +907,8 @@ const createFreelancerPayout = async (req, res) => {
       userId: userId,
       title: "Payment Transfer",
       message: `You payment of ${amount} will reach you account in 1-2 working days`,
-      from: "ALLJOBSUSA"
-    })
+      from: "ALLJOBSUSA",
+    });
     await user.save({ session: mongooseSession });
 
     await mongooseSession.commitTransaction();
@@ -1266,4 +1317,5 @@ export {
   downLoadResume,
   downLoadCover,
   verifyStripePaymentInetnt,
+  ResumeAutoRenewlSusbcription
 };

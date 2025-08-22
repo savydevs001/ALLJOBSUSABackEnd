@@ -10,6 +10,9 @@ import { notifyUser } from "./notification.controller.js";
 import { getMemorySubscriptionns } from "./subscriptions.controller.js";
 
 // POST job
+const urlRegex =
+  /^(?:https?:\/\/)?(?:localhost|\d{1,3}(?:\.\d{1,3}){3}|(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,})(?::\d{2,5})?(?:\/[^\s]*)?$/i;
+
 const createJobZODSchema = z.object({
   title: z
     .string()
@@ -36,6 +39,7 @@ const simpleJobZODSchema = z.object({
   locationCity: z.string().min(2, "City is required"),
   locationState: z.string().min(2, "State is required"),
   experienceLevel: z.enum(["Beginner", "Intermediate", "Expert"]),
+  formLink: z.string().regex(urlRegex, "Invalid Form Url").optional().or(z.literal("")),
   deadline: z.coerce.date({
     errorMap: () => ({ message: "Invalid date format" }),
   }),
@@ -68,7 +72,6 @@ const createJob = async (req, res) => {
     // validation for job = simple
     if (data.job === "simple") {
       const temp = simpleJobZODSchema.parse(req.body);
-      const a = new Date();
       data = { ...data, ...temp };
     } else if (data.job === "freelance") {
       const temp = freelanceZODSchema.parse(req.body);
@@ -155,6 +158,7 @@ const createJob = async (req, res) => {
 
       //  Add Simple job detials
       if (data.job === "simple") {
+        // console.log("daat: ", data)
         tempData.simpleJobDetails = {
           jobType: data.jobType,
           category: data.category,
@@ -164,6 +168,7 @@ const createJob = async (req, res) => {
           locationState: data.locationState,
           experienceLevel: data.experienceLevel,
           deadline: data.deadline,
+          formLink: data.formLink,
         };
         if (
           data.creationType == "free" &&
@@ -270,6 +275,7 @@ const getJobById = async (req, res) => {
         locationState: job.simpleJobDetails?.locationState,
         minSalary: job.simpleJobDetails?.minSalary,
         maxSalary: job.simpleJobDetails?.maxSalary,
+        formLink: job.simpleJobDetails?.formLink || ""
       },
       freelanceJobDetails: {
         budget: {
@@ -813,6 +819,7 @@ const getJobForEdit = async (req, res) => {
       tranformData.locationState = job.simpleJobDetails?.locationState;
       tranformData.experienceLevel = job.simpleJobDetails?.experienceLevel;
       tranformData.deadline = job.simpleJobDetails?.deadline;
+      tranformData.formLink = job.simpleJobDetails?.formLink;
 
       return res.status(200).json({ job: tranformData });
     } else {
@@ -873,6 +880,7 @@ const updateJob = async (req, res) => {
       return res.status(200).json({ message: "job eidted successfully" });
     } else if (jobMode == "simple") {
       const simpleParsed = simpleJobZODSchema.parse(req.body);
+      // console.log("daat: ", simpleParsed)
       job.simpleJobDetails.jobType = simpleParsed.jobType;
       job.simpleJobDetails.category = simpleParsed.category;
       job.simpleJobDetails.minSalary = simpleParsed.minSalary;
@@ -881,6 +889,7 @@ const updateJob = async (req, res) => {
       job.simpleJobDetails.locationState = simpleParsed.locationState;
       job.simpleJobDetails.experienceLevel = simpleParsed.experienceLevel;
       job.simpleJobDetails.deadline = simpleParsed.deadline;
+      job.simpleJobDetails.formLink = simpleParsed.formLink;
 
       await job.save();
 

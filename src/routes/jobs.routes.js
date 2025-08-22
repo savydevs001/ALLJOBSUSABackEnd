@@ -11,11 +11,7 @@ import {
   myJobPostings,
   removeSavedJob,
   saveAJob,
-  // jobById,
   updateJob,
-  // deleteJob,
-  // saveAJob,
-  // removeSavedJob,
 } from "../controllers/job.controller.js";
 import a from "../utils/a.js";
 import verifyTokenMiddleware from "../middlewares/verifyToken.middleware.js";
