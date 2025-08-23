@@ -2,14 +2,30 @@ import mongoose from "mongoose";
 import SupportMessage from "../database/models/support-message.model.js";
 import { v4 as uuidv4 } from "uuid";
 import ADMIN from "../database/models/admin.model.js";
+import MANAGER from "../database/models/manager.model.js";
 
 let supportId;
+let managerId;
 const getSupportAdminId = async () => {
   if (!supportId) {
     const admin = await ADMIN.findOne();
-    supportId = admin._id;
+    supportId = admin._id.toString();
   }
   return supportId;
+};
+
+const getSupportManagerId = async () => {
+  if (!managerId) {
+    const tempManagerId = await MANAGER.findOne();
+    managerId = tempManagerId._id.toString();
+  }
+  return managerId;
+};
+
+const getSupportIds = async () => {
+  const id1 = await getSupportAdminId();
+  const id2 = await getSupportManagerId();
+  return [id1, id2];
 };
 
 const getSupportTicket = async (req, res) => {
@@ -95,7 +111,7 @@ const getSupportMessagesByTicket = async (req, res) => {
       .limit(limit)
       .lean();
 
-    if (role == "admin") {
+    if (role == "admin" || role == "manager") {
       await SupportMessage.updateMany(
         { ticketId: ticketId, seen: false },
         { seen: true }
@@ -301,7 +317,7 @@ const deleteSupportMessagesByTicket = async (req, res) => {
     });
 
     res.json({
-      message: "Deleted Successully"
+      message: "Deleted Successully",
     });
   } catch (err) {
     console.error("Error deleting ticket messages:", err);
@@ -309,11 +325,32 @@ const deleteSupportMessagesByTicket = async (req, res) => {
   }
 };
 
+// get unread Support count
+const getUnreadSupportMessageCount = async (req, res) => {
+  try {
+    const tempId = await getSupportAdminId();
+    const unreadCount = await SupportMessage.countDocuments({
+      seen: false,
+      receiverId: null
+    });
+    return res.status(200).json({ unreadCount });
+  } catch (err) {
+    console.log("Erro counting unseen messages: ", err);
+    return res
+      .status(500)
+      .json({
+        message: "Unable to count un seen support messages",
+        err: err.message,
+      });
+  }
+};
 export {
   getSupportTicket,
   createSupportTicket,
   getSupportAdminId,
   getSupportMessagesByTicket,
   getAllSupportThreads,
-  deleteSupportMessagesByTicket
+  deleteSupportMessagesByTicket,
+  getSupportIds,
+  getUnreadSupportMessageCount
 };

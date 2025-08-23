@@ -1475,15 +1475,29 @@ const approveRefunds = async (req, res) => {
   }
 };
 
-// suspend Freelancer
-const suspendFreelancer = async (req, res) => {
+// suspend User
+const suspendUser = async (req, res) => {
   try {
     const userId = req.params.id;
+    const userRole = req.query?.role;
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ message: "Invalid User Id" });
     }
 
-    const user = await FREELANCER.findById(userId);
+     let user;
+    switch (userRole) {
+      case "freelancer":
+        user = await FREELANCER.findById(userId);
+        break;
+      case "job-seeker":
+        user = await JOBSEEKER.findById(userId);
+        break;
+      case "employer":
+        user = await EMPLOYER.findById(userId);
+        break;
+      default:
+        break;
+    }
 
     if (!user) {
       return res.status(404).json({ message: "User not found!" });
@@ -1562,6 +1576,53 @@ const deleteUser = async (req, res) => {
   }
 };
 
+// unsuspend user
+const unSuspendUser = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const userRole = req.query?.role;
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid User Id" });
+    }
+
+     let user;
+    switch (userRole) {
+      case "freelancer":
+        user = await FREELANCER.findById(userId);
+        break;
+      case "job-seeker":
+        user = await JOBSEEKER.findById(userId);
+        break;
+      case "employer":
+        user = await EMPLOYER.findById(userId);
+        break;
+      default:
+        break;
+    }
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found!" });
+    }
+
+    if (user.status === "suspended") {
+      user.status = "active";
+      await user.save();
+      return res
+        .status(200)
+        .json({ message: "Account Reactivated" });
+    }
+
+    return res
+      .status(400)
+      .json({ message: "Only Suspended account can be Activated" });
+  } catch (err) {
+    console.log("Error Reactivating a user: ", err);
+    return res
+      .status(500)
+      .json({ message: "Error Reactivating user", err: err.message });
+  }
+};
+
 export {
   createAdminAccount,
   loginAdminAccount,
@@ -1585,6 +1646,7 @@ export {
   getRefunds,
   rejectRefunds,
   approveRefunds,
-  suspendFreelancer,
+  suspendUser,
   deleteUser,
+  unSuspendUser
 };

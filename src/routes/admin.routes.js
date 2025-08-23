@@ -23,7 +23,8 @@ import {
   markOrderAsDisputed,
   orderStats,
   rejectRefunds,
-  suspendFreelancer,
+  suspendUser,
+  unSuspendUser,
 } from "../controllers/admin.controller.js";
 import verifyTokenMiddleware from "../middlewares/verifyToken.middleware.js";
 import roleBasedAuthMiddleware from "../middlewares/roleBasedAuth.middleware.js";
@@ -149,16 +150,22 @@ AdminRouter.post(
   a(cancelDisputedOrder)
 );
 AdminRouter.post(
-  "/suspend-freelancer/:id",
+  "/suspend-user/:id",
   verifyTokenMiddleware(),
   roleBasedAuthMiddleware(["admin", "manager"]),
-  a(suspendFreelancer)
+  a(suspendUser)
 );
 AdminRouter.post(
   "/delete-user/:id",
   verifyTokenMiddleware(),
   roleBasedAuthMiddleware(["admin", "manager"]),
   a(deleteUser)
+);
+AdminRouter.post(
+  "/activate-user/:id",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["admin", "manager"]),
+  a(unSuspendUser)
 );
 
 AdminRouter.put(

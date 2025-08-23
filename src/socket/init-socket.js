@@ -11,7 +11,10 @@ import {
 } from "./onlineUsers.js";
 import mongoose from "mongoose";
 import SupportMessage from "../database/models/support-message.model.js";
-import { getSupportAdminId } from "../controllers/support.controller.js";
+import {
+  getSupportAdminId,
+  getSupportIds,
+} from "../controllers/support.controller.js";
 
 dotenv.config();
 
@@ -114,7 +117,7 @@ const initSocket = (httpServer) => {
           const details = {
             ticketId: ticketId,
             message: message,
-            seen: true,
+            seen: mode == false ,
           };
           if (fileName && fileUrl) {
             details.attachments = {
@@ -137,26 +140,22 @@ const initSocket = (httpServer) => {
 
           const sender = getOnlineUser(userId);
           if (sender && sender.socketId) {
-            console.log("sent to sender");
             io.to(sender.socketId).emit("support-message", supportMessage);
           }
 
-          let tempReceiverId;
+          let tempReceiverIds;
           if (mode === "from_user_to_support") {
-            tempReceiverId = await getSupportAdminId();
-            tempReceiverId = tempReceiverId.toString();
-            console.log("tempReceiverId: ", tempReceiverId);
+            tempReceiverIds = await getSupportIds();
           } else {
-            tempReceiverId = receiverId;
+            tempReceiverIds = [receiverId];
           }
-          const receiver = getOnlineUser(tempReceiverId);
-          if (receiver && receiver.socketId) {
-            io.to(receiver.socketId).emit("support-message", supportMessage);
-            console.log("sent to reciver");
-          } else {
-            if (!["admin", "manager"].includes(role)) {
-              supportMessage.seen = false;
-              await supportMessage.save();
+
+          const receivers = tempReceiverIds.map((e) => getOnlineUser(e));
+          if (receivers.length > 0) {
+            for (const rec of receivers) {
+              if (rec && rec.socketId) {
+                io.to(rec.socketId).emit("support-message", supportMessage);
+              }
             }
           }
         } catch (err) {
@@ -165,6 +164,15 @@ const initSocket = (httpServer) => {
         }
       }
     );
+
+    socket.on("support-message-seen", async ({ messageId }) => {
+      try {
+        console.log("ok: ",messageId)
+        await SupportMessage.updateOne({ _id: messageId }, { seen: true });
+      } catch (err) {
+        console.log("Error updating support message to seen");
+      }
+    });
 
     socket.on("online", (userIds) => {
       let onlineUsers = [];
@@ -198,9 +206,6 @@ const handleMessage = async ({
   userId,
 }) => {
   try {
-    // console.log("c: ", content);
-    // console.log("fileUrl: ", fileUrl);
-    // console.log("fileName: ", fileName);
     if (!to || (!content && !fileUrl && !fileName)) {
       return;
     }

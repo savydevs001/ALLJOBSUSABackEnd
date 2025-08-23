@@ -19,17 +19,18 @@ dotenv.config();
 
 const createProfileZODSchema = z.object({
   profilePictureUrl: z.string().optional(),
+  bannerUrl: z.string().optional(),
   professionalTitle: z
     .string()
     .min(5, "Min 5 chracter required")
     .max(200, "Max 200 chracters allowed"),
-  hourlyRate: z.string().min(1, "Hourly rate required"),
+  hourlyRate: z.number().min(1, "Hourly rate required"),
   skills: z.array(z.string()).min(1, "At lease 1 skill required"),
   bio: z
     .string()
     .min(10, "At least 10 chracters required")
     .max(2000, "Max 2000 chracters allowed"),
-  freelancerWork: z.enum(["true", "false"]).default("false"),
+  freelancerWork: z.boolean().default(false),
   projects: z.array(z.string()).default([]),
   samples: z.array(z.string()).default([]),
   loaction: z.string().optional(),

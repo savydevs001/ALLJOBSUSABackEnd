@@ -20,7 +20,7 @@ ChatBotRouter.get(
 );
 
 const UpdateZodSchema = z.object({
-  data: z.array(z.object({ question: z.string(), answer: z.string() })),
+  data: z.array(z.object({ question: z.string(), answer: z.array(z.string()) })),
 });
 ChatBotRouter.put(
   "/",

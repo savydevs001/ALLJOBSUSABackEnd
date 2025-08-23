@@ -7,6 +7,7 @@ import {
   getAllSupportThreads,
   getSupportMessagesByTicket,
   getSupportTicket,
+  getUnreadSupportMessageCount,
 } from "../controllers/support.controller.js";
 import roleBasedAuthMiddleware from "../middlewares/roleBasedAuth.middleware.js";
 
@@ -19,6 +20,12 @@ SupportRouter.get(
   verifyTokenMiddleware(),
   roleBasedAuthMiddleware(["admin", "manager"]),
   a(getAllSupportThreads)
+);
+SupportRouter.get(
+  "/count",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["admin", "manager"]),
+  a(getUnreadSupportMessageCount)
 );
 
 SupportRouter.get(
