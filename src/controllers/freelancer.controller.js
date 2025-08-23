@@ -52,7 +52,7 @@ const creatFreelancerProfile = async (req, res) => {
     }
 
     freelancer.profile = data;
-    freelancer.profile.freelancerWork = data.freelancerWork === "true";
+    freelancer.profile.freelancerWork = data.freelancerWork;
     freelancer.category = data.category || "";
     if (data.profilePictureUrl) {
       freelancer.profilePictureUrl = data.profilePictureUrl;
