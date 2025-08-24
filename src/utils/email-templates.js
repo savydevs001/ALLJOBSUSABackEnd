@@ -61,17 +61,29 @@ const getNotificationTemplate = ({ title, message, ctaUrl }) => {
         <table class="email-content" width="100%" cellpadding="0" cellspacing="0" role="presentation">
           <!-- Header -->
           <tr>
-            <td class="header" style="padding:20px 28px;">
-              <table width="100%" role="presentation">
-                <tr>
-                  <td align="left" style="vertical-align:middle;">
-                    <div class="brand">ALLJOBSUSA</div>
-                  </td>
-                  <td align="right" style="vertical-align:middle; font-size:13px; opacity:0.95;">Notification</td>
-                </tr>
-              </table>
-            </td>
-          </tr>
+  <td align="left" style="padding:20px 28px;">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="background-color:#ffffff; padding:4px; border-radius:6px;">
+      <tr>
+        <!-- Logo -->
+        <td style="padding-right:8px; vertical-align:middle;">
+          <img
+            src="https://alljobsusa.com/uploads/1756002458619-260308214.png"
+            alt="AllJobsUSA Logo"
+            width="40"
+            height="40"
+            style="display:block; border-radius:50%;"
+          />
+        </td>
+
+        <!-- Brand text -->
+        <td style="vertical-align:middle; font-family:Arial,Helvetica,sans-serif; font-weight:bold; font-size:20px; letter-spacing:0.05em; color:#1a4b78;">
+          ALL<span style="color:#d30808;">JOBS</span>USA
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>
+
 
           <!-- Main body -->
           <tr>
@@ -184,23 +196,30 @@ const getVerificationTemplate = ({ title, message, verificationCode }) => {
   <span class="preheader">${message}</span>
 
   <table width="100%" cellpadding="0" cellspacing="0" role="presentation" class="email-wrapper">
-    <tr>
-      <td align="center">
-        <table class="email-content" width="100%" cellpadding="0" cellspacing="0" role="presentation">
-          
-          <!-- Header -->
-          <tr>
-            <td class="header">
-              <table width="100%" role="presentation">
-                <tr>
-                  <td align="left">
-                    <div class="brand">ALLJOBSUSA</div>
-                  </td>
-                  <td align="right" style="font-size:13px; opacity:0.95;">Verification</td>
-                </tr>
-              </table>
-            </td>
-          </tr>
+<tr>
+  <td align="left" style="padding:20px 28px;">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="background-color:#ffffff; padding:4px; border-radius:6px;">
+      <tr>
+        <!-- Logo -->
+        <td style="padding-right:8px; vertical-align:middle;">
+          <img
+            src="https://alljobsusa.com/uploads/1756002458619-260308214.png"
+            alt="AllJobsUSA Logo"
+            width="40"
+            height="40"
+            style="display:block; border-radius:50%;"
+          />
+        </td>
+
+        <!-- Brand text -->
+        <td style="vertical-align:middle; font-family:Arial,Helvetica,sans-serif; font-weight:bold; font-size:20px; letter-spacing:0.05em; color:#1a4b78;">
+          ALL<span style="color:#d30808;">JOBS</span>USA
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>
+
 
           <!-- Body -->
           <tr>

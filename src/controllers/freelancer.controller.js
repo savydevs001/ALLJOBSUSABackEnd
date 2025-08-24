@@ -24,16 +24,16 @@ const createProfileZODSchema = z.object({
     .string()
     .min(5, "Min 5 chracter required")
     .max(200, "Max 200 chracters allowed"),
-  hourlyRate: z.number().min(1, "Hourly rate required"),
-  skills: z.array(z.string()).min(1, "At lease 1 skill required"),
+  hourlyRate: z.coerce.number().min(1, "Hourly rate required"), // 👈 converts "25" → 25
+  skills: z.array(z.string()).min(1, "At least 1 skill required"),
   bio: z
     .string()
     .min(10, "At least 10 chracters required")
     .max(2000, "Max 2000 chracters allowed"),
-  freelancerWork: z.boolean().default(false),
+  freelancerWork: z.coerce.boolean().default(false), // 👈 converts "true"/"false" → boolean
   projects: z.array(z.string()).default([]),
   samples: z.array(z.string()).default([]),
-  loaction: z.string().optional(),
+  location: z.string().optional(),
   category: z.string(),
 });
 
@@ -511,7 +511,7 @@ const getFreelanceProfileById = async (req, res) => {
     }
 
     const user = await FREELANCER.findOne(
-      { _id: userId, status: { $nin: ["deleted"] } },
+      { _id: userId },
       {
         fullName: 1,
         profilePictureUrl: 1,

@@ -345,7 +345,7 @@ const getJobSeekerProfileById = async (req, res) => {
     }
 
     const user = await JOBSEEKER.findOne(
-      { _id: userId, status: { $nin: ["deleted"] } },
+      { _id: userId },
       {
         fullName: 1,
         phoneNumber: 1,

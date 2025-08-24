@@ -45,6 +45,11 @@ const createApplication = async (req, res) => {
         .status(400)
         .json({ message: "Only Active accounts are allowed to apply" });
     }
+    if(!user.profile || !user.profile.professionalTitle){
+      return res
+        .status(400)
+        .json({ message: "Please Complete your Profile first" });
+    }
 
     // job validation
     const job = await Job.findById(jobId);
