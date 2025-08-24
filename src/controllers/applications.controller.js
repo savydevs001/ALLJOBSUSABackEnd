@@ -48,7 +48,7 @@ const createApplication = async (req, res) => {
     if(!user.profile || !user.profile.professionalTitle){
       return res
         .status(400)
-        .json({ message: "Please Complete your Profile first" });
+        .json({ message: "Please Complete your Profile first", completeProfile: true });
     }
 
     // job validation
