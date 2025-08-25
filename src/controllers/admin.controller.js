@@ -1294,7 +1294,7 @@ const cancelDisputedOrder = async (req, res) => {
     order.status = "cancelled";
     order.disputeDetails.resolutionStatus = "resolved_in_favor_employer";
     order.disputeDetails.refundId = refund.id;
-    order.completionDate = new Date();
+    order.cancelledDate = new Date();
 
     // update employer if employer
     const employer = await EMPLOYER.findById(order.employerId);
@@ -1464,6 +1464,7 @@ const approveRefunds = async (req, res) => {
     refund.status = "approved";
     refund.completionOrCancelDate = new Date();
     refund.stripeRefundId = stripeRefund.id;
+
     await refund.save();
 
     return res.status(200).json({
@@ -1484,7 +1485,7 @@ const suspendUser = async (req, res) => {
       return res.status(400).json({ message: "Invalid User Id" });
     }
 
-     let user;
+    let user;
     switch (userRole) {
       case "freelancer":
         user = await FREELANCER.findById(userId);
@@ -1585,7 +1586,7 @@ const unSuspendUser = async (req, res) => {
       return res.status(400).json({ message: "Invalid User Id" });
     }
 
-     let user;
+    let user;
     switch (userRole) {
       case "freelancer":
         user = await FREELANCER.findById(userId);
@@ -1607,9 +1608,7 @@ const unSuspendUser = async (req, res) => {
     if (user.status === "suspended") {
       user.status = "active";
       await user.save();
-      return res
-        .status(200)
-        .json({ message: "Account Reactivated" });
+      return res.status(200).json({ message: "Account Reactivated" });
     }
 
     return res
@@ -1648,5 +1647,5 @@ export {
   approveRefunds,
   suspendUser,
   deleteUser,
-  unSuspendUser
+  unSuspendUser,
 };

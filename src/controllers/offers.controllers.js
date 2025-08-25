@@ -201,6 +201,7 @@ const createOffer = async (req, res, next) => {
             .slice(0, 10)}`,
           to: employer._id.toString(),
           offerId: offer._id.toString(),
+          meetingId: null,
         });
       }
 

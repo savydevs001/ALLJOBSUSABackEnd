@@ -340,6 +340,33 @@ const createPaymentIntents = async (req, res) => {
             }
           }
 
+          const totalAmount = offer.price;
+          let companyCut = 0;
+          let companyCommission = 0;
+          const platformSettings = await PlatformSettings.findOne();
+
+          if (
+            platformSettings?.pricing?.platformCommissionPercentageActive ===
+            true
+          ) {
+            companyCut = Math.round(
+              totalAmount *
+                (platformSettings.pricing.platformCommissionPercentage / 100)
+            );
+          }
+
+          if (
+            platformSettings?.pricing
+              ?.platformCommissionPercentageForNonFreelancersActive === true
+          ) {
+            companyCommission = Math.round(
+              totalAmount *
+                (platformSettings.pricing
+                  .platformCommissionPercentageForNonFreelancers /
+                  100)
+            );
+          }
+
           const existingOrder = await Order.findOne({
             offerId: offer._id,
           }).session(session);
@@ -360,6 +387,8 @@ const createPaymentIntents = async (req, res) => {
                 return res.json({
                   clientSecret: savedIntent.client_secret,
                   price: savedIntent.amount / 100,
+                  orderPrice: totalAmount,
+                  orderCommission: companyCommission,
                 });
               }
             } else {
@@ -370,20 +399,6 @@ const createPaymentIntents = async (req, res) => {
                 409
               );
             }
-          }
-
-          const totalAmount = offer.price;
-          let companyCut = 0;
-          const platformSettings = await PlatformSettings.findOne();
-
-          if (
-            platformSettings?.pricing?.platformCommissionPercentageActive ===
-            true
-          ) {
-            companyCut = Math.round(
-              totalAmount *
-                (platformSettings.pricing.platformCommissionPercentage / 100)
-            );
           }
 
           const transaction = new TRANSACTION({
@@ -415,7 +430,7 @@ const createPaymentIntents = async (req, res) => {
           transaction.orderDeatils.orderId = order._id;
 
           const stripeIntentParams = {
-            amount: totalAmount * 100,
+            amount: (totalAmount + companyCommission) * 100,
             metadata: {
               purpose: "order-payment",
               orderId: order._id.toString(),
@@ -424,6 +439,8 @@ const createPaymentIntents = async (req, res) => {
               employerId: userId.toString(),
               transactionId: transaction._id.toString(),
               freelancerId: freelancer._id.toString(),
+              totalAmount: totalAmount,
+              companyCommission: companyCommission,
             },
             receipt_email: user.email,
           };
@@ -448,7 +465,9 @@ const createPaymentIntents = async (req, res) => {
 
           return res.json({
             clientSecret: paymentIntent.client_secret,
-            price: totalAmount,
+            price: totalAmount + companyCommission,
+            orderPrice: totalAmount,
+            orderCommission: companyCommission,
           });
         } catch (err) {
           console.error("❌ Error processing order:", err);

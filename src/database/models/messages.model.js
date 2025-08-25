@@ -20,6 +20,7 @@ const messageSchema = new Schema(
     message: String,
     isSupoprt: Boolean,
     offerId: String,
+    meetingId: String,
 
     sentAt: { type: Date, default: Date.now },
     seen: { type: Boolean, default: true },

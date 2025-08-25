@@ -117,7 +117,7 @@ const initSocket = (httpServer) => {
           const details = {
             ticketId: ticketId,
             message: message,
-            seen: mode == false ,
+            seen: mode == false,
           };
           if (fileName && fileUrl) {
             details.attachments = {
@@ -167,7 +167,7 @@ const initSocket = (httpServer) => {
 
     socket.on("support-message-seen", async ({ messageId }) => {
       try {
-        console.log("ok: ",messageId)
+        console.log("ok: ", messageId);
         await SupportMessage.updateOne({ _id: messageId }, { seen: true });
       } catch (err) {
         console.log("Error updating support message to seen");
@@ -204,6 +204,7 @@ const handleMessage = async ({
   fileUrl,
   offerId,
   userId,
+  meetingId,
 }) => {
   try {
     if (!to || (!content && !fileUrl && !fileName)) {
@@ -237,6 +238,9 @@ const handleMessage = async ({
     if (offerId && mongoose.Types.ObjectId.isValid(offerId)) {
       details.offerId = offerId;
     }
+    if (meetingId && mongoose.Types.ObjectId.isValid(meetingId)) {
+      details.meetingId = meetingId;
+    }
     // console.log("detais: ", details);
     const message = new Message(details);
     await message.save();
@@ -254,13 +258,20 @@ const handleMessage = async ({
   }
 };
 
-const sendOfferCreationMessage = async ({ to, message, offerId, from }) => {
+const sendOfferCreationMessage = async ({
+  to,
+  message,
+  offerId,
+  from,
+  meetingId,
+}) => {
   try {
     await handleMessage({
       to: to,
       content: message,
       offerId: offerId,
       userId: from,
+      meetingId: meetingId,
     });
   } catch (err) {
     console.log("Error sending message after offer creation");

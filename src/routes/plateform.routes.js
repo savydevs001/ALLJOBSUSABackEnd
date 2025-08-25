@@ -24,6 +24,7 @@ PlateformRouter.put(
   roleBasedAuthMiddleware(["admin", "manager"]),
   updatePlateformCommision
 );
+
 PlateformRouter.put(
   "/ad",
   verifyTokenMiddleware(),

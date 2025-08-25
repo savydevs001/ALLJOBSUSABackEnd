@@ -34,6 +34,7 @@ import ManagerRouter from "./routes/manager.routes.js";
 import ChatBotRouter from "./routes/chatbot.routes.js";
 import TrendinJobRouter from "./routes/trending-job-route.js";
 import ReportRouter from "./routes/report.routes.js";
+import MeetingRouter from "./routes/meeting.routes.js";
 
 // stripe
 import { stripeWebhook } from "./services/stripe.service.js";
@@ -87,6 +88,7 @@ apiRouter.use("/support", SupportRouter);
 apiRouter.use("/legal", LegalContentRouter);
 apiRouter.use("/contact", ContactRouter);
 apiRouter.use("/chatbot", ChatBotRouter);
+apiRouter.use("/meetings", MeetingRouter);
 
 // admin routes
 apiRouter.use("/manager", ManagerRouter);

@@ -6,6 +6,8 @@ const createPllateformSettings = async (req, res) => {
       pricing: {
         platformCommissionPercentage: 20,
         platformCommissionPercentageActive: true,
+        platformCommissionPercentageForNonFreelancers: 3,
+        platformCommissionPercentageForNonFreelancersActive: true,
       },
     };
     const count = await PlatformSettings.countDocuments({});
@@ -27,13 +29,16 @@ setTimeout(() => {
 const updatePlateformCommision = async (req, res) => {
   try {
     const data = req.body;
+    console.log("data: ", data);
     if (
       !data ||
-      data._id == undefined ||
-      data.price == undefined ||
-      data.isActive == undefined
+      !data._id ||
+      data.price === undefined ||
+      data.isActive === undefined ||
+      data.nonFreelancerPrice === undefined ||
+      data.nonFreelancerIsActive === undefined
     ) {
-      return res.status(500).json({ message: "Invalid request" });
+      return res.status(400).json({ message: "Invalid request" });
     }
 
     const platfoem = await PlatformSettings.findById(data._id);
@@ -41,23 +46,23 @@ const updatePlateformCommision = async (req, res) => {
       return res.status(400).json({ message: "Invalid request" });
     }
 
-    if (
-      platfoem.pricing?.platformCommissionPercentage == data.price &&
-      platfoem.pricing.platformCommissionPercentageActive == data.isActive
-    ) {
-      return res.status(200).json({ message: "No need to update" });
-    }
-
     platfoem.pricing.platformCommissionPercentage = Number(data.price);
     platfoem.pricing.platformCommissionPercentageActive = Boolean(
       data.isActive
     );
+    platfoem.pricing.platformCommissionPercentageForNonFreelancers = Number(
+      data.nonFreelancerPrice
+    );
+    platfoem.pricing.platformCommissionPercentageForNonFreelancersActive =
+      Boolean(data.nonFreelancerIsActive);
     await platfoem.save();
 
     return res.status(200).json({ message: "Details updated" });
   } catch (err) {
     console.log("Error updating plateform commisionn: ", err);
-    return res.status(500).json({ message: "Server Errrr" });
+    return res
+      .status(500)
+      .json({ message: "Error updating data", err: err.message });
   }
 };
 
@@ -71,6 +76,11 @@ const getPlateformCommission = async (req, res) => {
       description: "Commision Percentage Per Oder",
       price: commision.pricing.platformCommissionPercentage,
       isActive: commision.pricing.platformCommissionPercentageActive,
+      nonFreelancerPrice:
+        commision.pricing.platformCommissionPercentageForNonFreelancers || 0,
+      nonFreelancerisActive:
+        commision.pricing.platformCommissionPercentageForNonFreelancersActive ||
+        false,
       mode: "plateform",
     };
 

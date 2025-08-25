@@ -163,7 +163,7 @@ const signUp = async (req, res) => {
     if (existing && existing.emailVerified === true) {
       return res
         .status(409)
-        .json({ message: "Email already registered as " + role });
+        .json({ message: "Email already registered" });
     }
 
     // new verification token;

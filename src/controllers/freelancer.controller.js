@@ -57,9 +57,8 @@ const creatFreelancerProfile = async (req, res) => {
     if (data.profilePictureUrl) {
       freelancer.profilePictureUrl = data.profilePictureUrl;
     }
-    if (!data.loaction) {
-      freelancer.profile.loaction = "Remote";
-    }
+
+    freelancer.profile.loaction = data.location || "Remote";
 
     await freelancer.save();
 

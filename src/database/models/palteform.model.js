@@ -12,16 +12,6 @@ const advertisementSchema = new Schema(
   { _id: false }
 );
 
-// Testimonial Sub-schema
-// const testimonialSchema = new Schema(
-//   {
-//     name: { type: String, required: true },
-//     testimonial: { type: String, required: true },
-//     imageUrl: { type: String },
-//     active: { type: Boolean, default: true },
-//   },
-//   { _id: false }
-// );
 
 // Main Settings Schema
 const platformSettingsSchema = new Schema(
@@ -36,6 +26,8 @@ const platformSettingsSchema = new Schema(
       serviceFeePercentage: { type: Number, default: 0 },
       platformCommissionPercentage: { type: Number, default: 0 },
       platformCommissionPercentageActive: { type: Boolean, default: true },
+      platformCommissionPercentageForNonFreelancers: { type: Number, default: 0 },
+      platformCommissionPercentageForNonFreelancersActive: { type: Boolean, default: true },
     },
 
     homePageAd: advertisementSchema,

@@ -1034,11 +1034,11 @@ const cancelStripeSubscription = async (subId) => {
 };
 
 const createRefund = async (intentId) => {
-  // const paymentIntent = await stripe.paymentIntents.retrieve(intentId);
-  // console.log("intent for refund: ", paymentIntent)
-  // const chargeId = paymentIntent.charges.data[0].id;
+  const paymentIntent = await stripe.paymentIntents.retrieve(intentId);
+  const { totalAmount } = paymentIntent.metadata;
   const refund = await stripe.refunds.create({
     payment_intent: intentId,
+    amount: totalAmount * 100,
   });
   return refund;
 };
