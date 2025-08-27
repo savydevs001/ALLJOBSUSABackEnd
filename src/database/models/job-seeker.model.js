@@ -108,6 +108,9 @@ const jobSeekerSchema = mongoose.Schema(
     emailVerified: { type: Boolean, default: false },
     emailVerifyCode: String,
     emailVerifyTokenExpiry: Date,
+
+    // order
+    ordersCompleted: { type: Number, default: 0 },
   },
   {
     timestamps: true,

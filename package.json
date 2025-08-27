@@ -7,7 +7,7 @@
     "dev": "concurrently \"nodemon index.js --watch\" \"nodemon src/workers/email-worker.js --watch\"",
     "devapp": "nodemon index.js",
     "devworker": "nodemon src/workers/email-worker.js",
-    "start": "concurrently \"node index.js\" \"node src/workers/email-worker.js\"",
+    "start": "npx puppeteer browsers install chrome && concurrently \"node index.js\" \"node src/workers/email-worker.js\"",
     "build": "echo \"No build step needed\""
   },
   "author": "",
@@ -26,7 +26,7 @@
     "multer": "^2.0.1",
     "node-cron": "^4.2.1",
     "nodemailer": "^7.0.5",
-    "puppeteer": "^24.15.0",
+    "puppeteer": "^24.17.0",
     "qrcode": "^1.5.4",
     "socket.io": "^4.8.1",
     "speakeasy": "^2.0.0",

@@ -400,7 +400,9 @@ const markOrderAsComplete = async (req, res) => {
       return abortSessionWithMessage(res, mongooseSession, "Invalid order ID");
     }
 
-    const order = await Order.findOne({ _id: orderId, employerId });
+    const order = await Order.findOne({ _id: orderId, employerId }).populate(
+      "employerId"
+    );
 
     if (!order)
       return abortSessionWithMessage(
@@ -476,9 +478,9 @@ const markOrderAsComplete = async (req, res) => {
     // await transaction.save({ session: mongooseSession });
 
     // increment total orders for employer
-    const employer = await EMPLOYER.findById(order.employerId);
+    const employer = order.employerId;
     if (employer) {
-      employer.ordersCompleted = employer.ordersCompleted + 1;
+      employer.ordersCompleted = (employer.ordersCompleted || 0) + 1;
       await employer.save({ session: mongooseSession });
     }
 
