@@ -41,7 +41,7 @@ ContactRouter.post("/", async (req, res) => {
       return;
     }
 
-    enqueueEmail(
+    await enqueueEmail(
       SUPPORT_EMAIL,
       subject,
       `<!DOCTYPE html>

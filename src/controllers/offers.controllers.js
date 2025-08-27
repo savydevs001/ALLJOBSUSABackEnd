@@ -667,7 +667,7 @@ const getOfferById = async (req, res) => {
           <p>Regards,<br/>Freelancing Platform Team</p>
         </div>
       `;
-      enqueueEmail(
+      await enqueueEmail(
         offer.senderId.email,
         "Your Offer Has Been Reviewed",
         emailHtml

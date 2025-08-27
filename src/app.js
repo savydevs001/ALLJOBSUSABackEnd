@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import path from "path";
 import fs from "fs";
+dotenv.config();
 
 // utils
 import errorHandlerMiddleware from "./middlewares/errorHandler.middleware.js";
@@ -35,11 +36,11 @@ import ChatBotRouter from "./routes/chatbot.routes.js";
 import TrendinJobRouter from "./routes/trending-job-route.js";
 import ReportRouter from "./routes/report.routes.js";
 import MeetingRouter from "./routes/meeting.routes.js";
+import CareerJobRouter from "./routes/career-job.routes.js";
+import ProductReleaseRouter from "./routes/product-releases.routes.js";
 
 // stripe
 import { stripeWebhook } from "./services/stripe.service.js";
-
-dotenv.config();
 
 const FRONTEND_URL = process.env.FRONTEND_URL;
 const BACKEND_URL = process.env.BACKEND_URL;
@@ -89,6 +90,8 @@ apiRouter.use("/legal", LegalContentRouter);
 apiRouter.use("/contact", ContactRouter);
 apiRouter.use("/chatbot", ChatBotRouter);
 apiRouter.use("/meetings", MeetingRouter);
+apiRouter.use("/careers", CareerJobRouter);
+apiRouter.use("/product-releases", ProductReleaseRouter);
 
 // admin routes
 apiRouter.use("/manager", ManagerRouter);

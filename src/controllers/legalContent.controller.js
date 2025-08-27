@@ -1,4 +1,8 @@
 import LEGAL_CONTENT from "../database/models/legalContent.model.js";
+import {
+  sendPolicyUpdatedToMails,
+  sendTermsUpdatedToMails,
+} from "../services/emailSender.js";
 
 let lagalContent = {
   privacy: undefined,
@@ -86,6 +90,7 @@ const updateContent = async (req, res) => {
   try {
     const { type } = req.params;
     const { content } = req.body;
+    const notify = Boolean(req.query.notify);
 
     if (!["privacy", "terms", "transparency"].includes(type)) {
       return res.status(400).json({ message: "Invalid Type" });
@@ -97,12 +102,22 @@ const updateContent = async (req, res) => {
       { new: true, upsert: true } // create if not exists
     );
 
+
+    console.log("query: ", req.query)
+    console.log("notify: ", notify)
+
     switch (type) {
       case "privacy":
         lagalContent.privacy = undefined;
+        if (notify == true) {
+          await sendPolicyUpdatedToMails();
+        }
         break;
       case "terms":
         lagalContent.terms = undefined;
+        if (notify == true) {
+          await sendTermsUpdatedToMails();
+        }
         break;
       case "transparency":
         lagalContent.transparency = undefined;

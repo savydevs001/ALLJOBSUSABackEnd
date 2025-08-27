@@ -26,7 +26,7 @@ const notifyUser = async (
     }
 
     sendNewNotification(userId.toString(), notification._id.toString());
-    enqueueEmail(
+    await enqueueEmail(
       userMail,
       title,
       getNotificationTemplate({

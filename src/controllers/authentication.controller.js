@@ -190,7 +190,7 @@ const signUp = async (req, res) => {
       existing.emailVerifyCode = verificationCode;
       existing.emailVerifyTokenExpiry = new Date(expireTime);
 
-      enqueueEmail(
+      await enqueueEmail(
         existing.email,
         "Email verification for ALLJOBSUSA",
         getVerificationTemplate({
@@ -224,7 +224,7 @@ const signUp = async (req, res) => {
       user.emailVerifyCode = verificationCode;
       user.emailVerifyTokenExpiry = new Date(expireTime);
 
-      enqueueEmail(
+      await enqueueEmail(
         user.email,
         "Email verification for ALLJOBSUSA",
         getVerificationTemplate({
@@ -336,7 +336,7 @@ const signIn = async (req, res) => {
       user.emailVerifyCode = verificationCode;
       user.emailVerifyTokenExpiry = new Date(expireTime);
 
-      enqueueEmail(
+      await enqueueEmail(
         user.email,
         "Email verification for ALLJOBSUSA",
         getVerificationTemplate({
@@ -438,7 +438,7 @@ const forgotPassword = async (req, res) => {
     await user.save();
 
     const resetLink = `${process.env.FRONTEND_URL}/reset-password/${token}?role=${parsed.role}&email=${user.email}`;
-    enqueueEmail(
+    await enqueueEmail(
       user.email,
       "Reset Your Password",
       `<p>Click below to reset your password:</p>
