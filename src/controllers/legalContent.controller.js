@@ -90,7 +90,7 @@ const updateContent = async (req, res) => {
   try {
     const { type } = req.params;
     const { content } = req.body;
-    const notify = Boolean(req.query.notify);
+    const notify = req.query.notify?.toString() == "true" ? true : false;
 
     if (!["privacy", "terms", "transparency"].includes(type)) {
       return res.status(400).json({ message: "Invalid Type" });
@@ -102,9 +102,8 @@ const updateContent = async (req, res) => {
       { new: true, upsert: true } // create if not exists
     );
 
-
-    console.log("query: ", req.query)
-    console.log("notify: ", notify)
+    console.log("query: ", req.query);
+    console.log("notify: ", notify);
 
     switch (type) {
       case "privacy":
