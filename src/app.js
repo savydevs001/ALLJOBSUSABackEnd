@@ -38,6 +38,7 @@ import ReportRouter from "./routes/report.routes.js";
 import MeetingRouter from "./routes/meeting.routes.js";
 import CareerJobRouter from "./routes/career-job.routes.js";
 import ProductReleaseRouter from "./routes/product-releases.routes.js";
+import EventRouter from "./routes/events.routes.js";
 
 // stripe
 import { stripeWebhook } from "./services/stripe.service.js";
@@ -92,6 +93,7 @@ apiRouter.use("/chatbot", ChatBotRouter);
 apiRouter.use("/meetings", MeetingRouter);
 apiRouter.use("/careers", CareerJobRouter);
 apiRouter.use("/product-releases", ProductReleaseRouter);
+apiRouter.use("/events", EventRouter);
 
 // admin routes
 apiRouter.use("/manager", ManagerRouter);

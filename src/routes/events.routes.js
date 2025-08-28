@@ -3,37 +3,37 @@ import a from "../utils/a.js";
 import verifyTokenMiddleware from "../middlewares/verifyToken.middleware.js";
 import roleBasedAuthMiddleware from "../middlewares/roleBasedAuth.middleware.js";
 import {
-  createRelase,
-  deleteRelease,
-  editRelease,
-  getAllReleases,
-  getReleaseById,
-} from "../controllers/product-release.controller.js";
+  createEvent,
+  deleteEvent,
+  editEvent,
+  getAllEvents,
+  getEventById,
+} from "../controllers/events.controller.js";
 
-const ProductReleaseRouter = Router();
+const EventRouter = Router();
 
-ProductReleaseRouter.get("/all", a(getAllReleases));
-ProductReleaseRouter.get("/:id", a(getReleaseById));
+EventRouter.get("/all", a(getAllEvents));
+EventRouter.get("/:id", a(getEventById));
 
-ProductReleaseRouter.post(
+EventRouter.post(
   "/",
   verifyTokenMiddleware(),
   roleBasedAuthMiddleware(["admin", "manager"]),
-  a(createRelase)
+  a(createEvent)
 );
 
-ProductReleaseRouter.put(
+EventRouter.put(
   "/:id",
   verifyTokenMiddleware(),
   roleBasedAuthMiddleware(["admin", "manager"]),
-  a(editRelease)
+  a(editEvent)
 );
 
-ProductReleaseRouter.delete(
+EventRouter.delete(
   "/:id",
   verifyTokenMiddleware(),
   roleBasedAuthMiddleware(["admin", "manager"]),
-  a(deleteRelease)
+  a(deleteEvent)
 );
 
-export default ProductReleaseRouter;
+export default EventRouter;

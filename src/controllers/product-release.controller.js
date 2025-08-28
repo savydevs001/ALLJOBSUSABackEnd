@@ -1,6 +1,4 @@
 import { z } from "zod";
-import CareerJob from "../database/models/career-job.model.js";
-
 import mongoose from "mongoose";
 import PRODUCT_RELEASE from "../database/models/relases-notes.js";
 
@@ -9,6 +7,7 @@ const createReleaseZodSchema = z.object({
   description: z.string(),
   category: z.string(),
   product: z.array(z.string()).optional(),
+  bannerUrl: z.string().optional()
 });
 
 const createRelase = async (req, res) => {
@@ -41,10 +40,37 @@ const getAllReleases = async (req, res) => {
       category: e.category,
       product: e.product,
       createdAt: e.createdAt,
+      bannerUrl: e.bannerUrl || null
     }));
     return res.status(200).json({ releases: tranformed });
   } catch (err) {
     console.log("Error getting releases: ", err);
+    return res
+      .status(500)
+      .json({ message: "Error getting release", err: err.message });
+  }
+};
+
+// get by id
+const getReleaseById = async (req, res) => {
+  try {
+    const id = req.params.id;
+    if(!id || !mongoose.Types.ObjectId.isValid(id)){
+      return res.status(400).json({message: "Invalid id"})
+    }
+    const e = await PRODUCT_RELEASE.findById(id)
+    const tranformed = {
+      _id: e._id.toString(),
+      title: e.title,
+      description: e.description,
+      category: e.category,
+      product: e.product,
+      createdAt: e.createdAt,
+      bannerUrl: e.bannerUrl || null
+    }
+    return res.status(200).json({ release: tranformed });
+  } catch (err) {
+    console.log("Error getting release: ", err);
     return res
       .status(500)
       .json({ message: "Error getting release", err: err.message });
@@ -68,6 +94,7 @@ const editRelease = async (req, res) => {
     release.description = parsed.description;
     release.category = parsed.category;
     release.product = parsed.product;
+    release.bannerUrl = parsed.bannerUrl
     await release.save();
 
     return res.status(200).json({
@@ -106,4 +133,4 @@ const deleteRelease = async (req, res) => {
   }
 };
 
-export { createRelase, getAllReleases, editRelease, deleteRelease };
+export { createRelase, getAllReleases, editRelease, deleteRelease, getReleaseById };

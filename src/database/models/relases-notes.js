@@ -7,6 +7,7 @@ const relaseSchema = new Schema(
     description: { type: String, required: true },
     category: { type: String, required: true },
     product: { type: [String], required: true, default: [] },
+    bannerUrl: String,
   },
   {
     timestamps: true,

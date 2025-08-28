@@ -50,7 +50,7 @@ const worker = new Worker(
         buttonText: "View Policy",
         buttonUrl: FRONTEND_URL + "/policy",
         message:
-          "Our Policy had been updated, Please read our new Policy in order to keep yourself updated of what we are heading to",
+          "Our Policy had been updated, Please read our new Policy in oder to keep yourself updated of what we are heading to",
       });
 
       // loop throgh each collection
@@ -103,7 +103,61 @@ const worker = new Worker(
         buttonText: "View Terms",
         buttonUrl: FRONTEND_URL + "/policy?section=terms",
         message:
-          "Our Terms had been updated, Please read our new terms in order to keep yourself updated of what we are heading to and avoid any disturbance",
+          "Our Terms had been updated, Please read our new terms in oder to keep yourself updated of what we are heading to and avoid any disturbance",
+      });
+
+      // loop throgh each collection
+      for (const collection of userCollections) {
+        console.log(
+          `--- Starting to process collection for terms updates: ${
+            collection.modelName || "Unknown"
+          } ---`
+        );
+        const batchSize = 500;
+        let cursor = 0;
+        let users;
+
+        do {
+          users = await collection
+            .find({})
+            .select({ email: 1 })
+            .sort({ createdAt: 1 })
+            .skip(cursor)
+            .limit(batchSize);
+          for (const user of users) {
+            try {
+              const mailOptions = {
+                from: `"ALLJOBUSA" <${EMAIL_CLIENT}>`,
+                to: user.email,
+                subject: "Terms Updated",
+                html: policyUpdateEmailTemplate,
+              };
+              await transporter.sendMail(mailOptions);
+              totalEmailsSent += 1;
+            } catch (err) {
+              console.error(`Failed to send email to ${user.email}`, err);
+            }
+            await delayFunction(0.1);
+          }
+          cursor += batchSize;
+        } while (users.length == batchSize);
+      }
+
+      console.log("Terms Update Emails sent: ", totalEmailsSent);
+    }
+
+
+    // on change of rules
+    if (job.name === "send-terms-update") {
+      const userCollections = [JOBSEEKER, EMPLOYER, FREELANCER];
+
+      let totalEmailsSent = 0;
+      const policyUpdateEmailTemplate = getTermsUpdateTemplate({
+        title: "Rules Updated",
+        buttonText: "View Rules",
+        buttonUrl: FRONTEND_URL + "/policy?section=rules",
+        message:
+          "Our Rules had been updated, Please read our new new in oder to keep yourself updated of what we are heading to and avoid any disturbance",
       });
 
       // loop throgh each collection
@@ -150,7 +204,6 @@ const worker = new Worker(
     // simple mails
     if (job.name == "simple-mail") {
       const data = job.data;
-      console.log("data: ", data);
       const mailOptions = {
         from: `"ALLJOBUSA" <${EMAIL_CLIENT}>`,
         to: data.to,

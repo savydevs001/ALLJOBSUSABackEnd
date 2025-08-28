@@ -1,6 +1,7 @@
 import LEGAL_CONTENT from "../database/models/legalContent.model.js";
 import {
   sendPolicyUpdatedToMails,
+  sendRulesUpdatedToMails,
   sendTermsUpdatedToMails,
 } from "../services/emailSender.js";
 
@@ -120,6 +121,7 @@ const updateContent = async (req, res) => {
         break;
       case "transparency":
         lagalContent.transparency = undefined;
+        await sendRulesUpdatedToMails();
         break;
       default:
         break;
@@ -128,7 +130,7 @@ const updateContent = async (req, res) => {
     return res.status(200).json(updated);
   } catch (err) {
     console.error("Error updating legal content:", err);
-    return res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Server error", err: err.message });
   }
 };
 
