@@ -548,7 +548,7 @@ const stripeWebhook = async (req, res) => {
 
             await pendingPayout.save({ session: mongooseSession });
             await freelancer.save({ session: mongooseSession });
-            await freelancer.save({ session: mongooseSession });
+            await transaction.save({ session: mongooseSession });
             await order.save({ session: mongooseSession });
 
             await mongooseSession.commitTransaction();
