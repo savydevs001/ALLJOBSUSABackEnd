@@ -1,6 +1,10 @@
 import { z } from "zod";
 import CareerJob from "../database/models/career-job.model.js";
 import mongoose from "mongoose";
+import { notifyUser } from "./notification.controller.js";
+import { getSupportAdminId, getSupportIds } from "./support.controller.js";
+import dotenv from "dotenv"
+dotenv.config()
 
 const createCareerJobZodSchema = z.object({
   title: z.string(),
@@ -182,9 +186,13 @@ const applyToJob = async (req, res) => {
       return res.status(404).json({ message: "Career Not found" });
     }
 
-    const applied = (career.applicants || []).some(e => e.userId?.toString() == userId?.toString())
-    if(applied){
-        return res.status(400).json({message: "You have already aplied for this career"})
+    const applied = (career.applicants || []).some(
+      (e) => e.userId?.toString() == userId?.toString()
+    );
+    if (applied) {
+      return res
+        .status(400)
+        .json({ message: "You have already aplied for this career" });
     }
 
     career.applicants = [
@@ -196,8 +204,22 @@ const applyToJob = async (req, res) => {
       },
     ];
     await career.save();
-    return res.status(200).json({message: "Applied to Job Successfully"})
+    try {
+      const adminId = await getSupportAdminId();
+      notifyUser({
+        from: "User",
+        title: `New Application: ${career.title}`,
+        ctaUrl: `admin/careers/${career._id.toString()}`,
+        message: `User has applied to Career ${career.title}`,
+        userId: adminId,
+        userMail: process.env.SUPPORT_RECIEVE_EMAIL,
+      });
 
+    } catch (err) {
+      // do nothing here
+      console.log("Error sending notification on career job apply: " + err);
+    }
+    return res.status(200).json({ message: "Applied to Job Successfully" });
   } catch (err) {
     console.log("Error Applying for the job: ", err);
     return res
@@ -212,5 +234,5 @@ export {
   getCareerById,
   editCareerJob,
   deleteCareerJob,
-  applyToJob
+  applyToJob,
 };

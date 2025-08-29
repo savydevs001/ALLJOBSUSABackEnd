@@ -32,6 +32,11 @@ const testimonialSchema = new Schema(
       required: true,
       trim: true,
     },
+    createdBy: {
+      type: Types.ObjectId,
+      refPath: "role",
+      required: false,
+    },
   },
   {
     timestamps: true, // Adds createdAt and updatedAt

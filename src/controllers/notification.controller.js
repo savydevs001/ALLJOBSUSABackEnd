@@ -4,8 +4,6 @@ import { sendNewNotification } from "../socket/init-socket.js";
 import enqueueEmail from "../services/emailSender.js";
 import { getNotificationTemplate } from "../utils/email-templates.js";
 
-
-
 const notifyUser = async (
   { userId, userMail, title, message, from, ctaUrl },
   mongooseSession = null
@@ -26,15 +24,17 @@ const notifyUser = async (
     }
 
     sendNewNotification(userId.toString(), notification._id.toString());
-    await enqueueEmail(
-      userMail,
-      title,
-      getNotificationTemplate({
-        title: title,
-        message: message,
-        ctaUrl: ctaUrl,
-      })
-    );
+    if (userMail) {
+      await enqueueEmail(
+        userMail,
+        title,
+        getNotificationTemplate({
+          title: title,
+          message: message,
+          ctaUrl: ctaUrl,
+        })
+      );
+    }
   } catch (error) {
     console.error("❌ Failed to create notification:", error.message);
   }
@@ -108,7 +108,7 @@ const getNotificationById = async (req, res) => {
       message: notification.message,
       createdAt: notification.createdAt,
       read: notification.read,
-      ctaUrl: notification.ctaUrl
+      ctaUrl: notification.ctaUrl,
     };
 
     res.status(200).json({

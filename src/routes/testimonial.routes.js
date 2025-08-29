@@ -8,6 +8,7 @@ import {
   getAllTestimonials,
   getTestimonialById,
   updateTestimonial,
+  userCreateTestimonial,
 } from "../controllers/testimonial.controller.js";
 
 const TestimonialRouter = new Router();
@@ -21,6 +22,13 @@ TestimonialRouter.post(
   verifyTokenMiddleware(),
   roleBasedAuthMiddleware(["admin", "manager"]),
   a(createTestimonial)
+);
+
+TestimonialRouter.post(
+  "/user-posting",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["employer", "job-seeker", "freelancer"]),
+  a(userCreateTestimonial)
 );
 
 TestimonialRouter.put(
