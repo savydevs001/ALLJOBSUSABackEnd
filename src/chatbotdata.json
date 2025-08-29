@@ -110,7 +110,7 @@
     ]
   },
   {
-    "question": "find me jobs, show me jobs, I need a job, search jobs, job listings, available jobs",
+    "question": "find me jobs, show me jobs, I need a job, search jobs, job listings, available jobs, job, jobs",
     "answer": [
       "You can explore the latest job listings on ALLJOBSUSA.",
       "Sure! Check the job search section for available opportunities.",
@@ -118,7 +118,15 @@
     ]
   },
   {
-    "question": "I want to hire, hire freelancers, find freelancers, post a job, need to hire someone",
+    "question": "how to apply, tell me how to apply, I need a job, apply, applications",
+    "answer": [
+      "You can explore the latest job listings on ALLJOBSUSA.",
+      "Sure! go to jobs page and click on view job to apply",
+      "Click on Apply button on job page to apply"
+    ]
+  },
+  {
+    "question": "I want to hire, hire freelancers, find freelancers, post a job, need to hire someone, hire",
     "answer": [
       "You can post a job on ALLJOBSUSA to connect with freelancers.",
       "Our platform helps you quickly find skilled freelancers for your project.",

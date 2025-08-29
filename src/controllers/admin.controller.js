@@ -516,12 +516,15 @@ const getJobsStats = async (req, res) => {
 // get jobs
 const getJobs = async (req, res) => {
   try {
-    const { status, text, skip = 0, limit = 10 } = req.query;
+    const { status, text, skip = 0, limit = 10, job } = req.query;
 
     // Build base match query
     const matchStage = {};
     if (status && status !== "") {
       matchStage.status = status;
+    }
+    if (job) {
+      matchStage.job = job;
     }
 
     // Initial pipeline

@@ -20,6 +20,7 @@ connectToDatabase();
 
 // redis connection
 const redisConnection = new IORedis({ maxRetriesPerRequest: null });
+const batchSize = 500;
 
 // nodemailer tranporter
 const transporter = nodemailer.createTransport({
@@ -60,7 +61,7 @@ const worker = new Worker(
             collection.modelName || "Unknown"
           } ---`
         );
-        const batchSize = 500;
+        
         let cursor = 0;
         let users;
 
@@ -113,7 +114,6 @@ const worker = new Worker(
             collection.modelName || "Unknown"
           } ---`
         );
-        const batchSize = 500;
         let cursor = 0;
         let users;
 
@@ -167,7 +167,6 @@ const worker = new Worker(
             collection.modelName || "Unknown"
           } ---`
         );
-        const batchSize = 500;
         let cursor = 0;
         let users;
 
@@ -183,7 +182,7 @@ const worker = new Worker(
               const mailOptions = {
                 from: `"ALLJOBUSA" <${EMAIL_CLIENT}>`,
                 to: user.email,
-                subject: "Terms Updated",
+                subject: "Rules Updated",
                 html: policyUpdateEmailTemplate,
               };
               await transporter.sendMail(mailOptions);
