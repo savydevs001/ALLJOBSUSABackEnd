@@ -932,7 +932,7 @@ const createFreelancerPayout = async (req, res) => {
       userMail: user.email,
       ctaUrl: "freelancer/earnings",
       title: "Payment Transfer",
-      message: `You payment of ${amount} will reach you account in 1-2 working days`,
+      message: `You payment of $${amount} will reach you account in 1-2 working days`,
       from: "ALLJOBSUSA",
     });
 

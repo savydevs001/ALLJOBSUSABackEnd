@@ -283,7 +283,7 @@ const getTermsUpdateTemplate = ({ title, message, buttonText, buttonUrl }) => {
     h1 { margin:0 0 12px; font-size:20px; color:#002f6c; }
     p { margin:0 0 14px; font-size:15px; color:#334155; }
 
-    .btn { display:inline-block; padding:12px 24px; background:#1a4b78; border-radius:6px; color:#ffffff; font-weight:600; font-size:15px; margin:20px 0; }
+    .btn { display:inline-block; padding:12px 24px; background:#1a4b78 !important; border-radius:6px; color:#FFFFFF !important; font-weight:600; font-size:15px; margin:20px 0; }
     .btn:hover { background:#163b5f; }
 
     .small { font-size:13px; color:#6b7280; }
@@ -363,6 +363,8 @@ const getTermsUpdateTemplate = ({ title, message, buttonText, buttonUrl }) => {
 </body>
 </html>`;
 };
+
+
 
 
 export { getNotificationTemplate, getVerificationTemplate , getTermsUpdateTemplate};

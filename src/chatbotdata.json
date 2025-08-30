@@ -1,7 +1,7 @@
 [
   {
-    "question": "hi, hello, hey, hi there, hello there, good morning, good afternoon, good evening, morning, afternoon, evening, greetings, good day, howdy, hiya, yo, wassup, sup, what's up, what's good, how's it going, how are you, how are you doing, salaam, hola, bonjour, ciao, namaste, ok, hehe",
-    "answer": [
+    "questions": ["hi", "hello", "please", "hey", "hi there", "hello there", "good morning", "good afternoon", "good evening", "morning", "afternoon", "evening", "greetings", "good day", "howdy", "hiya", "yo", "wassup", "sup", "what's up", "what's good", "how's it going", "how are you", "how are you doing", "salaam", "hola", "bonjour", "ciao", "namaste", "ok", "hehe"],
+    "answers": [
       "Hello! How can I help you today?",
       "Hi there! What can I do for you?",
       "Hey! I'm here to assist you.",
@@ -10,8 +10,8 @@
     ]
   },
   {
-    "question": "thank you, thanks, thanks a lot, thank you so much, thanks buddy, thx, appreciate it, cheers, thanks man, thanks friend",
-    "answer": [
+    "questions": ["thank you", "thanks", "thanks a lot", "thank you so much", "thanks buddy", "thx", "appreciate it", "cheers", "thanks man", "thanks friend"],
+    "answers": [
       "You're very welcome!",
       "No problem at all!",
       "Glad I could help!",
@@ -20,8 +20,8 @@
     ]
   },
   {
-    "question": "bye, goodbye, see you, see you later, catch you later, cya, take care, farewell, peace out, talk to you later, later",
-    "answer": [
+    "questions": ["bye", "goodbye", "see you", "see you later", "catch you later", "cya", "take care", "farewell", "peace out", "talk to you later", "later"],
+    "answers": [
       "Goodbye! Have a great day!",
       "See you soon!",
       "Take care and talk to you later.",
@@ -30,8 +30,8 @@
     ]
   },
   {
-    "question": "who are you, what are you, what is your name, who am I talking to, are you a bot, are you human",
-    "answer": [
+    "questions": ["who are you", "what are you", "what is your name", "who am i talking to", "are you a bot", "are you human"],
+    "answers": [
       "I’m an AI assistant designed to help you.",
       "I’m your virtual assistant here to support you.",
       "You’re chatting with an AI, but I’m here to make things easy for you.",
@@ -39,8 +39,8 @@
     ]
   },
   {
-    "question": "how do you work, what do you do, how can you help me, what can you do, what is your purpose",
-    "answer": [
+    "questions": ["how do you work", "what do you do", "how can you help me", "what can you do", "what is your purpose"],
+    "answers": [
       "I can answer your questions, guide you, and provide useful information.",
       "I’m built to assist with a variety of tasks and queries.",
       "I help by giving quick, reliable answers and support.",
@@ -48,8 +48,8 @@
     ]
   },
   {
-    "question": "how are you, how's it going, how are you doing, what's up, how you feeling",
-    "answer": [
+    "questions": ["how are you", "how's it going", "how are you doing", "what's up", "how you feeling"],
+    "answers": [
       "I’m doing great, thanks for asking! How about you?",
       "I’m always ready to help! How are you doing?",
       "I’m doing well, thank you. How’s your day?",
@@ -57,18 +57,12 @@
     ]
   },
   {
-    "question": "yes, yeah, yup, sure, absolutely, of course, right, correct, definitely, agreed",
-    "answer": [
-      "Great!",
-      "Perfect!",
-      "Awesome, let’s continue.",
-      "Got it, thanks!",
-      "Sounds good!"
-    ]
+    "questions": ["yes", "yeah", "yup", "sure", "absolutely", "of course", "right", "correct", "definitely", "agreed"],
+    "answers": ["Great!", "Perfect!", "Awesome, let’s continue.", "Got it, thanks!", "Sounds good!"]
   },
   {
-    "question": "no, nope, nah, not really, don’t think so, never mind, cancel, not now, not at all",
-    "answer": [
+    "questions": ["no", "nope", "nah", "not really", "don’t think so", "never mind", "cancel", "not now", "not at all"],
+    "answers": [
       "Okay, no worries!",
       "Got it, I’ll hold off.",
       "No problem, thanks for letting me know.",
@@ -77,24 +71,24 @@
     ]
   },
   {
-    "question": "what time is it, tell me the time, current time, clock, time please",
-    "answer": [
+    "questions": ["what time is it", "tell me the time", "current time", "clock", "time please"],
+    "answers": [
       "I can’t check the exact time right now, but you can look at your device’s clock.",
       "Your device should have the most accurate time for your location.",
       "Please check your system clock for the exact time."
     ]
   },
   {
-    "question": "where are you from, where do you live, do you have a location",
-    "answer": [
+    "questions": ["where are you from", "where do you live", "do you have a location"],
+    "answers": [
       "I don’t have a physical location, I exist online.",
       "I live in the digital space, here to assist you anywhere.",
       "I don’t belong to one place—I’m available wherever you are."
     ]
   },
   {
-    "question": "help, can you help me, I need help, assist me, please help, need assistance",
-    "answer": [
+    "questions": ["help", "can you help me", "i need help", "assist me", "please help", "need assistance"],
+    "answers": [
       "Of course! What do you need help with?",
       "I’m here to assist you. Please tell me what you need.",
       "Sure! How can I support you today?",
@@ -102,181 +96,209 @@
     ]
   },
   {
-    "question": "tell me about alljobsusa, what is alljobsusa, explain alljobsusa, what do you know about alljobsusa",
-    "answer": [
+    "questions": ["tell me about alljobsusa", "what is alljobsusa", "tell about alljobsusa", "explain alljobsusa", "what do you know about alljobsusa"],
+    "answers": [
       "ALLJOBSUSA is a platform connecting job seekers, freelancers, and employers in the USA.",
       "It’s a trusted online job and freelance marketplace for American workers and businesses.",
       "ALLJOBSUSA helps employers hire talent and freelancers find new opportunities."
     ]
   },
   {
-    "question": "find me jobs, show me jobs, I need a job, search jobs, job listings, available jobs, job, jobs",
-    "answer": [
+    "questions": ["find me jobs", "show me jobs", "i need a job", "search jobs", "job listings", "available jobs", "job", "jobs"],
+    "answers": [
       "You can explore the latest job listings on ALLJOBSUSA.",
       "Sure! Check the job search section for available opportunities.",
-      "I can guide you to where you can find open positions."
+      "Check Jobs on browse jobs page."
     ]
   },
   {
-    "question": "how to apply, tell me how to apply, I need a job, apply, applications",
-    "answer": [
-      "You can explore the latest job listings on ALLJOBSUSA.",
-      "Sure! go to jobs page and click on view job to apply",
-      "Click on Apply button on job page to apply"
+    "questions": ["how to apply", "tell me how to apply", "apply", "applications"],
+    "answers": [
+      "Select a job and click the Apply button.",
+      "Sure! Go to jobs page and click on view job to apply.",
+      "Click on Apply button on job page to apply."
     ]
   },
   {
-    "question": "I want to hire, hire freelancers, find freelancers, post a job, need to hire someone, hire",
-    "answer": [
+    "questions": ["i want to hire", "hire freelancers", "find freelancers", "post a job", "need to hire someone", "hire"],
+    "answers": [
       "You can post a job on ALLJOBSUSA to connect with freelancers.",
       "Our platform helps you quickly find skilled freelancers for your project.",
       "Posting jobs is easy—just share the details and freelancers will apply."
     ]
   },
   {
-    "question": "remote jobs, work from home, online jobs, freelance online jobs, digital jobs",
-    "answer": [
+    "questions": ["how to post professional job", "post a professional job"],
+    "answers": ["As an Employer you can post a professional job from dashboard."]
+  },
+  {
+    "questions": ["how to post freelance job", "post a freelance job"],
+    "answers": ["As an Employer you can post a freelance job from dashboard."]
+  },
+  {
+    "questions": ["what is professional job", "tell me about professional job", "professional job"],
+    "answers": [
+      "A Professional Job is like a regular job where a company is looking for talents to hire them.",
+      "In a Professional Job, a person applies and the company receives their application and can contact them."
+    ]
+  },
+  {
+    "questions": ["what is freelance job", "tell me about freelance job", "freelance job"],
+    "answers": [
+      "A Freelance Job is a job where a company is looking for online talents to do work for them. Only freelancers can apply.",
+      "In a Freelance Job, a freelancer applies to a job and then the company will contact them."
+    ]
+  },
+  {
+    "questions": ["what is proposal", "tell me about proposal"],
+    "answers": [
+      "A Proposal is for freelance jobs only, where a freelancer creates a proposal for an employer.",
+      "A Proposal is a kind of document in which a freelancer specifies the time and amount to do the work."
+    ]
+  },
+  {
+    "questions": ["remote jobs", "work from home", "online jobs", "freelance online jobs", "digital jobs"],
+    "answers": [
       "Yes! ALLJOBSUSA has remote and work-from-home opportunities.",
       "You can browse remote jobs posted by employers.",
       "Freelancers can also offer remote services to clients."
     ]
   },
   {
-    "question": "how to sign up, sign up, login register, create account, join, make account",
-    "answer": [
+    "questions": ["how to sign up", "sign up", "login register", "create account", "join", "make account"],
+    "answers": [
       "You can sign up directly on ALLJOBSUSA by providing your details.",
       "Just click the signup button and follow the instructions.",
       "Creating an account takes only a few minutes!"
     ]
   },
   {
-    "question": "can I sign up with google, sign up with facebook, social login, oauth signup, signup methods",
-    "answer": [
+    "questions": ["can i sign up with google", "sign up with facebook", "social login", "oauth signup", "signup methods"],
+    "answers": [
       "Yes! You can sign up using Google or create a new account with your email.",
       "Currently, we support email-based signup and Google login.",
       "Choose whichever method works best for you—social login or email."
     ]
   },
   {
-    "question": "do I need an email to sign up, can I use phone number to register",
-    "answer": [
+    "questions": ["do i need an email to sign up", "can i use phone number to register"],
+    "answers": [
       "Yes, you’ll need a valid email address to sign up.",
       "Currently, registration requires an email account.",
       "Phone-based signup is not supported yet, but email works instantly."
     ]
   },
   {
-    "question": "do I need to verify my email, verification email, account verification",
-    "answer": [
+    "questions": ["do i need to verify my email", "verification email", "account verification"],
+    "answers": [
       "Yes, after signing up you’ll receive a verification email.",
       "Please check your inbox and confirm your email to activate your account.",
       "Verification ensures your account is secure and trusted."
     ]
   },
   {
-    "question": "how to login, sign in, access my account, log me in",
-    "answer": [
+    "questions": ["how to login", "sign in", "access my account", "log me in"],
+    "answers": [
       "Click on the login button and enter your credentials.",
       "You can log in with your registered email and password.",
       "Use the sign-in option to access your account."
     ]
   },
   {
-    "question": "can I login with google, social login, login methods",
-    "answer": [
+    "questions": ["can i login with google", "social login", "login methods"],
+    "answers": [
       "Yes, you can log in with Google or your registered email.",
       "Choose Google login or use your email and password.",
       "We provide multiple login options for convenience."
     ]
   },
   {
-    "question": "what if I can’t login, login not working, issue signing in, error login, login failed",
-    "answer": [
+    "questions": ["what if i can’t login", "login not working", "issue signing in", "error login", "login failed"],
+    "answers": [
       "If you can’t log in, first check that your email and password are correct.",
       "Try resetting your password if you’ve forgotten it.",
       "If the issue persists, please contact our support team."
     ]
   },
   {
-    "question": "how to reset password, forgot password, recover account, password",
-    "answer": [
+    "questions": ["how to reset password", "forgot password", "recover account", "password"],
+    "answers": [
       "Click on 'Forgot Password' on the login page to reset it.",
       "Enter your registered email to receive reset instructions.",
       "You’ll get an email link to change your password."
     ]
   },
   {
-    "question": "I didn’t get password reset email, reset email not received, forgot password email missing",
-    "answer": [
+    "questions": ["i didn’t get password reset email", "reset email not received", "forgot password email missing"],
+    "answers": [
       "Check your spam or junk folder for the reset email.",
       "Make sure you entered the correct email linked to your account.",
       "If you still don’t see it, try again or contact support."
     ]
   },
-
   {
-    "question": "how to contact support, I need support, help me contact admin, customer service, support",
-    "answer": [
+    "questions": ["how to contact support", "i need support", "help me contact admin", "customer service", "support"],
+    "answers": [
       "You can reach our support team through the contact page.",
       "We’re always here to help! Visit the support section.",
       "Send us a message via the help center and we’ll get back to you."
     ]
   },
   {
-    "question": "how do payments work, how do I get paid, how do freelancers receive money, payment process, payout, payments, payment",
-    "answer": [
+    "questions": ["how do payments work", "how do i get paid", "how do freelancers receive money", "payment process", "payout", "payments", "payment"],
+    "answers": [
       "Freelancers are paid securely via Stripe once a job is marked completed.",
       "Employers pay into the platform, and funds are released to freelancers after approval.",
       "We ensure safe and secure payments with a small service fee."
     ]
   },
   {
-    "question": "is this platform free,  do I need to pay, any fees, charges, cost, fee,",
-    "answer": [
+    "questions": ["is this platform free", "do i need to pay", "any fees", "charges", "cost", "fee"],
+    "answers": [
       "Creating an account and browsing is free for everyone.",
       "Employers pay only when posting jobs or hiring freelancers.",
       "Freelancers pay a small service fee when they receive payments."
     ]
   },
   {
-    "question": "where are you located, what country are you in, is this USA only, international jobs, location",
-    "answer": [
+    "questions": ["where are you located", "what country are you in", "is this usa only", "international jobs", "location"],
+    "answers": [
       "ALLJOBSUSA is focused on jobs and freelancers within the United States.",
       "Currently, we specialize in the USA job market.",
       "Employers and freelancers from the USA are our primary audience."
     ]
   },
   {
-    "question": "how to update my profile,  edit profile, change info, update details, profile,",
-    "answer": [
-      "Go to your dashboard and click Edit Profile to update your details.",
+    "questions": ["how to update my profile", "edit profile", "change info", "update details", "profile"],
+    "answers": [
+      "Go to your profile and click Edit Profile to update your details.",
       "You can change your bio, skills, education, and work experience anytime.",
       "A complete profile increases your chances of getting hired."
     ]
   },
   {
-    "question": "how to post a job, create job listing, post project, list work, work",
-    "answer": [
+    "questions": ["how to post a job", "create job listing", "post project", "list work", "work"],
+    "answers": [
       "Go to the Post a Job section and fill in the details about the work.",
       "Employers can specify budget, deadlines, and required skills.",
       "Once posted, freelancers can start applying immediately."
     ]
   },
   {
-    "question": "how to apply for a job send application,  application",
-    "answer": ["Find a job you like and click Apply"]
+    "questions": ["how to apply for a job", "send application", "application"],
+    "answers": ["Find a job you like and click Apply."]
   },
   {
-    "question": "submit proposal, send propsal, propsal",
-    "answer": [
-      "Find a job you like and click Apply, and the Employer will contact you back",
+    "questions": ["submit proposal", "send proposal", "proposal"],
+    "answers": [
+      "Find a job you like and click Apply, and the Employer will contact you back.",
       "Make sure to customize your application to stand out.",
       "Freelancers can attach samples and describe their experience."
     ]
   },
   {
-    "question": "can I work remotely, remote jobs, work from home, online jobs",
-    "answer": [
+    "questions": ["can i work remotely", "remote jobs", "work from home", "online jobs"],
+    "answers": [
       "Yes, many jobs on ALLJOBSUSA are remote-friendly.",
       "You can filter jobs by remote or on-site when searching.",
       "Remote work opportunities are growing every day here."

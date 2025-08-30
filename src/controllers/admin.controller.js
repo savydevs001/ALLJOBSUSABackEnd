@@ -126,6 +126,7 @@ const adminDashboardData = async (req, res) => {
 
     // Helper to extract counts from aggregation result
     const extractCount = (facetArray) => facetArray[0]?.count || 0;
+    const extractEarning = (facetArray) => facetArray[0]?.totalEarning || 0;
 
     const [
       subscriptionEarning,
@@ -160,10 +161,24 @@ const adminDashboardData = async (req, res) => {
       FREELANCER.aggregate([
         {
           $facet: {
-            allTime: [{ $count: "count" }],
+            allTime: [
+              {
+                $group: {
+                  _id: null,
+                  count: { $sum: 1 },
+                  totalEarning: { $sum: { $ifNull: ["$totalEarning", 0] } },
+                },
+              },
+            ],
             thisMonth: [
               { $match: { createdAt: { $gte: firstOfMonth } } },
-              { $count: "count" },
+              {
+                $group: {
+                  _id: null,
+                  count: { $sum: 1 },
+                  totalEarning: { $sum: { $ifNull: ["$totalEarning", 0] } },
+                },
+              },
             ],
             previousMonth: [
               {
@@ -174,7 +189,13 @@ const adminDashboardData = async (req, res) => {
                   },
                 },
               },
-              { $count: "count" },
+              {
+                $group: {
+                  _id: null,
+                  count: { $sum: 1 },
+                  totalEarning: { $sum: { $ifNull: ["$totalEarning", 0] } },
+                },
+              },
             ],
           },
         },
@@ -236,6 +257,14 @@ const adminDashboardData = async (req, res) => {
       freelancerAgg[0].previousMonth
     );
 
+    const allFreelancersEarnings = extractEarning(freelancerAgg[0].allTime);
+    const thisMonthFreelancersEarnings = extractEarning(
+      freelancerAgg[0].thisMonth
+    );
+    const previousMonthFreelancersEarnings = extractEarning(
+      freelancerAgg[0].previousMonth
+    );
+
     const allJobseekers = extractCount(jobseekerAgg[0].allTime);
     const thisMonthJobseekers = extractCount(jobseekerAgg[0].thisMonth);
     const previousMonthJobseekers = extractCount(jobseekerAgg[0].previousMonth);
@@ -269,6 +298,15 @@ const adminDashboardData = async (req, res) => {
             previousMonthFreelancers) *
           100;
 
+    const freelancersEarningPercentageChange =
+      previousMonthFreelancersEarnings === 0
+        ? thisMonthFreelancersEarnings === 0
+          ? 0
+          : 100
+        : ((thisMonthFreelancersEarnings - previousMonthFreelancersEarnings) /
+            previousMonthFreelancersEarnings) *
+          100;
+
     const jobsPercentChange =
       previousMonthJobs === 0
         ? thisMonthJobs === 0
@@ -282,6 +320,8 @@ const adminDashboardData = async (req, res) => {
       usersPercentChange: Math.round(usersPercentChange).toFixed(2),
       allTimeFreelancers: allFreelancers,
       freelancersPercentageChange: freelancersPercentageChange.toFixed(2),
+      allTimeEarnings: allFreelancersEarnings,
+      earningPercentageChange: freelancersEarningPercentageChange.toFixed(2),
       allJobs,
       jobsPercentChange: Math.round(jobsPercentChange).toFixed(2),
     });
