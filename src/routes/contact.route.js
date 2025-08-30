@@ -6,7 +6,8 @@ import { z } from "zod";
 
 const ContactRouter = Router();
 
-const SUPPORT_EMAIL = process.env.SUPPORT_RECIEVE_EMAIL;
+const SUPPORT_EMAIL = "info@alljobsusa.com";
+const ADVERTIZE_EMAIL = "brightway@alljobsusa.com"
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 ContactRouter.post("/", async (req, res) => {
@@ -144,7 +145,7 @@ ContactRouter.post("/advertise", async (req, res) => {
       </body>
     </html>`;
 
-    await enqueueEmail(SUPPORT_EMAIL, subject, htmlTemplate);
+    await enqueueEmail(ADVERTIZE_EMAIL, subject, htmlTemplate);
 
     res.status(200).json({ message: "We will contact you soon" });
   } catch (err) {
