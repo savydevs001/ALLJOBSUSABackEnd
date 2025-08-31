@@ -39,6 +39,7 @@ import MeetingRouter from "./routes/meeting.routes.js";
 import CareerJobRouter from "./routes/career-job.routes.js";
 import ProductReleaseRouter from "./routes/product-releases.routes.js";
 import EventRouter from "./routes/events.routes.js";
+import GalleryRouter from "./routes/gallery.routes.js";
 
 // stripe
 import { stripeWebhook } from "./services/stripe.service.js";
@@ -94,6 +95,7 @@ apiRouter.use("/meetings", MeetingRouter);
 apiRouter.use("/careers", CareerJobRouter);
 apiRouter.use("/product-releases", ProductReleaseRouter);
 apiRouter.use("/events", EventRouter);
+apiRouter.use("/gallery", GalleryRouter);
 
 // admin routes
 apiRouter.use("/manager", ManagerRouter);
@@ -130,7 +132,7 @@ apiRouter.get("/download", (req, res) => {
 });
 
 apiRouter.use("/", (req, res) => res.send("Hello world"));
-app.use("/api", apiRouter)
+app.use("/api", apiRouter);
 
 // End Middlewares
 app.use(errorHandlerMiddleware);

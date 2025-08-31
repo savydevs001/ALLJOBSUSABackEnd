@@ -43,6 +43,10 @@ const jobSchema = new Schema(
         type: String,
         enum: ["Full-time", "Part-time"],
       },
+      jobModel: {
+        type: String,
+        enum: ["On-site", "Remote", "Hybrid"],
+      },
       category: { type: String, default: "not-specified" },
       minSalary: Number,
       maxSalary: Number,

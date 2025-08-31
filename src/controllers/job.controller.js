@@ -33,13 +33,20 @@ const simpleJobZODSchema = z.object({
       errorMap: () => ({ message: "Invalid job type" }),
     }
   ),
+  jobModel: z.enum(["On-site", "Remote", "Hybrid"], {
+    errorMap: () => ({ message: "Invalid job Model" }),
+  }),
   category: z.string().min(2, "Category is required"),
   minSalary: z.number().min(0, "Minimum salary must be at least 0"),
   maxSalary: z.number().min(5, "Maximum salary must be at least 0"),
   locationCity: z.string().min(2, "City is required"),
   locationState: z.string().min(2, "State is required"),
   experienceLevel: z.enum(["Beginner", "Intermediate", "Expert"]),
-  formLink: z.string().regex(urlRegex, "Invalid Form Url").optional().or(z.literal("")),
+  formLink: z
+    .string()
+    .regex(urlRegex, "Invalid Form Url")
+    .optional()
+    .or(z.literal("")),
   deadline: z.coerce.date({
     errorMap: () => ({ message: "Invalid date format" }),
   }),
@@ -161,6 +168,7 @@ const createJob = async (req, res) => {
         // console.log("daat: ", data)
         tempData.simpleJobDetails = {
           jobType: data.jobType,
+          jobModel: data.jobModel,
           category: data.category,
           minSalary: data.minSalary,
           maxSalary: data.maxSalary,
@@ -275,7 +283,9 @@ const getJobById = async (req, res) => {
         locationState: job.simpleJobDetails?.locationState,
         minSalary: job.simpleJobDetails?.minSalary,
         maxSalary: job.simpleJobDetails?.maxSalary,
-        formLink: job.simpleJobDetails?.formLink || ""
+        formLink: job.simpleJobDetails?.formLink || "",
+        jobType: job.simpleJobDetails.jobType || "",
+        jobModel: job.simpleJobDetails.jobModel || "",
       },
       freelanceJobDetails: {
         budget: {
@@ -441,7 +451,7 @@ const getAllJobs = async (req, res) => {
       .skip(skip)
       .limit(parseInt(limit))
       .select(
-        "_id title description job status createdAt applicants simpleJobDetails.jobType simpleJobDetails.locationCity simpleJobDetails.locationState simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.budget"
+        "_id title description job status createdAt applicants simpleJobDetails.jobType simpleJobDetails.jobModel simpleJobDetails.locationCity simpleJobDetails.locationState simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.budget"
       )
       .populate("employerId", "fullName ")
       .lean();
@@ -639,7 +649,7 @@ const getAllSavedJobs = async (req, res) => {
       .skip(skip)
       .limit(limit)
       .select(
-        "_id title applicants description job simpleJobDetails.jobType simpleJobDetails.locationCity simpleJobDetails.locationState simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.budget"
+        "_id title applicants description job simpleJobDetails.jobType simpleJobDetails.jobModel simpleJobDetails.locationCity simpleJobDetails.locationState simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.budget"
       )
       .populate("employerId", "fullName")
       .lean();
@@ -820,6 +830,7 @@ const getJobForEdit = async (req, res) => {
       tranformData.experienceLevel = job.simpleJobDetails?.experienceLevel;
       tranformData.deadline = job.simpleJobDetails?.deadline;
       tranformData.formLink = job.simpleJobDetails?.formLink;
+      tranformData.jobModel = job.simpleJobDetails.jobModel || "";
 
       return res.status(200).json({ job: tranformData });
     } else {
@@ -890,6 +901,7 @@ const updateJob = async (req, res) => {
       job.simpleJobDetails.experienceLevel = simpleParsed.experienceLevel;
       job.simpleJobDetails.deadline = simpleParsed.deadline;
       job.simpleJobDetails.formLink = simpleParsed.formLink;
+      job.simpleJobDetails.jobModel = simpleParsed.jobModel;
 
       await job.save();
 
@@ -994,7 +1006,6 @@ const applyToJob = async (req, res) => {
   //   if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
   //     return res.status(400).json({ message: "Invalid jobseeker Id" });
   //   }
-
   //   let user;
   //   switch (role) {
   //     case "freelancer":
@@ -1006,7 +1017,6 @@ const applyToJob = async (req, res) => {
   //     default:
   //       break;
   //   }
-
   //   if (!user) {
   //     return res.status(404).json({ message: "User not found!" });
   //   }
@@ -1015,7 +1025,6 @@ const applyToJob = async (req, res) => {
   //       .status(400)
   //       .json({ message: "Only Active user can apply to job" });
   //   }
-
   //   // job validation
   //   const job = await Job.findById(jobId).populate("employerId", "fullName");
   //   if (!job) {
@@ -1029,7 +1038,6 @@ const applyToJob = async (req, res) => {
   //   } else if (role === "job-seeeker" && job.job != "simple") {
   //     return res.status(400).json({ message: "Job is not a Professinal" });
   //   }
-
   //   // check if an application already exists
   //   const AlreadyApplied = job.applicants.some(
   //     (e) => e.userId.toString() === userId.toString()
@@ -1037,7 +1045,6 @@ const applyToJob = async (req, res) => {
   //   if (AlreadyApplied > 0) {
   //     return res.status(400).json({ message: "Already applied to this job" });
   //   }
-
   //   // employer validation
   //   const employer = await EMPLOYER.findById(job.employerId);
   //   if (!employer) {
@@ -1048,17 +1055,14 @@ const applyToJob = async (req, res) => {
   //       .status(400)
   //       .json({ message: "Employer account suspended or deleted" });
   //   }
-
   //   if (employer.email === user.email) {
   //     return res
   //       .status(400)
   //       .json({ message: "Cannot apply to own created jobs" });
   //   }
-
   //   try {
   //     const mongooseSession = await mongoose.startSession();
   //     mongooseSession.startTransaction();
-
   //     job.applicants.push({
   //       userId: userId,
   //       role:
@@ -1068,7 +1072,6 @@ const applyToJob = async (req, res) => {
   //           ? "freelancer"
   //           : "",
   //     });
-
   //     // update job seeker activity
   //     // Add to recent activity
   //     user.activity.unshift({
@@ -1076,14 +1079,11 @@ const applyToJob = async (req, res) => {
   //       subTitle: employer.fullName,
   //       at: new Date(),
   //     });
-
   //     if (user.activity.length > 3) {
   //       user.activity.splice(3);
   //     }
-
   //     user.profile.jobActivity.applicationsSent =
   //       (user.profile?.jobActivity?.applicationsSent || 0) + 1;
-
   //     // await notifyUser({
   //     //   from: user.fullName,
   //     //   message: `User Applied to job ${job._id}`,
@@ -1091,13 +1091,10 @@ const applyToJob = async (req, res) => {
   //     //   userId: employer._id.toString(),
   //     //   ctaUrl: `applications/${}`
   //     // });
-
   //     await job.save({ session: mongooseSession });
   //     await user.save({ session: mongooseSession });
-
   //     await mongooseSession.commitTransaction();
   //     mongooseSession.endSession();
-
   //     return res.status(200).json({
   //       message: "Applied successfully",
   //     });

@@ -56,12 +56,7 @@ JobRouter.get(
   roleBasedAuthMiddleware(["employer", "job-seeker"]),
   a(getJobApplicants)
 );
-// JobRouter.get(
-//   "/:id/apply",
-//   verifyTokenMiddleware(),
-//   roleBasedAuthMiddleware(["freelancer", "job-seeker"]),
-//   a(applyToJob)
-// );
+
 JobRouter.get("/:id", verifyTokenMiddleware(), a(getJobById));
 
 JobRouter.post(
