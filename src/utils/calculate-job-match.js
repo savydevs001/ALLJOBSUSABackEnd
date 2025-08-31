@@ -51,7 +51,6 @@ function calculateJobMatchPercentage(job, user) {
       Math.round((categoryScore + skillScore + bioScore) * 100)
     );
 
-    console.log("mamtc: ", isNaN(finalScore) ? 0 : finalScore)
     return isNaN(finalScore) ? 0 : finalScore;
   } catch (err) {
     console.error("Error calculating match:", err);

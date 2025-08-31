@@ -592,7 +592,7 @@ const getFreelancerList = async (req, res) => {
     };
 
     if (category && category != "") {
-      filter.category = category;
+      filter["category"]  = { $regex: category, $options: "i" };
     }
 
     // Text search on name, title or bio
