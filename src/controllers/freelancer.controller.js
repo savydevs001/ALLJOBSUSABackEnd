@@ -244,7 +244,7 @@ const getUserJobStats = async (req, res) => {
       deadline: { $gt: new Date() },
     })
       .limit(2)
-      .select("_id title description")
+      .select("_id title description category")
       .populate("employerId", "fullName");
 
     const tempSuggestions = suggestions.map((e) => ({
@@ -255,10 +255,15 @@ const getUserJobStats = async (req, res) => {
         {
           title: e.title,
           description: e.description,
+          category:
+            e.job === "freelance"
+              ? e.freelanceJobDetails?.category
+              : e.simpleJobDetails?.category,
         },
         {
-          bio: user.profile.bio,
-          skills: user.profile.skills,
+          bio: user.profile.professionalTitle + user.profile.bio || " ",
+          skills: user.profile.skills || [],
+          category: user.category,
         }
       ),
     }));

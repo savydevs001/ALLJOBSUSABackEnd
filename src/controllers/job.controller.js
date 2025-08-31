@@ -39,6 +39,7 @@ const simpleJobZODSchema = z.object({
   category: z.string().min(2, "Category is required"),
   minSalary: z.number().min(0, "Minimum salary must be at least 0"),
   maxSalary: z.number().min(5, "Maximum salary must be at least 0"),
+  salaryInterval: z.enum(["hourly", "weekly", "monthly", "yearly"]),
   locationCity: z.string().min(2, "City is required"),
   locationState: z.string().min(2, "State is required"),
   experienceLevel: z.enum(["Beginner", "Intermediate", "Expert"]),
@@ -67,6 +68,7 @@ const freelanceZODSchema = z.object({
     .min(1, "At least one day is required to project commpletion"),
   experienceLevel: z.enum(["Beginner", "Intermediate", "Expert"]),
   files: z.array(z.object({ name: z.string(), url: z.string() })).optional(),
+  category: z.string().min(2, "Category is required"),
 });
 const createJob = async (req, res) => {
   let data = createJobZODSchema.parse(req.body);
@@ -177,6 +179,7 @@ const createJob = async (req, res) => {
           experienceLevel: data.experienceLevel,
           deadline: data.deadline,
           formLink: data.formLink,
+          salaryInterval: data.salaryInterval,
         };
         if (
           data.creationType == "free" &&
@@ -203,6 +206,7 @@ const createJob = async (req, res) => {
           durationDays: data.durationDays,
           experienceLevel: data.experienceLevel,
           files: data.files,
+          category: data.category,
         };
       }
       // invalid job
@@ -286,6 +290,7 @@ const getJobById = async (req, res) => {
         formLink: job.simpleJobDetails?.formLink || "",
         jobType: job.simpleJobDetails.jobType || "",
         jobModel: job.simpleJobDetails.jobModel || "",
+        salaryInterval: job.simpleJobDetails.salaryInterval || "",
       },
       freelanceJobDetails: {
         budget: {
@@ -293,6 +298,7 @@ const getJobById = async (req, res) => {
           price: job.freelanceJobDetails?.budget?.price,
           minimum: job.freelanceJobDetails?.budget?.minimum,
           maximum: job.freelanceJobDetails?.budget?.maximum,
+          category: job.freelanceJobDetails?.category,
         },
         files: job.freelanceJobDetails.files || [],
       },
@@ -339,11 +345,11 @@ const getAllJobs = async (req, res) => {
     let user;
     if (req.user.role == "freelancer") {
       user = await FREELANCER.findById(userId).select(
-        "savedJobs profile.bio profile.skills profile.professionalTitle"
+        "savedJobs profile.bio profile.skills profile.professionalTitle category"
       );
     } else if (req.user.role === "job-seeker") {
       user = await JOBSEEKER.findById(userId).select(
-        "savedJobs profile.bio profile.skills profile.professionalTitle"
+        "savedJobs profile.bio profile.skills profile.professionalTitle category"
       );
     }
 
@@ -358,10 +364,10 @@ const getAllJobs = async (req, res) => {
 
     // Filter by category
     if (category) {
-      filters["simpleJobDetails.category"] = {
-        $regex: category,
-        $options: "i",
-      };
+      filters.$or = [
+        { "simpleJobDetails.category": { $regex: category, $options: "i" } },
+        { "freelanceJobDetails.category": { $regex: category, $options: "i" } },
+      ];
     }
 
     // Filter by jobType
@@ -424,7 +430,6 @@ const getAllJobs = async (req, res) => {
         $or: [
           { title: { $regex: text, $options: "i" } },
           { description: { $regex: term, $options: "i" } },
-          { "simpleJobDetails.category": { $regex: term, $options: "i" } },
           { "simpleJobDetails.locationCity": { $regex: term, $options: "i" } },
           { "simpleJobDetails.locationState": { $regex: term, $options: "i" } },
           {
@@ -451,7 +456,7 @@ const getAllJobs = async (req, res) => {
       .skip(skip)
       .limit(parseInt(limit))
       .select(
-        "_id title description job status createdAt applicants simpleJobDetails.jobType simpleJobDetails.jobModel simpleJobDetails.locationCity simpleJobDetails.locationState simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.budget"
+        "_id title description job status createdAt applicants simpleJobDetails.jobType simpleJobDetails.jobModel simpleJobDetails.salaryInterval simpleJobDetails.locationCity simpleJobDetails.locationState simpleJobDetails.category simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.budget freelanceJobDetails.category"
       )
       .populate("employerId", "fullName ")
       .lean();
@@ -462,10 +467,18 @@ const getAllJobs = async (req, res) => {
       );
       const match = user?.profile
         ? calculateJobMatchPercentage(
-            { title: job.title, description: job.description },
+            {
+              title: job.title,
+              description: job.description,
+              category:
+                job.job === "freelance"
+                  ? job.freelanceJobDetails?.category
+                  : job.simpleJobDetails?.category,
+            },
             {
               bio: user.profile.professionalTitle + user.profile.bio || " ",
               skills: user.profile.skills || [],
+              category: user.category,
             }
           )
         : "";
@@ -629,7 +642,7 @@ const getAllSavedJobs = async (req, res) => {
     }
 
     const Model = role === "freelancer" ? FREELANCER : JOBSEEKER;
-    const user = await Model.findById(userId).select("savedJobs profile");
+    const user = await Model.findById(userId).select("savedJobs profile profile.professionalTitle profile.skills category profile.bio");
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -649,7 +662,7 @@ const getAllSavedJobs = async (req, res) => {
       .skip(skip)
       .limit(limit)
       .select(
-        "_id title applicants description job simpleJobDetails.jobType simpleJobDetails.jobModel simpleJobDetails.locationCity simpleJobDetails.locationState simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.budget"
+        "_id title applicants description job simpleJobDetails.jobType simpleJobDetails.jobModel simpleJobDetails.category simpleJobDetails.locationCity simpleJobDetails.locationState simpleJobDetails.salaryInterval simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.category freelanceJobDetails.budget"
       )
       .populate("employerId", "fullName")
       .lean();
@@ -664,10 +677,15 @@ const getAllSavedJobs = async (req, res) => {
         {
           title: job.title,
           description: job.description,
+          category:
+            job.job === "freelance"
+              ? job.freelanceJobDetails?.category
+              : job.simpleJobDetails?.category,
         },
         {
-          bio: user?.profile?.bio || "",
-          skills: user?.profile?.skills || [],
+          bio: user.profile.professionalTitle + user.profile.bio || " ",
+          skills: user.profile.skills || [],
+          category: user.category,
         }
       ),
     }));
@@ -741,6 +759,8 @@ const myJobPostings = async (req, res) => {
       title: e.title,
       status: e.status,
       job: e.job,
+      salaryInterval:
+        e.job == "simple" ? e.job?.simpleJobDetails?.salaryInterval : "",
       location:
         e.job == "freelance"
           ? "remote"
@@ -818,6 +838,7 @@ const getJobForEdit = async (req, res) => {
       tranformData.durationDays = job.freelanceJobDetails?.durationDays;
       tranformData.experienceLevel = job.freelanceJobDetails?.experienceLevel;
       tranformData.files = job.freelanceJobDetails?.files;
+      tranformData.category = job.freelanceJobDetails?.category;
 
       return res.status(200).json({ job: tranformData });
     } else if (jobMode == "simple") {
@@ -831,6 +852,7 @@ const getJobForEdit = async (req, res) => {
       tranformData.deadline = job.simpleJobDetails?.deadline;
       tranformData.formLink = job.simpleJobDetails?.formLink;
       tranformData.jobModel = job.simpleJobDetails.jobModel || "";
+      tranformData.salaryInterval = job.simpleJobDetails.salaryInterval || "";
 
       return res.status(200).json({ job: tranformData });
     } else {
@@ -885,6 +907,7 @@ const updateJob = async (req, res) => {
       job.freelanceJobDetails.durationDays = freelanceParsed.durationDays;
       job.freelanceJobDetails.experienceLevel = freelanceParsed.experienceLevel;
       job.freelanceJobDetails.files = freelanceParsed.files;
+      job.freelanceJobDetails.category = freelanceParsed.category;
 
       await job.save();
 
@@ -902,6 +925,7 @@ const updateJob = async (req, res) => {
       job.simpleJobDetails.deadline = simpleParsed.deadline;
       job.simpleJobDetails.formLink = simpleParsed.formLink;
       job.simpleJobDetails.jobModel = simpleParsed.jobModel;
+      job.simpleJobDetails.salaryInterval = simpleParsed.salaryInterval;
 
       await job.save();
 

@@ -50,6 +50,7 @@ const jobSchema = new Schema(
       category: { type: String, default: "not-specified" },
       minSalary: Number,
       maxSalary: Number,
+      salaryInterval: {type: String, enum: ["hourly", "weekly", "monthly", "yearly"]},
       locationCity: String,
       locationState: String,
       experienceLevel: {
@@ -61,6 +62,7 @@ const jobSchema = new Schema(
     },
     freelanceJobDetails: {
       requiredSkills: [String],
+      category: { type: String, default: "not-specified" },
       budget: {
         budgetType: { type: String, enum: ["Fixed", "Start"] },
         price: Number,

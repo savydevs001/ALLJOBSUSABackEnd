@@ -45,10 +45,13 @@ const createApplication = async (req, res) => {
         .status(400)
         .json({ message: "Only Active accounts are allowed to apply" });
     }
-    if(!user.profile || !user.profile.professionalTitle){
+    if (!user.profile || !user.profile.professionalTitle) {
       return res
         .status(400)
-        .json({ message: "Please Complete your Profile first", completeProfile: true });
+        .json({
+          message: "Please Complete your Profile first",
+          completeProfile: true,
+        });
     }
 
     // job validation
@@ -404,6 +407,8 @@ const getApplicationById = async (req, res) => {
         title: job.title,
         description: job.description,
         status: job.status,
+        salaryInterval:
+          job.job == "simple" ? job.simpleJobDetails.salaryInterval || "" : "",
         jobType:
           job.job == "simple" ? job.simpleJobDetails?.jobType : "Freelance",
         minSalary:

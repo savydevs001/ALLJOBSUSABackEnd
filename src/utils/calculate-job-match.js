@@ -1,5 +1,8 @@
 function calculateJobMatchPercentage(job, user) {
   try {
+    const jobCategory = job.category;
+    const userCategory = user.category;
+    
     const normalize = (text) =>
       (text || "")
         .toLowerCase()
@@ -26,17 +29,29 @@ function calculateJobMatchPercentage(job, user) {
       if (jobWords.has(word)) bioMatches++;
     });
 
-    const skillScore =
-      skillWords.size > 0 ? (skillMatches / skillWords.size) * 0.7 : 0;
+    // ✅ Category score (50% weight)
+    const categoryMatch =
+      normalize(jobCategory) && normalize(userCategory)
+        ? normalize(jobCategory) === normalize(userCategory)
+          ? 1
+          : 0
+        : 0;
+    const categoryScore = categoryMatch * 0.5;
 
+    // ✅ Skills score (35% of total)
+    const skillScore =
+      skillWords.size > 0 ? (skillMatches / skillWords.size) * 0.35 : 0;
+
+    // ✅ Bio score (15% of total)
     const bioScore =
-      bioWords.size > 0 ? (bioMatches / bioWords.size) * 0.3 : 0;
+      bioWords.size > 0 ? (bioMatches / bioWords.size) * 0.15 : 0;
 
     const finalScore = Math.min(
       100,
-      Math.round((skillScore + bioScore) * 100)
+      Math.round((categoryScore + skillScore + bioScore) * 100)
     );
 
+    console.log("mamtc: ", isNaN(finalScore) ? 0 : finalScore)
     return isNaN(finalScore) ? 0 : finalScore;
   } catch (err) {
     console.error("Error calculating match:", err);
