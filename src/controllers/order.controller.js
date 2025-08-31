@@ -503,7 +503,7 @@ const markOrderAsComplete = async (req, res) => {
       from: "ALLJOBSUSA",
       message: `Order ${order.title} has been Completed by you`,
       title: "Order " + order._id + ", completed",
-      userId: order.employerId,
+      userId: order.employerId?._id?.toString(),
       userMail: employer.email,
       ctaUrl: `orders/${order._id.toString()}`,
     });
@@ -511,7 +511,7 @@ const markOrderAsComplete = async (req, res) => {
       from: employer.fullName,
       message: `Order ${order.title} has been Completed`,
       title: "Order " + order._id + ", completed",
-      userId: order.freelancerId,
+      userId: freelancer._id?.toString(),
       userMail: freelancer.email,
       ctaUrl: `orders/${order._id.toString()}`,
     });
@@ -584,7 +584,7 @@ const delieverOrderForRevsions = async (req, res) => {
     order.deliveryDate = new Date();
     await order.save();
     await notifyUser({
-      userId: order.employerId._id.toString(),
+      userId: order.employerId?._id.toString(),
       from: freelancer.fullName || order.title,
       message: `Order ${order.title} has been delivered`,
       title: "Order " + order._id + ", Deleivered",
@@ -851,7 +851,7 @@ const requestNewDeadline = async (req, res) => {
         .toISOString()
         .slice(0, 10)} requested by Freelancer for order ${orderId}`,
       title: `New Deadline requested for order ${order.title}`,
-      userId: order.employerId._id?.toString(),
+      userId: order.employerId?._id?.toString(),
       userMail: order.employerId?.email,
       ctaUrl: `orders/${order._id.toString()}`,
     });

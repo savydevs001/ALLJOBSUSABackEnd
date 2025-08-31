@@ -148,10 +148,6 @@ const ResumeAutoRenewlSusbcription = async (req, res) => {
   }
 };
 
-/***
- *
- * Prupose: "subscription"  | "resume" | "cover" | "order_payment"
- */
 const createPaymentIntents = async (req, res) => {
   try {
     const { purpose, itemId } = req.body;
@@ -534,35 +530,50 @@ const createPaymentIntents = async (req, res) => {
               .json({ message: "Resume downloads are paused" });
           }
 
-          if (userRole == "freelancer" && user.stripeAccountId) {
-            const balance = await getStripeBalanceByAccountId(
-              user.stripeAccountId
-            );
-            const availableBalance =
-              balance.available.find((b) => b.currency === "usd")?.amount || 0;
+          // if (userRole == "freelancer" && user.currentBalance) {
+          //   const balance = await getStripeBalanceByAccountId(
+          //     user.stripeAccountId
+          //   );
+          //   const availableBalance =
+          //     balance.available.find((b) => b.currency === "usd")?.amount || 0;
 
-            if (availableBalance >= plan.price * 100) {
-              // create transfer
-              const transfer = await createStripeTransferToPlatform(
-                plan.price,
-                user.stripeAccountId
-              );
+          //   if (availableBalance >= plan.price * 100) {
+          //     // create transfer
+          //     const transfer = await createStripeTransferToPlatform(
+          //       plan.price,
+          //       user.stripeAccountId
+          //     );
 
-              if (transfer) {
-                user.currentBalance = Number(user.currentBalance - plan.price);
-                user.canDownloadResume = true;
-                await user.save();
-                return res.status(200).json({
-                  message: "Tranfer done from user account",
-                  paid: true,
-                  clientSecret: "",
-                  price: plan.price,
-                });
-              }
+          //     if (transfer) {
+          //       user.currentBalance = Number(user.currentBalance - plan.price);
+          //       user.canDownloadResume = true;
+          //       await user.save();
+          //       return res.status(200).json({
+          //         message: "Tranfer done from user account",
+          //         paid: true,
+          //         clientSecret: "",
+          //         price: plan.price,
+          //       });
+          //     }
+          //   }
+          // }
+
+          // create intent
+
+          if (userRole == "freelancer" && user.currentBalance) {
+            if (user.currentBalance >= plan.price) {
+              user.currentBalance = Number(user.currentBalance - plan.price);
+              user.canDownloadResume = true;
+              await user.save();
+              return res.status(200).json({
+                message: "Transfer done from freelancer balance",
+                paid: true,
+                clientSecret: "",
+                price: plan.price,
+              });
             }
           }
 
-          // create intent
           const stripeIntentParams = {
             amount: plan.price * 100,
             description: "Resume for user: " + user._id,
@@ -602,35 +613,50 @@ const createPaymentIntents = async (req, res) => {
               .json({ message: "Cover Letter downloads are paused" });
           }
 
-          if (userRole == "freelancer" && user.stripeAccountId) {
-            const balance = await getStripeBalanceByAccountId(
-              user.stripeAccountId
-            );
-            const availableBalance =
-              balance.available.find((b) => b.currency === "usd")?.amount || 0;
+          // if (userRole == "freelancer" && user.stripeAccountId) {
+          //   const balance = await getStripeBalanceByAccountId(
+          //     user.stripeAccountId
+          //   );
+          //   const availableBalance =
+          //     balance.available.find((b) => b.currency === "usd")?.amount || 0;
 
-            if (availableBalance >= plan.price * 100) {
-              // create transfer
-              const transfer = await createStripeTransferToPlatform(
-                plan.price,
-                user.stripeAccountId
-              );
+          //   if (availableBalance >= plan.price * 100) {
+          //     // create transfer
+          //     const transfer = await createStripeTransferToPlatform(
+          //       plan.price,
+          //       user.stripeAccountId
+          //     );
 
-              if (transfer) {
-                user.currentBalance = Number(user.currentBalance - plan.price);
-                user.canDownloadCover = true;
-                await user.save();
-                return res.status(200).json({
-                  message: "Tranfer done from user account",
-                  paid: true,
-                  clientSecret: "",
-                  price: plan.price,
-                });
-              }
+          //     if (transfer) {
+          //       user.currentBalance = Number(user.currentBalance - plan.price);
+          //       user.canDownloadCover = true;
+          //       await user.save();
+          //       return res.status(200).json({
+          //         message: "Tranfer done from user account",
+          //         paid: true,
+          //         clientSecret: "",
+          //         price: plan.price,
+          //       });
+          //     }
+          //   }
+          // }
+
+          // create intent
+
+          if (userRole == "freelancer" && user.currentBalance) {
+            if (user.currentBalance >= plan.price) {
+              user.currentBalance = Number(user.currentBalance - plan.price);
+              user.canDownloadCover = true;
+              await user.save();
+              return res.status(200).json({
+                message: "Tranfer done from freelancer account",
+                paid: true,
+                clientSecret: "",
+                price: plan.price,
+              });
             }
           }
 
-          // create intent
           const stripeIntentParams = {
             amount: plan.price * 100,
             description: "Cover Letter for user: " + user._id,
@@ -889,7 +915,6 @@ const createFreelancerPayout = async (req, res) => {
     }
 
     // Stripe amounts are in cents
-    // const payout = await createStripePayout(amount, user.stripeAccountId);
     const transfer = await createStripeTransfer(
       amount,
       user.stripeAccountId,
@@ -1047,11 +1072,14 @@ const checkPaidForResume = async (req, res) => {
     }
 
     let canPay = false;
-    if (userRole == "freelancer" && user.stripeAccountId) {
-      const balance = await getStripeBalanceByAccountId(user.stripeAccountId);
-      const availableBalance =
-        balance.available.find((b) => b.currency === "usd")?.amount || 0;
-      canPay = availableBalance >= plan.price * 100;
+    // if (userRole == "freelancer" && user.stripeAccountId) {
+    //   const balance = await getStripeBalanceByAccountId(user.stripeAccountId);
+    //   const availableBalance =
+    //     balance.available.find((b) => b.currency === "usd")?.amount || 0;
+    //   canPay = availableBalance >= plan.price * 100;
+    // }
+     if (userRole == "freelancer" && user.currentBalance) {
+      canPay = user.currentBalance >= plan.price;
     }
 
     return res.status(200).json({ hasPaid, amount: plan.price, canPay });
@@ -1211,11 +1239,15 @@ const checkPaidForCoverLetter = async (req, res) => {
     }
 
     let canPay = false;
-    if (userRole == "freelancer" && user.stripeAccountId) {
-      const balance = await getStripeBalanceByAccountId(user.stripeAccountId);
-      const availableBalance =
-        balance.available.find((b) => b.currency === "usd")?.amount || 0;
-      canPay = availableBalance >= plan.price * 100;
+    // if (userRole == "freelancer" && user.stripeAccountId) {
+    //   const balance = await getStripeBalanceByAccountId(user.stripeAccountId);
+    //   const availableBalance =
+    //     balance.available.find((b) => b.currency === "usd")?.amount || 0;
+    //   canPay = availableBalance >= plan.price * 100;
+    // }
+
+    if (userRole == "freelancer" && user.currentBalance) {
+      canPay = user.currentBalance >= plan.price;
     }
 
     return res.status(200).json({ hasPaid, amount: plan.price, canPay });
