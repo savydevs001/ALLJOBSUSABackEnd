@@ -1,6 +1,88 @@
 [
   {
-    "question": "Info about employer subscriptions, Subscriptions",
+    "question": "What’s the difference between a job seeker and a freelancer?, difference between freelancer and job seeker",
+    "answer": [
+      "A freelancer typically offers project-based services (short-term or flexible work), while a job seeker may also look for long-term, part-time, or full-time employment. On ALLJOBSUSA, one person can be both — depending on the opportunities they apply for. Also job seeker can contant the companies and get jobs those are on-site as well those are actually professional jobs."
+    ]
+  },
+  {
+    "question": "What tools do job seekers get?, What a job seeker get?, What features job seeker get?",
+    "answer": [
+      "Job seekers can:  Apply for jobs with one click.  Save jobs to apply for later.  Create resumes and cover letters with built-in templates.  Receive real-time job alerts and application updates. "
+    ]
+  },
+  {
+    "question": "Tell me about job seekers on ALLJOBSUSA, Tell me job seekers info, what job seekers are?, what job seekers are for?",
+    "answer": [
+      "Job seekers are users looking for employment — whether freelance, part-time, or full-time. They can search jobs, apply directly, and use AI-powered job matching to find roles that best fit their skills."
+    ]
+  },
+  {
+    "question": "How do freelancers get paid?",
+    "answer": [
+      "Payments go through an escrow system. Employers fund the job first, and freelancers receive the money once the work is completed and approved."
+    ]
+  },
+  {
+    "question": "What can freelancers do here?, explain some features of freelancers, what freelancers do?",
+    "answer": [
+      "Freelancers can:  Apply for full-time, part-time, or freelance jobs.  Build professional resumes and cover letters using templates.  Send and receive offers directly from employers.  Manage projects and invoices through their dashboard.  Get reviewed and rated after completing tasks."
+    ]
+  },
+  {
+    "question": "Tell me about freelancers on ALLJOBSUSA, Tell me about freelancers, explain freelancers",
+    "answer": [
+      "Freelancers are independent professionals who offer services and apply for jobs posted by employers. They can create detailed profiles with skills, portfolios, and certifications to showcase their expertise."
+    ]
+  },
+  {
+    "question": "What can employers do on this platform?, What an employer can do?, share employer functionalites, explain employers, give freelancer features",
+    "answer": [
+      "Employers can:  Post and manage job listings.  Browse freelancer profiles and resumes.  Invite freelancers directly to projects.  Use AI-powered candidate matching.  Manage payments securely through escrow.  Rate and review freelancers after projects."
+    ]
+  },
+  {
+    "question": "Tell me about employers on ALLJOBSUSA, Tell me about employers, share info for employers",
+    "answer": [
+      "Employers are individuals, companies, or recruiters who post jobs on ALLJOBSUSA. They can post full-time, part-time, contract, or freelance jobs. Employers can also browse freelancer profiles, invite talent to apply, and securely pay through the escrow system."
+    ]
+  },
+  {
+    "question": "How do I create customer order?, How to create order?, How to create offer?, how to place an order?",
+    "answer": [
+      "Only freelancers can create orders by first sending offers after discussion and then as employer accept the order then the order will be placed."
+    ]
+  },
+  {
+    "question": "browse talent, What browse talent is for?, What I get in the browse talent section?, Why should I get access to Browse talent?",
+    "answer": [
+      "Browse Talent has talened Job Seeker you can get subscription and have access to the talented people whom you can hire directly."
+    ]
+  },
+  {
+    "question": "Order can be placed by whom?, who place the order?, order is placed by? Order can be placed how?",
+    "answer": [
+      "Employers can discuss project details and ask the freelancers to get offers and then they could accept the offer and place the order."
+    ]
+  },
+  {
+    "question": "How to get orders?, How to get clients?, How to have orders? How to get job?, Order can be placed by whom?",
+    "answer": [
+      "You should be more active and apply the the jobs. If you are a freelancer you should make sure share your sample projects and get as much as good reviews as possible."
+    ]
+  },
+  {
+    "question": "Okay thats good, I need some more information can you help?, Now I need some help with something else?",
+    "answer": ["Yeah sure, you can ask what you need to know."]
+  },
+  {
+    "question": "I need to know how to send a message?, Do you know how to can I chat or message anyone?, How to start a chat?, Guide me how to message any freelancer?, guide me how to message to any employer?",
+    "answer": [
+      "If you are an employer open the freelancer/job seekeer profile or order page and click “Message.” If you are freelancer you can't message anyone until any employer initiate or messages you."
+    ]
+  },
+  {
+    "question": "Info about employerr subscriptions, Subscriptions",
     "answer": [
       "Subscriptions are only for employers. When you purchase a subscription you will be able to post professional job if you are an employer and then also you will be able to get access to talented job seekers in the Browse Talent section."
     ]
@@ -220,7 +302,7 @@
     ]
   },
   {
-    "question": "How do I start a chat?",
+    "question": "How do I start a chat?, how can I message them?, how can I chat?, How to start messaging?, How to message anyone?, How can I start chat?",
     "answer": [
       "If you are an employer open the freelancer/job seekeer profile or order page and click “Message.” If you are freelancer you can't message anyone until any employer initiate or messages you."
     ]
@@ -413,16 +495,7 @@
     "answer": [
       "Hello! How can I help you today?",
       "Hi there! What can I do for you?",
-      "Hey! I'm here to assist you.",
-      "Good to see you! How’s your day going?",
-      "Welcome back! What would you like to do today?"
-    ]
-  },
-  {
-    "question": "ok",
-    "answer": [
-      "ok, you can comeback anytime",
-      "ok, feel free to ask if you have any other query"
+      "Hey! I'm here to assist you."
     ]
   },
   {
@@ -538,7 +611,7 @@
     "answer": [
       "You can post a job on ALLJOBSUSA to connect with freelancers.",
       "Our platform helps you quickly find skilled freelancers for your project.",
-      "Posting jobs is easy—just share the details and freelancers will apply."
+      "Posting jobs is easy—just share the details and freelancers will apply. Also, you can get them in the find freelancers section with there skills and starting rates."
     ]
   },
   {

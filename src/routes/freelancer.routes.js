@@ -101,15 +101,15 @@ FreelancerRouter.post(
   a(startFreelancerOnboarding)
 );
 
-FreelancerRouter.put(
-  "/profile",
-  verifyTokenMiddleware(),
-  roleBasedAuthMiddleware(["freelancer"]),
-  uploadProfilePictureMiddleware.fields([
-    { name: "banner", maxCount: 1 },
-    { name: "profile", maxCount: 1 },
-  ]),
-  a(editFreelanceProfile)
-);
+// FreelancerRouter.put(
+//   "/profile",
+//   verifyTokenMiddleware(),
+//   roleBasedAuthMiddleware(["freelancer"]),
+//   uploadProfilePictureMiddleware.fields([
+//     { name: "banner", maxCount: 1 },
+//     { name: "profile", maxCount: 1 },
+//   ]),
+//   a(editFreelanceProfile)
+// );
 
 export default FreelancerRouter;

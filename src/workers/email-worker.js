@@ -24,10 +24,12 @@ const batchSize = 500;
 
 // nodemailer tranporter
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.hostinger.com", // Hostinger SMTP
+  port: 465, // SSL
+  secure: true, // true = 465, false = 587
   auth: {
-    user: EMAIL_CLIENT,
-    pass: EMAIL_PASS,
+    user: EMAIL_CLIENT, 
+    pass: EMAIL_PASS, 
   },
 });
 
@@ -61,7 +63,7 @@ const worker = new Worker(
             collection.modelName || "Unknown"
           } ---`
         );
-        
+
         let cursor = 0;
         let users;
 
@@ -146,7 +148,6 @@ const worker = new Worker(
       console.log("Terms Update Emails sent: ", totalEmailsSent);
     }
 
-
     // on change of rules
     if (job.name === "send-terms-update") {
       const userCollections = [JOBSEEKER, EMPLOYER, FREELANCER];
@@ -198,7 +199,6 @@ const worker = new Worker(
 
       console.log("Terms Update Emails sent: ", totalEmailsSent);
     }
-
 
     // simple mails
     if (job.name == "simple-mail") {

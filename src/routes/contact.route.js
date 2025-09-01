@@ -6,7 +6,7 @@ import { z } from "zod";
 
 const ContactRouter = Router();
 
-const SUPPORT_EMAIL = "info@alljobsusa.com";
+const SUPPORT_EMAIL = process.env.SUPPORT_RECIEVE_EMAIL;
 const ADVERTIZE_EMAIL = "brightway@alljobsusa.com"
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

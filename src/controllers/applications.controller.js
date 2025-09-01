@@ -46,12 +46,10 @@ const createApplication = async (req, res) => {
         .json({ message: "Only Active accounts are allowed to apply" });
     }
     if (!user.profile || !user.profile.professionalTitle) {
-      return res
-        .status(400)
-        .json({
-          message: "Please Complete your Profile first",
-          completeProfile: true,
-        });
+      return res.status(400).json({
+        message: "Please Complete your Profile first",
+        completeProfile: true,
+      });
     }
 
     // job validation
@@ -67,6 +65,10 @@ const createApplication = async (req, res) => {
     }
     if (userRole == "freelancer" && job.job != "freelance") {
       return res.status(400).json({ message: "Job is not a Freelance" });
+    }
+
+    if (job.job == "simple" && new Date(job.deadline) < new Date()) {
+      return res.status(400).json({ message: "Job Deadline has passed" });
     }
 
     // check if an application already exists

@@ -167,7 +167,6 @@ const createJob = async (req, res) => {
 
       //  Add Simple job detials
       if (data.job === "simple") {
-        // console.log("daat: ", data)
         tempData.simpleJobDetails = {
           jobType: data.jobType,
           jobModel: data.jobModel,
@@ -218,6 +217,12 @@ const createJob = async (req, res) => {
       }
 
       const job = new Job(tempData);
+      if (
+        data.job === "simple" &&
+        new Date(data.deadline) < new Date(deadline)
+      ) {
+        deadline = new Date(data.deadline);
+      }
       job.deadline = deadline;
       await Promise.all([job.save(), user.save()]);
 
@@ -260,10 +265,10 @@ const getJobById = async (req, res) => {
       return res.status(404).json({ message: "No Job Found!" });
     }
 
-    if (job.deadline < new Date() && job.status == "empty") {
-      job.status = "expired";
-      await job.save();
-    }
+    // if (job.deadline < new Date() && job.status == "empty") {
+    //   job.status = "expired";
+    //   await job.save();
+    // }
 
     const transformed = {
       _id: job._id,
@@ -291,6 +296,8 @@ const getJobById = async (req, res) => {
         jobType: job.simpleJobDetails.jobType || "",
         jobModel: job.simpleJobDetails.jobModel || "",
         salaryInterval: job.simpleJobDetails.salaryInterval || "",
+        salaryInterval: job.simpleJobDetails.salaryInterval || "",
+        deadline: job.simpleJobDetails.deadline,
       },
       freelanceJobDetails: {
         budget: {
@@ -302,6 +309,7 @@ const getJobById = async (req, res) => {
         },
         files: job.freelanceJobDetails.files || [],
       },
+      deadline: job.deadline,
     };
 
     return res.status(200).json({ job: transformed });
@@ -329,14 +337,7 @@ const getAllJobs = async (req, res) => {
 
     const userId = req.user?._id;
 
-    let filters = {
-      deadline: {
-        $gt: new Date(),
-      },
-    };
-    if (req.user.role == "admin" || req.user.role == "manager") {
-      filters = {};
-    }
+    let filters = {};
     if (job) {
       filters.job = job;
     }
@@ -456,7 +457,7 @@ const getAllJobs = async (req, res) => {
       .skip(skip)
       .limit(parseInt(limit))
       .select(
-        "_id title description job status createdAt applicants simpleJobDetails.jobType simpleJobDetails.jobModel simpleJobDetails.salaryInterval simpleJobDetails.locationCity simpleJobDetails.locationState simpleJobDetails.category simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.budget freelanceJobDetails.category"
+        "_id title description deadline job status createdAt applicants simpleJobDetails.jobType simpleJobDetails.jobModel simpleJobDetails.salaryInterval simpleJobDetails.locationCity simpleJobDetails.locationState simpleJobDetails.category simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.budget freelanceJobDetails.category"
       )
       .populate("employerId", "fullName ")
       .lean();
@@ -642,7 +643,9 @@ const getAllSavedJobs = async (req, res) => {
     }
 
     const Model = role === "freelancer" ? FREELANCER : JOBSEEKER;
-    const user = await Model.findById(userId).select("savedJobs profile profile.professionalTitle profile.skills category profile.bio");
+    const user = await Model.findById(userId).select(
+      "savedJobs profile profile.professionalTitle profile.skills category profile.bio"
+    );
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -662,7 +665,7 @@ const getAllSavedJobs = async (req, res) => {
       .skip(skip)
       .limit(limit)
       .select(
-        "_id title applicants description job simpleJobDetails.jobType simpleJobDetails.jobModel simpleJobDetails.category simpleJobDetails.locationCity simpleJobDetails.locationState simpleJobDetails.salaryInterval simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.category freelanceJobDetails.budget"
+        "_id title deadline applicants description job simpleJobDetails.jobType simpleJobDetails.jobModel simpleJobDetails.category simpleJobDetails.locationCity simpleJobDetails.locationState simpleJobDetails.salaryInterval simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.category freelanceJobDetails.budget"
       )
       .populate("employerId", "fullName")
       .lean();
@@ -914,7 +917,34 @@ const updateJob = async (req, res) => {
       return res.status(200).json({ message: "job eidted successfully" });
     } else if (jobMode == "simple") {
       const simpleParsed = simpleJobZODSchema.parse(req.body);
-      // console.log("daat: ", simpleParsed)
+
+      const createdAt = new Date(job.createdAt);
+      const deadline = new Date(simpleParsed.deadline);
+
+      switch (job.creationType) {
+        case "free":
+          const fifteenDays = 15 * 24 * 60 * 60 * 1000;
+          if (deadline.getTime() > createdAt.getTime() + fifteenDays) {
+            return res.status(400).json({
+              message:
+                "You cannot extend deadline to more than 15 days from date job is created",
+            });
+          }
+          break;
+        case "oneTime":
+        case "subscription":
+          const thirtyOneDays = 31 * 24 * 60 * 60 * 1000;
+          if (deadline.getTime() > createdAt.getTime() + thirtyOneDays) {
+            return res.status(400).json({
+              message:
+                "You cannot extend deadline to more than 30 days from date job is created",
+            });
+          }
+          break;
+        default:
+          break;
+      }
+
       job.simpleJobDetails.jobType = simpleParsed.jobType;
       job.simpleJobDetails.category = simpleParsed.category;
       job.simpleJobDetails.minSalary = simpleParsed.minSalary;
@@ -926,6 +956,7 @@ const updateJob = async (req, res) => {
       job.simpleJobDetails.formLink = simpleParsed.formLink;
       job.simpleJobDetails.jobModel = simpleParsed.jobModel;
       job.simpleJobDetails.salaryInterval = simpleParsed.salaryInterval;
+      job.deadline = simpleParsed.deadline;
 
       await job.save();
 
@@ -1018,124 +1049,6 @@ const getJobApplicants = async (req, res) => {
   }
 };
 
-// apply on a job
-const applyToJob = async (req, res) => {
-  // const jobId = req.params.id;
-  // try {
-  //   if (!jobId || !mongoose.Types.ObjectId.isValid(jobId)) {
-  //     return res.status(400).json({ message: "Invalid job Id" });
-  //   }
-  //   const userId = req.user?._id;
-  //   const role = req.user.role;
-  //   if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
-  //     return res.status(400).json({ message: "Invalid jobseeker Id" });
-  //   }
-  //   let user;
-  //   switch (role) {
-  //     case "freelancer":
-  //       user = await FREELANCER.findById(userId);
-  //       break;
-  //     case "job-seeker":
-  //       user = await JOBSEEKER.findById(userId);
-  //       break;
-  //     default:
-  //       break;
-  //   }
-  //   if (!user) {
-  //     return res.status(404).json({ message: "User not found!" });
-  //   }
-  //   if (user.status !== "active") {
-  //     return res
-  //       .status(400)
-  //       .json({ message: "Only Active user can apply to job" });
-  //   }
-  //   // job validation
-  //   const job = await Job.findById(jobId).populate("employerId", "fullName");
-  //   if (!job) {
-  //     return res.status(404).json({ message: "Job not found" });
-  //   }
-  //   if (job.status != "empty") {
-  //     return res.status(400).json({ message: "Job not active" });
-  //   }
-  //   if (role === "freelancer" && job.job != "freelance") {
-  //     return res.status(400).json({ message: "Job is not a Freelance job" });
-  //   } else if (role === "job-seeeker" && job.job != "simple") {
-  //     return res.status(400).json({ message: "Job is not a Professinal" });
-  //   }
-  //   // check if an application already exists
-  //   const AlreadyApplied = job.applicants.some(
-  //     (e) => e.userId.toString() === userId.toString()
-  //   );
-  //   if (AlreadyApplied > 0) {
-  //     return res.status(400).json({ message: "Already applied to this job" });
-  //   }
-  //   // employer validation
-  //   const employer = await EMPLOYER.findById(job.employerId);
-  //   if (!employer) {
-  //     return res.status(404).json({ message: "Invalid Employer" });
-  //   }
-  //   if (employer.status !== "active") {
-  //     return res
-  //       .status(400)
-  //       .json({ message: "Employer account suspended or deleted" });
-  //   }
-  //   if (employer.email === user.email) {
-  //     return res
-  //       .status(400)
-  //       .json({ message: "Cannot apply to own created jobs" });
-  //   }
-  //   try {
-  //     const mongooseSession = await mongoose.startSession();
-  //     mongooseSession.startTransaction();
-  //     job.applicants.push({
-  //       userId: userId,
-  //       role:
-  //         role === "job-seeker"
-  //           ? "jobSeeker"
-  //           : role == "freelancer"
-  //           ? "freelancer"
-  //           : "",
-  //     });
-  //     // update job seeker activity
-  //     // Add to recent activity
-  //     user.activity.unshift({
-  //       title: `Applied to ${job.title}`,
-  //       subTitle: employer.fullName,
-  //       at: new Date(),
-  //     });
-  //     if (user.activity.length > 3) {
-  //       user.activity.splice(3);
-  //     }
-  //     user.profile.jobActivity.applicationsSent =
-  //       (user.profile?.jobActivity?.applicationsSent || 0) + 1;
-  //     // await notifyUser({
-  //     //   from: user.fullName,
-  //     //   message: `User Applied to job ${job._id}`,
-  //     //   title: "New Application",
-  //     //   userId: employer._id.toString(),
-  //     //   ctaUrl: `applications/${}`
-  //     // });
-  //     await job.save({ session: mongooseSession });
-  //     await user.save({ session: mongooseSession });
-  //     await mongooseSession.commitTransaction();
-  //     mongooseSession.endSession();
-  //     return res.status(200).json({
-  //       message: "Applied successfully",
-  //     });
-  //   } catch (err) {
-  //     console.error("❌ Error Applying to job:", err);
-  //     await mongooseSession.abortTransaction();
-  //     mongooseSession.endSession();
-  //     return res
-  //       .status(500)
-  //       .json({ message: "Error Applying to job", err: err.message });
-  //   }
-  // } catch (err) {
-  //   console.log("❌ Error Applying to job: ", err);
-  //   return res.status(500).json({ message: "Server Error", err: err.message });
-  // }
-};
-
 export {
   createJob,
   getAllJobs,
@@ -1148,5 +1061,4 @@ export {
   updateJob,
   closeAJob,
   getJobApplicants,
-  applyToJob,
 };

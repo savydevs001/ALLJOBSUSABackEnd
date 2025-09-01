@@ -35,6 +35,10 @@ const createProfileZODSchema = z.object({
   samples: z.array(z.string()).default([]),
   location: z.string().optional(),
   category: z.string(),
+  fullName: z
+    .string()
+    .min(5, "Min 5 chracter required for name")
+    .max(200, "Max 50 chracters allowed for name"),
 });
 
 // Controllers
@@ -53,6 +57,7 @@ const creatFreelancerProfile = async (req, res) => {
 
     freelancer.profile = data;
     freelancer.profile.freelancerWork = data.freelancerWork;
+    freelancer.fullName = data.fullName;
     freelancer.category = data.category || "";
     if (data.profilePictureUrl) {
       freelancer.profilePictureUrl = data.profilePictureUrl;
@@ -592,7 +597,7 @@ const getFreelancerList = async (req, res) => {
     };
 
     if (category && category != "") {
-      filter["category"]  = { $regex: category, $options: "i" };
+      filter["category"] = { $regex: category, $options: "i" };
     }
 
     // Text search on name, title or bio

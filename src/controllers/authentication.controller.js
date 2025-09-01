@@ -9,7 +9,10 @@ import EMPLOYER from "../database/models/employers.model.js";
 import FREELANCER from "../database/models/freelancer.model.js";
 import JOBSEEKER from "../database/models/job-seeker.model.js";
 import enqueueEmail from "../services/emailSender.js";
-import { getVerificationTemplate } from "../utils/email-templates.js";
+import {
+  getResetPasswordTemplate,
+  getVerificationTemplate,
+} from "../utils/email-templates.js";
 import generateVerificationCode from "../utils/create-verification-code.js";
 import mongoose from "mongoose";
 
@@ -161,9 +164,7 @@ const signUp = async (req, res) => {
     }
 
     if (existing && existing.emailVerified === true) {
-      return res
-        .status(409)
-        .json({ message: "Email already registered" });
+      return res.status(409).json({ message: "Email already registered" });
     }
 
     // new verification token;
@@ -441,8 +442,7 @@ const forgotPassword = async (req, res) => {
     await enqueueEmail(
       user.email,
       "Reset Your Password",
-      `<p>Click below to reset your password:</p>
-       <a href="${resetLink}">${resetLink}</a>`
+      getResetPasswordTemplate({ resetUrl: resetLink })
     );
 
     return res.status(200).json({
