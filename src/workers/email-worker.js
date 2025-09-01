@@ -75,7 +75,7 @@ const worker = new Worker(
           for (const user of users) {
             try {
               const mailOptions = {
-                from: `"ALLJOBUSA" <${EMAIL_CLIENT}>`,
+                from: `"ALLJOBSUSA" <${EMAIL_CLIENT}>`,
                 to: user.email,
                 subject: "Policy Updated",
                 html: policyUpdateEmailTemplate,
@@ -127,7 +127,7 @@ const worker = new Worker(
           for (const user of users) {
             try {
               const mailOptions = {
-                from: `"ALLJOBUSA" <${EMAIL_CLIENT}>`,
+                from: `"ALLJOBSUSA" <${EMAIL_CLIENT}>`,
                 to: user.email,
                 subject: "Terms Updated",
                 html: policyUpdateEmailTemplate,
@@ -180,7 +180,7 @@ const worker = new Worker(
           for (const user of users) {
             try {
               const mailOptions = {
-                from: `"ALLJOBUSA" <${EMAIL_CLIENT}>`,
+                from: `"ALLJOBSUSA" <${EMAIL_CLIENT}>`,
                 to: user.email,
                 subject: "Rules Updated",
                 html: policyUpdateEmailTemplate,
@@ -204,7 +204,7 @@ const worker = new Worker(
     if (job.name == "simple-mail") {
       const data = job.data;
       const mailOptions = {
-        from: `"ALLJOBUSA" <${EMAIL_CLIENT}>`,
+        from: `"ALLJOBSUSA" <${EMAIL_CLIENT}>`,
         to: data.to,
         subject: data.subject,
         html: data.html,

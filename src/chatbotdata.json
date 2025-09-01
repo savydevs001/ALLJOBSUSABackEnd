@@ -1,5 +1,414 @@
 [
   {
+    "question": "Info about employer subscriptions, Subscriptions",
+    "answer": [
+      "Subscriptions are only for employers. When you purchase a subscription you will be able to post professional job if you are an employer and then also you will be able to get access to talented job seekers in the Browse Talent section."
+    ]
+  },
+  {
+    "question": "how can I build resume on this platform?, how can I build cover letter on this platform?",
+    "answer": [
+      "You can upload resume or cover letter on your profile it will be shown to the people whom will be seeing your profile but you can't directly send resume  or cover letter to anyone."
+    ]
+  },
+  {
+    "question": "How can I keep improving as a freelancer?",
+    "answer": [
+      "Keep learning new skills, take on challenging projects, and stay curious. Every job you complete is a stepping stone toward becoming a top professional in your field."
+    ]
+  },
+  {
+    "question": "Does freelancing mean I’ll be working alone?",
+    "answer": [
+      "Not at all! You’ll interact with employers, join video calls, and collaborate on projects. Think of it as working with a remote team, but with the freedom to choose your projects."
+    ]
+  },
+  {
+    "question": "I got my first review! Now what?",
+    "answer": [
+      "Celebrate! 🎉 Positive reviews are like gold on your profile — they build trust and attract more opportunities. Keep up the good work and watch your career grow."
+    ]
+  },
+  {
+    "question": "Can I grow long-term relationships with employers here?",
+    "answer": [
+      "Definitely! Many employers prefer to rehire freelancers they trust. Do great work and you may turn one project into a lasting partnership."
+    ]
+  },
+  {
+    "question": "What’s the best way to stand out as a freelancer?, How to stand out as freelancer?, how to improve as freelancer?",
+    "answer": [
+      "Be professional, deliver high-quality work, and communicate well. Bonus tip: adding a touch of personality to your profile makes employers remember you."
+    ]
+  },
+  {
+    "question": "Is it okay if I only want to do side gigs?",
+    "answer": [
+      "100%! ALLJOBSUSA is flexible — whether you want a side hustle, part-time work, or a full-time career, you’ll find opportunities to match your lifestyle. 🕒"
+    ]
+  },
+  {
+    "question": "How do I stay motivated when freelancing gets tough?",
+    "answer": [
+      "Break projects into small steps, celebrate small wins, and remind yourself why you started. You’re building freedom, flexibility, and financial independence — one job at a time!"
+    ]
+  },
+  {
+    "question": "Can I turn freelancing here into a full-time income?",
+    "answer": [
+      "Absolutely! Many freelancers start part-time and gradually grow into full-time careers by building good client relationships and maintaining strong reviews. 🌟"
+    ]
+  },
+  {
+    "question": "What if I don’t get hired right away?",
+    "answer": [
+      "That’s normal! Keep applying, refine your profile, and stay consistent. Persistence pays off — sometimes the right opportunity just takes a little time to arrive. 🚀"
+    ]
+  },
+  {
+    "question": "I’m nervous about applying for my first job. Any tips?",
+    "answer": [
+      "Don’t worry — every pro was once a beginner! Start with smaller jobs to build confidence, keep your profile polished, and remember: each application is a learning step toward success. 💪"
+    ]
+  },
+  {
+    "question": "Can I use ALLJOBSUSA to build a long-term career?, can career be build using this platform?, does this support career building",
+    "answer": [
+      "Definitely. Many freelancers and Job Seekers start with small jobs and grow into long-term contracts or even full-time positions with the right employers."
+    ]
+  },
+  {
+    "question": "Does ALLJOBSUSA support part-time “side hustle” jobs?, Part time jobs allowed?, part time job can be done.",
+    "answer": [
+      "Yes! You’ll find part-time, freelance, and contract opportunities that can fit around your schedule."
+    ]
+  },
+  {
+    "question": "What if I’m new and don’t have reviews yet?",
+    "answer": [
+      "Everyone starts somewhere! Focus on smaller projects at first, complete them well, and build your reputation step by step."
+    ]
+  },
+  {
+    "question": "How do I improve my chances of getting hired?",
+    "answer": [
+      "Keep your profile updated with skills, certifications, and portfolio. Apply for jobs that match your expertise, and maintain positive reviews from past employers."
+    ]
+  },
+  {
+    "question": "Does the platform support team collaboration?, Teams collaborayion is allowed,",
+    "answer": [
+      "Yes. Employers can manage multiple job posts, track applicants, and collaborate with freelancers using chat, video calls, and file sharing."
+    ]
+  },
+  {
+    "question": "Can freelancers work with more than one employer at once?",
+    "answer": [
+      "Absolutely! Freelancers can apply to multiple jobs and manage several active projects simultaneously."
+    ]
+  },
+  {
+    "question": "Can I manage multiple projects at the same time?",
+    "answer": [
+      "Yes. The Order Management dashboard helps you track all ongoing, completed, and pending projects in one place."
+    ]
+  },
+  {
+    "question": "What happens if a dispute can’t be resolved between employer and freelancer?",
+    "answer": [
+      "The admin team will step in, review the evidence (chat history, files, milestones), and make a fair decision, which may include partial or full refunds."
+    ]
+  },
+  {
+    "question": "How do you protect against scams?",
+    "answer": [
+      "We monitor job posts and user profiles. Suspicious activity can be reported by users, and our admin team investigates and removes fraudulent accounts immediately."
+    ]
+  },
+  {
+    "question": "How secure are payments on ALLJOBSUSA?, How is the security of this platform?",
+    "answer": [
+      "Payments are protected by our escrow system. Employers deposit funds into escrow, and freelancers are paid only when the work is completed and approved."
+    ]
+  },
+  {
+    "question": "Can I advertise my services or job posts on the platform?",
+    "answer": [
+      "Yes. Employers and freelancers can purchase ad placements on the ALLJOBSUSA advertisement board for more visibility. For this you have to fill the advertise with us form that is available on the website's landing page."
+    ]
+  },
+  {
+    "question": "Does ALLJOBSUSA have a mobile app?",
+    "answer": [
+      "Yes, a dedicated mobile app is available on both Apple app store and Google playstore to give you faster access to jobs and messaging on the go."
+    ]
+  },
+  {
+    "question": "Can recruiters use ALLJOBSUSA?",
+    "answer": [
+      "Yes. Recruiters can register as employers, post jobs, and hire talent just like any employer."
+    ]
+  },
+  {
+    "question": "How do I deposit money into escrow?",
+    "answer": [
+      "When you hire a freelancer or accept an offer, the system will guide you to fund the project by depositing the agreed amount into escrow. You can pay using your preferred payment method (such as credit/debit card or any other method be availale). Once the payment is confirmed, the funds are securely held in escrow until the freelancer completes the work or the agreed milestone."
+    ]
+  },
+  {
+    "question": "Can I request a refund?",
+    "answer": [
+      "Yes if any order with any freelancer doesn't go well then you can contact the support and could cancel the order and apply for refund it will be done after verifications."
+    ]
+  },
+  {
+    "question": "Can employers add a bonus/tip to the order payment?",
+    "answer": [
+      "Yes, when employers complete the order they are asked to give a review and they can also give you some tip."
+    ]
+  },
+  {
+    "question": "Do I need a subscription to apply for jobs?",
+    "answer": [
+      "No, Applying to any job is free you can just setup your profile and look for any job according to your skills."
+    ]
+  },
+  {
+    "question": "Can my account be suspended?",
+    "answer": [
+      "Yes. Violations of terms of service can lead to suspension. Accounts may be reinstated upon review."
+    ]
+  },
+  {
+    "question": "What should I do if I suspect a scam?",
+    "answer": [
+      "Report the account immediately, and the admin team will investigate."
+    ]
+  },
+  {
+    "question": "What happens if I get a bad review?",
+    "answer": [
+      "A single review won’t ruin your profile, but consistent negative feedback may affect your credibility."
+    ]
+  },
+  {
+    "question": "How do reviews affect my profile?",
+    "answer": [
+      "Reviews build your reputation. Positive reviews increase your chances of getting hired."
+    ]
+  },
+  {
+    "question": "How do I leave a review?",
+    "answer": [
+      "After an order is completed, employers are prompted to leave a review and they can also give some tip to the freelancers."
+    ]
+  },
+  {
+    "question": "Can I get job alerts via email?",
+    "answer": ["Yes, you will get email notifications for job updates."]
+  },
+  {
+    "question": "How do I schedule a video meeting?",
+    "answer": [
+      "Use the in-platform video conferencing tool to send and accept meeting invites."
+    ]
+  },
+  {
+    "question": "Can I send attachments in messages?",
+    "answer": [
+      "Yes, you can securely exchange documents within the messaging system but you can't share any contant information to freelancer or freelancer can't share his information."
+    ]
+  },
+  {
+    "question": "How do I start a chat?",
+    "answer": [
+      "If you are an employer open the freelancer/job seekeer profile or order page and click “Message.” If you are freelancer you can't message anyone until any employer initiate or messages you."
+    ]
+  },
+  {
+    "question": "Is there a cover letter builder available?, Is there a resume builder available?",
+    "answer": [
+      "Yes, you can create both professional cover letters and resumes using customizable templates."
+    ]
+  },
+  {
+    "question": "How do I apply for a job?, How can I apply?, How to apply?, How to get a job?, How can I apply to any job?, How to actually apply to the job?",
+    "answer": [
+      "Open the Browse jobs and click “View Job”, You have to fill a form if required by the employer then then after checking the checkbox if any link was required you will be able to Click \"Apply Now\" Button."
+    ]
+  },
+  {
+    "question": "Can I edit or delete a job posting after it’s live?",
+    "answer": [
+      "Yes, you can edit or remove job postings anytime from your Dashboard."
+    ]
+  },
+  {
+    "question": "How do I create a job post?, Post a job, Job posting, How to Post a job? how to post professtional job? How to post freelance job?, How to post a job?",
+    "answer": [
+      "Posting a job is only available for Employers. From your employer dashboard, click “Post a Profession Job” or \"Post a Freelance Job\" enter job details, budget, and requirements, then publish. But remeber to post professional job you should have a subscription which will be asked to have when you try to post the professional job."
+    ]
+  },
+  {
+    "question": "How do I upload my portfolio or certifications?",
+    "answer": [
+      "In your profile, use the “Add Work Samples\" option to upload files where you can also attach Certifications and work samples."
+    ]
+  },
+  {
+    "question": "Can I switch from a freelancer account to an employer account?",
+    "answer": [
+      "Yes, basically, you can create both accounts from the same email but you can't place orders to your own profile."
+    ]
+  },
+  {
+    "question": "What happens if I forget my password?",
+    "answer": [
+      "Use the “Forgot Password” option on the login page. The system will send you a reset link, or the admin can generate a temporary password for you."
+    ]
+  },
+  {
+    "question": "Can I hide my profile from employers?",
+    "answer": [
+      "Yes. In your profile settings, you can manage visibility to control who sees your profile."
+    ]
+  },
+  {
+    "question": "How do I update my profile information?",
+    "answer": [
+      "Go to “Profile” from your dashboard and edit your personal details, work experience, education, or portfolio."
+    ]
+  },
+  {
+    "question": "How is this is different from other platforms?, Some special things about this platform",
+    "answer": [
+      "Unlike traditional job boards, ALLJOBSUSA combines freelance and full-time job opportunities, integrates secure escrow payments, provides AI-powered job matching, and offers in-platform video conferencing and messaging."
+    ]
+  },
+  {
+    "question": "Is ALLJOBSUSA only for U.S. jobs?, Is this only for America jobs?, Is it for all the world or only for USA people?",
+    "answer": [
+      "ALLJOBSUSA is primarily tailored for U.S. based opportunities, but freelancers from anywhere can create accounts and apply for jobs."
+    ]
+  },
+  {
+    "question": "How to purchase subscription?, how do I purchase any subscription?, How to get subscription?, How to have subscription?, How to subscribe to browse talent?",
+    "answer": [
+      "Subscriptions are only for employers and they can have subscriptions for professional job posting and get access to browse talent sections by paying the subscription either having first 14 days plan or one time posting or any other plans you see in the subscription panel."
+    ]
+  },
+  {
+    "question": "How can I contact support?, Chat Support info, chat support",
+    "answer": [
+      "You can use Live Chat Support for real-time help from an agent but for that you have to generate a ticket."
+    ]
+  },
+  {
+    "question": "What happens if there is a dispute?, Give info about dispute.",
+    "answer": [
+      "The admin team can review chats, order details, and decide on disputes. Refunds can also be processed if required."
+    ]
+  },
+  {
+    "question": "Will I get notified about job updates?",
+    "answer": [
+      "Yes. The system sends real-time alerts for job applications, offers, payments, messages, and system announcements."
+    ]
+  },
+  {
+    "question": "Do employers have premium features?",
+    "answer": [
+      "Yes. With a subscription, employers get priority job postings and enhanced candidate analytics like they can have browse talents where they can check Job Seeker profiles. Also, only the subscribed employers can access to post professional jobs."
+    ]
+  },
+  {
+    "question": "How does the escrow system work?, How does the order system work?, How orders work?, orders info",
+    "answer": [
+      "Once an offer is accepted, payment is secured in escrow. It is only released when the work is completed and approved after platform guildlines of clearing the payment."
+    ]
+  },
+  {
+    "question": "Is there messaging inside the platform?",
+    "answer": [
+      "Yes, a secure messaging system lets you discuss offers, share updates, and negotiate terms. But remeber you can't share any personal information in the chats with freelancers or freelancers can't share any info to the employers."
+    ]
+  },
+  {
+    "question": "Can I meet employers/freelancers online?, Can I have a meeting in the platform?",
+    "answer": [
+      "Yes, you can use the built-in video conferencing tool for interviews or discussions.",
+      "Yes platforms has a meeting features which can be used in the chating system where you can make a video meeting."
+    ]
+  },
+  {
+    "question": "Does ALLJOBSUSA provide resume and cover letter help?, cover letter, resume, how can I build resume on this platform?, how can I build cover letter on this platform?, how do I generate a resume/cover letter?, how to make a resume?, how to make a cover letter?, can I build resume?, can I build cover letter?",
+    "answer": [
+      "Yes! You can generate professional resumes and cover letters using built-in templates.",
+      "You can go to dashboard and then click on the buttons of either Build Resume or Build Cover Letter and use the templates and design it as you need and then you have to pay to download the PDF files."
+    ]
+  },
+  {
+    "question": "How does AI help me on the platform?",
+    "answer": [
+      "AI suggests best-fit jobs to freelancers and recommends ideal candidates to employers."
+    ]
+  },
+  {
+    "question": "Do freelancers get reviews?",
+    "answer": [
+      "Yes, employers leave reviews after project completion, helping freelancers build credibility."
+    ]
+  },
+  {
+    "question": "Can freelancers save jobs for later?, how to save a job?",
+    "answer": [
+      "Yes, freelancers can bookmark jobs to apply later.",
+      "You can bookmark jobs to apply later or just save them."
+    ]
+  },
+  {
+    "question": "How do freelancers showcase their skills?",
+    "answer": [
+      "By creating a detailed public profile including skills, experience, education, portfolio, and certifications."
+    ]
+  },
+  {
+    "question": "Can I review freelancers?",
+    "answer": [
+      "Yes, employers or job seekers those will be working with freelancers can rate and review freelancers once the job is completed."
+    ]
+  },
+  {
+    "question": "How do employers pay freelancers?, How payment is made to freelancers?",
+    "answer": [
+      "Payments go through an escrow system, ensuring funds are only released when milestones or jobs are completed."
+    ]
+  },
+  {
+    "question": "What types of jobs can employers post?",
+    "answer": [
+      "Employers can post full-time, part-time, contract, or freelance jobs."
+    ]
+  },
+  {
+    "question": "What’s the difference between an Employer and a Freelancer account?",
+    "answer": [
+      "Employers can post jobs, browse candidates, send offers, and use escrow for payments while Freelancers can create detailed profiles, apply for jobs, and send/accept offers."
+    ]
+  },
+  {
+    "question": "Who can use ALLJOBSUSA?, who can actually use this platform?",
+    "answer": [
+      "Both employers and freelancers/job seekers. Employers can post jobs and hire talent, while freelancers can apply for jobs, send offers, and showcase their skills."
+    ]
+  },
+  {
+    "question": "What is ALLJOBSUSA?, Explain the platform, give some info about ALLJOBSUSA",
+    "answer": [
+      "ALLJOBSUSA is a U.S.-based job marketplace where employers can post jobs and freelancers/job seekers can apply, connect, and collaborate. It offers AI-powered job matching, resume/cover letter builders, secure payments, and real-time communication tools."
+    ]
+  },
+  {
     "question": "hi, hello, please, hey, hi there, hello there, good morning, good afternoon, good evening, morning, afternoon, evening, greetings, good day, howdy, hiya, yo, wassup, sup, what's up, what's good, how's it going, how are you, how are you doing, salaam, hola, bonjour, ciao, namaste, hehe",
     "answer": [
       "Hello! How can I help you today?",
@@ -11,7 +420,10 @@
   },
   {
     "question": "ok",
-    "answer": ["ok, you can comeback anytime", "ok, feel free to ask if you have any other query"]
+    "answer": [
+      "ok, you can comeback anytime",
+      "ok, feel free to ask if you have any other query"
+    ]
   },
   {
     "question": "thank you, thanks, thanks a lot, thank you so much, thanks buddy, thx, appreciate it, cheers, thanks man, thanks friend",
@@ -114,19 +526,11 @@
     ]
   },
   {
-    "question": "find me jobs, show me jobs, I need a job, search jobs, job listings, available jobs, job, jobs",
+    "question": "find me jobs, show me jobs, I need a job",
     "answer": [
       "You can explore the latest job listings on ALLJOBSUSA.",
       "Sure! Check the job search section for available opportunities.",
       "Check Jobs on browse jobs page "
-    ]
-  },
-  {
-    "question": "how to apply, tell me how to apply, apply, applications",
-    "answer": [
-      "Select a job and click the Apply button",
-      "Sure! go to jobs page and click on view job to apply",
-      "Click on Apply button on job page to apply"
     ]
   },
   {
@@ -136,14 +540,6 @@
       "Our platform helps you quickly find skilled freelancers for your project.",
       "Posting jobs is easy—just share the details and freelancers will apply."
     ]
-  },
-  {
-    "question": "how to post professional job, post a professional job",
-    "answer": ["As an Employer you can post a professional job from dashboaord"]
-  },
-  {
-    "question": "how to post freelance job, post a freelance job",
-    "answer": ["As an Employer you can post a freelance job from dashboaord"]
   },
   {
     "question": "what is professional job, tell me about professional job, professional job",
@@ -231,14 +627,6 @@
     ]
   },
   {
-    "question": "how to reset password, forgot password, recover account, password",
-    "answer": [
-      "Click on 'Forgot Password' on the login page to reset it.",
-      "Enter your registered email to receive reset instructions.",
-      "You’ll get an email link to change your password."
-    ]
-  },
-  {
     "question": "I didn’t get password reset email, reset email not received, forgot password email missing",
     "answer": [
       "Check your spam or junk folder for the reset email.",
@@ -246,7 +634,6 @@
       "If you still don’t see it, try again or contact support."
     ]
   },
-
   {
     "question": "how to contact support, I need support, help me contact admin, customer service, support",
     "answer": [
@@ -286,18 +673,6 @@
       "You can change your bio, skills, education, and work experience anytime.",
       "A complete profile increases your chances of getting hired."
     ]
-  },
-  {
-    "question": "how to post a job, create job listing, post project, list work, work",
-    "answer": [
-      "Go to the Post a Job section and fill in the details about the work.",
-      "Employers can specify budget, deadlines, and required skills.",
-      "Once posted, freelancers can start applying immediately."
-    ]
-  },
-  {
-    "question": "how to apply for a job send application,  application",
-    "answer": ["Find a job you like and click Apply"]
   },
   {
     "question": "submit proposal, send proposal, proposal",
