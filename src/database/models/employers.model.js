@@ -87,6 +87,7 @@ const employerSchema = mongoose.Schema(
 
     // blocked
     blocked: [blockSchema],
+    confidentials: [blockSchema],
 
     // verify email
     emailVerified: { type: Boolean, default: false },

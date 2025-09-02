@@ -3,6 +3,7 @@ import mongoose, { mongo } from "mongoose";
 import EMPLOYER from "../database/models/employers.model.js";
 import FREELANCER from "../database/models/freelancer.model.js";
 import JOBSEEKER from "../database/models/job-seeker.model.js";
+import { z } from "zod";
 
 const getMessagesWithProfile = async (req, res) => {
   try {
@@ -68,12 +69,21 @@ const getMessagesWithProfile = async (req, res) => {
       (e) => currentUser._id.toString() === e.userId.toString()
     );
 
+    // is confidential only in case of employer and job-seekre
+    let confidential = false;
+    if (userRole === "employer" && currentUserRole == "job-seeker") {
+      confidential = (user.confidentials || []).some(
+        (e) => e.userId?.toString() === currentUser._id.toString()
+      );
+    }
+
     const receiver = {
       _id: user._id,
       fullName: user.fullName,
       profilePictureUrl: user.profilePictureUrl,
       userRole,
       blocked: isBlockedByOther,
+      confidential,
     };
 
     const isblocked = (currentUser.blocked || []).some(
@@ -228,7 +238,7 @@ const getConversations = async (req, res) => {
         "fullName profilePictureUrl blocked"
       ),
       EMPLOYER.find({ _id: { $in: userIds } }).select(
-        "fullName profilePictureUrl blocked"
+        "fullName profilePictureUrl blocked confidentials"
       ),
       JOBSEEKER.find({ _id: { $in: userIds } }).select(
         "fullName profilePictureUrl blocked"
@@ -242,6 +252,7 @@ const getConversations = async (req, res) => {
         fullName: user.fullName,
         profilePictureUrl: user.profilePictureUrl,
         blocked: user.blocked || [],
+        confidentials: user.confidentials || [],
       });
     });
 
@@ -256,6 +267,7 @@ const getConversations = async (req, res) => {
           fullName: "Unknown",
           profilePictureUrl: null,
           blocked: [],
+          confidentials: user.confidentials || [],
         };
 
         const enriched = {
@@ -264,6 +276,9 @@ const getConversations = async (req, res) => {
           receiverId: msg.receiverId,
           sentAt: msg.sentAt,
           attachments: msg.attachments,
+          isConfidential: userInfo.confidentials.some(
+            (e) => e.userId.toString() === userId.toString()
+          ),
           user: {
             _id: userInfo._id,
             fullName: userInfo.fullName,
@@ -292,68 +307,19 @@ const getConversations = async (req, res) => {
         return a.isBlocked ? 1 : -1;
       });
 
-    return res.json({ chats: enrichedConversations });
+    let confidentials = [];
+    if (userRole == "employer") {
+      confidentials = (user.confidentials || []).map((e) =>
+        e.userId.toString()
+      );
+    }
+
+    return res.json({ chats: enrichedConversations, confidentials });
   } catch (err) {
     console.error("❌ Failed to fetch messages:", err);
     return res.status(500).json({ message: "Server Error" });
   }
 };
-
-// const getUnreadMessageCount = async (req, res) => {
-//   try {
-//     const userId = req.user?._id;
-//     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
-//       return res.status(400).json({ message: "Invalid User ID" });
-//     }
-
-//     const result = await Message.aggregate([
-//       {
-//         $match: {
-//           receiverId: userId,
-//           seen: false,
-//         },
-//       },
-//       {
-//         $addFields: {
-//           conversationKey: {
-//             $cond: [
-//               { $gt: ["$senderId", "$receiverId"] },
-//               {
-//                 $concat: [
-//                   { $toString: "$receiverId" },
-//                   "_",
-//                   { $toString: "$senderId" },
-//                 ],
-//               },
-//               {
-//                 $concat: [
-//                   { $toString: "$senderId" },
-//                   "_",
-//                   { $toString: "$receiverId" },
-//                 ],
-//               },
-//             ],
-//           },
-//         },
-//       },
-//       {
-//         $group: {
-//           _id: "$conversationKey", // group by unique conversation
-//         },
-//       },
-//       {
-//         $count: "unreadConversationCount",
-//       },
-//     ]);
-
-//     const count = result[0]?.unreadConversationCount || 0;
-
-//     return res.json({ unreadCount: count });
-//   } catch (err) {
-//     console.error("❌ Failed to get unread conversation count:", err);
-//     return res.status(500).json({ message: "Server Error" });
-//   }
-// };
 
 const getTotalUnseenMessages = async (req, res) => {
   try {
@@ -530,17 +496,111 @@ const getBlockedUsers = async (req, res) => {
   }
 };
 
-// // create a messaage
-// const createMessage = async(req, res)=>{
+// confidential mode on
+const confidentialSchema = z.object({
+  confiedntialUserId: z.string(),
+});
+const confidentialModeOn = async (req, res) => {
+  const { confiedntialUserId } = confidentialSchema.parse(req.body);
+  try {
+    const userId = req.user?._id;
 
-// }
+    if (!mongoose.Types.ObjectId.isValid(confiedntialUserId)) {
+      return res.status(400).json({ message: "Inalid other user Id" });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Inalid user Id" });
+    }
+
+    const user = await EMPLOYER.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found!" });
+    }
+
+    const isAlreadyconfidential = (user.confidentials || []).some(
+      (e) => e.userId?.toString() === confiedntialUserId?.toString()
+    );
+    if (isAlreadyconfidential) {
+      return res
+        .status(400)
+        .json({ message: "User already in confidential list" });
+    }
+
+    user.confidentials = [
+      ...(user.confidentials || []),
+      {
+        userId: confiedntialUserId,
+        at: new Date(),
+      },
+    ];
+    await user.save();
+
+    return res.status(200).json({ message: "User added to confidetial list" });
+  } catch (err) {
+    console.log(
+      "Error adding a user to confidential list: " + confiedntialUserId,
+      err
+    );
+    return res.status(500).json({
+      message: "Error adding a user to confidential list: ",
+      err: err.message,
+    });
+  }
+};
+
+// confidential mode off
+const confidentialModeOff = async (req, res) => {
+  const { confiedntialUserId } = confidentialSchema.parse(req.body);
+  try {
+    const userId = req.user?._id;
+
+    if (!mongoose.Types.ObjectId.isValid(confiedntialUserId)) {
+      return res.status(400).json({ message: "Inalid other user Id" });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Inalid user Id" });
+    }
+
+    const user = await EMPLOYER.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found!" });
+    }
+
+    const isAlreadyconfidential = (user.confidentials || []).some(
+      (e) => e.userId?.toString() === confiedntialUserId?.toString()
+    );
+    if (isAlreadyconfidential) {
+      user.confidentials = (user.confidentials || []).filter(
+        (e) => e.userId !== confiedntialUserId
+      );
+      await user.save();
+      return res
+        .status(200)
+        .json({ message: "User removed from confidential list" });
+    }
+
+    return res.status(200).json({ message: "User not in confidetial list" });
+  } catch (err) {
+    console.log(
+      "Error removing a user from confidential list: " + confiedntialUserId,
+      err
+    );
+    return res.status(500).json({
+      message: "Error removing a user from  confidential list: ",
+      err: err.message,
+    });
+  }
+};
 
 export {
   getMessagesWithProfile,
   getConversations,
-  // getUnreadMessageCount,
   getTotalUnseenMessages,
   blockConversation,
   unblockConversation,
   getBlockedUsers,
+  confidentialModeOn,
+  confidentialModeOff,
 };

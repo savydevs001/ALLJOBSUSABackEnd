@@ -51,6 +51,7 @@ const simpleJobZODSchema = z.object({
   deadline: z.coerce.date({
     errorMap: () => ({ message: "Invalid date format" }),
   }),
+  isConfidential: z.coerce.boolean(),
 });
 const freelanceZODSchema = z.object({
   requiredSkills: z
@@ -179,6 +180,7 @@ const createJob = async (req, res) => {
           deadline: data.deadline,
           formLink: data.formLink,
           salaryInterval: data.salaryInterval,
+          isConfidential: data.isConfidential,
         };
         if (
           data.creationType == "free" &&
@@ -241,7 +243,9 @@ const createJob = async (req, res) => {
     }
   } catch (err) {
     console.log("❌ Error creating job: ", err);
-    return res.status(500).json({ message: "Server Error" });
+    return res
+      .status(500)
+      .json({ message: "Error creating job", err: err.message });
   }
 };
 
@@ -298,6 +302,7 @@ const getJobById = async (req, res) => {
         salaryInterval: job.simpleJobDetails.salaryInterval || "",
         salaryInterval: job.simpleJobDetails.salaryInterval || "",
         deadline: job.simpleJobDetails.deadline,
+        isConfidential: job.simpleJobDetails.isConfidential || false,
       },
       freelanceJobDetails: {
         budget: {
@@ -457,7 +462,7 @@ const getAllJobs = async (req, res) => {
       .skip(skip)
       .limit(parseInt(limit))
       .select(
-        "_id title description deadline job status createdAt applicants simpleJobDetails.jobType simpleJobDetails.jobModel simpleJobDetails.salaryInterval simpleJobDetails.locationCity simpleJobDetails.locationState simpleJobDetails.category simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.budget freelanceJobDetails.category"
+        "_id title description deadline job status createdAt applicants simpleJobDetails.jobType simpleJobDetails.isConfidential simpleJobDetails.jobModel simpleJobDetails.salaryInterval simpleJobDetails.locationCity simpleJobDetails.locationState simpleJobDetails.category simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.budget freelanceJobDetails.category"
       )
       .populate("employerId", "fullName ")
       .lean();
@@ -665,7 +670,7 @@ const getAllSavedJobs = async (req, res) => {
       .skip(skip)
       .limit(limit)
       .select(
-        "_id title deadline applicants description job simpleJobDetails.jobType simpleJobDetails.jobModel simpleJobDetails.category simpleJobDetails.locationCity simpleJobDetails.locationState simpleJobDetails.salaryInterval simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.category freelanceJobDetails.budget"
+        "_id title deadline applicants description job simpleJobDetails.isConfidential simpleJobDetails.jobType simpleJobDetails.jobModel simpleJobDetails.category simpleJobDetails.locationCity simpleJobDetails.locationState simpleJobDetails.salaryInterval simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.category freelanceJobDetails.budget"
       )
       .populate("employerId", "fullName")
       .lean();
@@ -856,6 +861,8 @@ const getJobForEdit = async (req, res) => {
       tranformData.formLink = job.simpleJobDetails?.formLink;
       tranformData.jobModel = job.simpleJobDetails.jobModel || "";
       tranformData.salaryInterval = job.simpleJobDetails.salaryInterval || "";
+      tranformData.isConfidential =
+        job.simpleJobDetails.isConfidential || false;
 
       return res.status(200).json({ job: tranformData });
     } else {
@@ -957,6 +964,7 @@ const updateJob = async (req, res) => {
       job.simpleJobDetails.jobModel = simpleParsed.jobModel;
       job.simpleJobDetails.salaryInterval = simpleParsed.salaryInterval;
       job.deadline = simpleParsed.deadline;
+      job.simpleJobDetails.isConfidential = simpleParsed.isConfidential;
 
       await job.save();
 

@@ -186,7 +186,10 @@ const getUserApplications = async (req, res) => {
 
     const applications = await Application.find({ applicantId: userId })
       .populate("employerId", "_id fullName")
-      .populate("jobId", "title description")
+      .populate(
+        "jobId",
+        "title description job simpleJobDetails.isConfidential"
+      )
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
@@ -198,6 +201,8 @@ const getUserApplications = async (req, res) => {
         _id: e.jobId._id,
         title: e.jobId.title,
         description: e.jobId.description,
+        job: e.jobId.job,
+        isConfidential: e.jobId.simpleJobDetails.isConfidential || false,
       },
       userId: userId,
       employerId: {
@@ -409,6 +414,7 @@ const getApplicationById = async (req, res) => {
         title: job.title,
         description: job.description,
         status: job.status,
+        isConfidential: job.simpleJobDetails.isConfidential ?? false,
         salaryInterval:
           job.job == "simple" ? job.simpleJobDetails.salaryInterval || "" : "",
         jobType:
@@ -457,6 +463,10 @@ const getApplicationById = async (req, res) => {
         bio: applicant.profile?.bio ?? "",
         skills: applicant.profile?.skills ?? [],
         startingRate: applicant.profile?.hourlyRate ?? null,
+        role:
+          application.applicantModel == "jobSeeker"
+            ? "job-seeker"
+            : "freelancer",
       },
     };
 
