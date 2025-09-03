@@ -5,6 +5,7 @@ import {
   approveRefunds,
   cancelDisputedOrder,
   changeFreelancerBadge,
+  closeAJob,
   completeDisputedOrder,
   createAdminAccount,
   deleteUser,
@@ -67,6 +68,12 @@ AdminRouter.get(
   verifyTokenMiddleware(),
   roleBasedAuthMiddleware(["admin", "manager"]),
   a(getJobs)
+);
+AdminRouter.get(
+  "/jobs/:id/close",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["admin", "manager"]),
+  a(closeAJob)
 );
 AdminRouter.get(
   "/trending-jobs",

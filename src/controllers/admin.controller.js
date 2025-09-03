@@ -476,7 +476,15 @@ const getTotalUserStats = async (req, res) => {
 // get users
 const getUsers = async (req, res) => {
   try {
-    const { status, text, role = "employer", skip = 0, limit = 10 } = req.query;
+    const {
+      status,
+      text,
+      role = "employer",
+      skip = 0,
+      limit = 10,
+      sortBy = "createdAt",
+      sortByMode = "descending",
+    } = req.query;
 
     // Validate role
     if (!["employer", "freelancer", "job-seeker"].includes(role)) {
@@ -509,7 +517,8 @@ const getUsers = async (req, res) => {
     const [users, total] = await Promise.all([
       Model.find(query)
         .select("_id fullName createdAt email status")
-        .sort({ createdAt: -1 })
+        .collation({ locale: "en", strength: 1 })
+        .sort({ [sortBy]: sortByMode == "ascending" ? 1 : -1 })
         .skip(Number(skip))
         .limit(Number(limit)),
       Model.countDocuments(query),
@@ -556,23 +565,43 @@ const getJobsStats = async (req, res) => {
 // get jobs
 const getJobs = async (req, res) => {
   try {
-    const { status, text, skip = 0, limit = 10, job } = req.query;
+    const {
+      status,
+      text,
+      skip = 0,
+      limit = 10,
+      job,
+      sortBy = "createdAt",
+      sortByMode = "descending",
+    } = req.query;
 
-    // Build base match query
+    // Build base match
     const matchStage = {};
-    if (status && status !== "") {
-      matchStage.status = status;
-    }
-    if (job) {
-      matchStage.job = job;
+    if (status && status !== "") matchStage.status = status;
+    if (job) matchStage.job = job;
+
+    // Build text filter
+    let textMatch = null;
+    if (text && text.trim() !== "") {
+      const isValidObjectId = mongoose.Types.ObjectId.isValid(text);
+      textMatch = {
+        $or: [
+          ...(isValidObjectId
+            ? [{ _id: new mongoose.Types.ObjectId(text) }]
+            : []),
+          { title: { $regex: text, $options: "i" } },
+          { "employer.fullName": { $regex: text, $options: "i" } },
+          { "employer.email": { $regex: text, $options: "i" } },
+        ],
+      };
     }
 
-    // Initial pipeline
+    // Main pipeline
     const pipeline = [
       { $match: matchStage },
       {
         $lookup: {
-          from: "employers", // collection name (lowercase plural)
+          from: "employers",
           localField: "employerId",
           foreignField: "_id",
           as: "employer",
@@ -581,25 +610,8 @@ const getJobs = async (req, res) => {
       { $unwind: "$employer" },
     ];
 
-    // Text filter
-    if (text && text.trim() !== "") {
-      const isValidObjectId = mongoose.Types.ObjectId.isValid(text);
-      const textMatch = {
-        $or: [
-          ...(isValidObjectId
-            ? [{ _id: new mongoose.Types.ObjectId(text) }]
-            : []),
-          { "employer.fullName": { $regex: text, $options: "i" } },
-          { "employer.email": { $regex: text, $options: "i" } },
-        ],
-      };
-      pipeline.push({ $match: textMatch });
-    }
+    if (textMatch) pipeline.push({ $match: textMatch });
 
-    // Count pipeline for total documents
-    const countPipeline = [...pipeline, { $count: "total" }];
-
-    // Project only required fields
     pipeline.push(
       {
         $project: {
@@ -617,17 +629,34 @@ const getJobs = async (req, res) => {
           },
         },
       },
-      { $sort: { createdAt: -1 } },
+      { $sort: { [sortBy]: sortByMode === "ascending" ? 1 : -1 } },
       { $skip: Number(skip) },
       { $limit: Number(limit) }
     );
+
+    // Count pipeline (same as above, but no project/sort/skip/limit)
+    const countPipeline = [
+      { $match: matchStage },
+      {
+        $lookup: {
+          from: "employers",
+          localField: "employerId",
+          foreignField: "_id",
+          as: "employer",
+        },
+      },
+      { $unwind: "$employer" },
+    ];
+
+    if (textMatch) countPipeline.push({ $match: textMatch });
+    countPipeline.push({ $count: "total" });
 
     // Execute both count and data queries
     const [results, totalResult] = await Promise.all([
       Job.aggregate(pipeline),
       Job.aggregate(countPipeline),
     ]);
-
+    
     const transformData = results.map((e) => ({
       _id: e._id,
       title: e.title,
@@ -650,6 +679,40 @@ const getJobs = async (req, res) => {
   } catch (err) {
     console.error("❌ Error getting jobs for admin:", err);
     return res.status(500).json({ message: "Server Error" });
+  }
+};
+
+// close a job
+const closeAJob = async (req, res) => {
+  try {
+    const jobId = req.params.id;
+    if (!jobId || !mongoose.Types.ObjectId.isValid(jobId)) {
+      return res.status(400).json({ message: "Invalid job id" });
+    }
+
+    const job = await Job.findById(jobId);
+    if (!job) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    if (job.status == "deleted") {
+      return res.status(400).json({ message: "Job already closed" });
+    }
+
+    if (job.status !== "empty") {
+      return res.status(400).json({
+        message: "You cannot close this job, as it is already filled",
+      });
+    }
+
+    job.status = "deleted";
+    await job.save();
+    return res.status(200).json({ message: "Job Closed" });
+  } catch (err) {
+    console.log("❌ Error in deleting job: ", err);
+    return res
+      .status(500)
+      .json({ message: "Error deleting job", err: err.message });
   }
 };
 
@@ -1691,4 +1754,5 @@ export {
   suspendUser,
   deleteUser,
   unSuspendUser,
+  closeAJob,
 };

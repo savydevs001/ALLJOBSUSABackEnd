@@ -13,7 +13,7 @@ const createProfileZODSchema = z.object({
   fullName: z.string().min(1, "Full name is reuired min 1 chracter"),
   profilePictureUrl: z.string().optional(),
   bannerUrl: z.string().optional(),
-  resumeUrl: z.string().optional(),
+  resumeUrl: z.string(),
   category: z.string(),
   professionalTitle: z
     .string()

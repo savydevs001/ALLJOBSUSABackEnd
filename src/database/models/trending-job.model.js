@@ -8,6 +8,11 @@ const trendingJobSchema = new Schema(
     location: { type: String, required: true },
     minSalary: { type: Number, required: true },
     maxSalary: { type: Number, required: true },
+    salaryInterval: {
+      type: String,
+      enum: ["hourly", "weekly", "monthly", "yearly"],
+      required: true,
+    },
   },
   {
     timestamps: true, // adds createdAt and updatedAt

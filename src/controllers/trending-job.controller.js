@@ -4,13 +4,27 @@ let memoryTrendingJobs;
 
 const createTrendingJob = async (req, res) => {
   try {
-    const { title, company, location, minSalary, maxSalary } = req.body;
+    const { title, company, location, minSalary, maxSalary, salaryInterval } =
+      req.body;
 
     // Basic validation
-    if (!title || !company || !location || !minSalary || !maxSalary) {
+    if (
+      !title ||
+      !company ||
+      !location ||
+      !minSalary ||
+      !maxSalary ||
+      !salaryInterval
+    ) {
       return res
         .status(400)
         .json({ message: "All required fields must be provided." });
+    }
+
+    if (!["hourly", "weekly", "monthly", "yearly"].includes(salaryInterval)) {
+      return res
+        .status(400)
+        .json({ message: "Invalid value for salary interval" });
     }
 
     await TRENDING_JOB.create({
@@ -19,13 +33,14 @@ const createTrendingJob = async (req, res) => {
       location,
       minSalary: Number(minSalary),
       maxSalary: Number(maxSalary),
+      salaryInterval: salaryInterval,
     });
 
     return res.status(201).json({
       message: "Trending job created successfully.",
     });
-  } catch (error) {
-    console.error("Error creating trending job:", error);
+  } catch (err) {
+    console.error("Error creating trending job:", err);
     return res.status(500).json({
       message: "Server error while creating trending job.",
       err: err.message,
@@ -65,7 +80,9 @@ const updateTrendingJOb = async (req, res) => {
     memoryTrendingJobs = null;
     return res.status(200).json({ message: "Updated successfully" });
   } catch (error) {
-    return res.status(500).json({ message: "Error updating trending job", error });
+    return res
+      .status(500)
+      .json({ message: "Error updating trending job", error });
   }
 };
 
@@ -76,7 +93,9 @@ const deleteTrendingjob = async (req, res) => {
     memoryTrendingJobs = null;
     return res.status(200).json({ message: "Deleted successfully" });
   } catch (error) {
-    return res.status(500).json({ message: "Error deleting trending job", error });
+    return res
+      .status(500)
+      .json({ message: "Error deleting trending job", error });
   }
 };
 

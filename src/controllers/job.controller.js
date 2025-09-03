@@ -124,7 +124,7 @@ const createJob = async (req, res) => {
         canCreate = true;
         data.creationType = "subscription";
         data.stripeSubscriptionId = user.stripeProfileSubscriptionId;
-        deadline = getDateNDaysFromNow(30);
+        deadline = getDateNDaysFromNow(90);
       } else {
         user.currentSubscription = null;
         await user.save();
@@ -187,16 +187,23 @@ const createJob = async (req, res) => {
           data.deadline > getDateNDaysFromNow(15)
         ) {
           return res.status(400).json({
-            message: "Deadline cannot be greateer than 14 days in Free Trial",
+            message: "Deadline cannot be greater than 14 days in Free Trial",
           });
         } else if (
-          (data.creationType == "oneTime" ||
-            data.creationType == "subscription") &&
-          data.deadline > getDateNDaysFromNow(31)
+          data.creationType == "oneTime" &&
+          data.deadline > getDateNDaysFromNow(30)
         ) {
-          return res
-            .status(400)
-            .json({ message: "Deadline cannot be greateer than 30 days" });
+          return res.status(400).json({
+            message:
+              "Deadline cannot be greater than 30 days in One time job posting",
+          });
+        } else if (
+          data.creationType == "subscription" &&
+          data.deadline > getDateNDaysFromNow(90)
+        ) {
+          return res.status(400).json({
+            message: "Deadline cannot be greater than 90 days in job postings",
+          });
         }
       }
       // Add freelance job details
@@ -934,20 +941,27 @@ const updateJob = async (req, res) => {
           if (deadline.getTime() > createdAt.getTime() + fifteenDays) {
             return res.status(400).json({
               message:
-                "You cannot extend deadline to more than 15 days from date job is created",
+                "Cannot extend deadline to more than 15 days from date job is created",
             });
           }
           break;
         case "oneTime":
-        case "subscription":
           const thirtyOneDays = 31 * 24 * 60 * 60 * 1000;
           if (deadline.getTime() > createdAt.getTime() + thirtyOneDays) {
             return res.status(400).json({
               message:
-                "You cannot extend deadline to more than 30 days from date job is created",
+                "Cannot extend deadline to more than 30 days from date job is created",
             });
           }
           break;
+        case "subscription":
+          const ninetyDays = 90 * 24 * 60 * 60 * 1000;
+          if (deadline.getTime() > createdAt.getTime() + ninetyDays) {
+            return res.status(400).json({
+              message:
+                "Cannot extend deadline to more than 90 days from date job is created",
+            });
+          }
         default:
           break;
       }
@@ -974,7 +988,9 @@ const updateJob = async (req, res) => {
     }
   } catch (err) {
     console.log("❌ Error getting job for edit: ", err);
-    return res.status(500).json({ message: "Error getting job", err });
+    return res
+      .status(500)
+      .json({ message: "Error getting job", err: err.message });
   }
 };
 
@@ -1009,8 +1025,10 @@ const closeAJob = async (req, res) => {
     await job.save();
     return res.status(200).json({ message: "Job Closed" });
   } catch (err) {
-    console.log("❌ Error getting job for edit: ", err);
-    return res.status(500).json({ message: "Error getting job", err });
+    console.log("❌ Error in deleting job: ", err);
+    return res
+      .status(500)
+      .json({ message: "Error deleting job", err: err.message });
   }
 };
 
