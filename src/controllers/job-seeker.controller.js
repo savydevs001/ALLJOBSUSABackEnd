@@ -6,15 +6,15 @@ import calculateJobMatchPercentage from "../utils/calculate-job-match.js";
 import Offer from "../database/models/offers.model.js";
 import JOBSEEKER from "../database/models/job-seeker.model.js";
 import EMPLOYER from "../database/models/employers.model.js";
-
 dotenv.config();
 
 const createProfileZODSchema = z.object({
   fullName: z.string().min(1, "Full name is reuired min 1 chracter"),
   profilePictureUrl: z.string().optional(),
   bannerUrl: z.string().optional(),
-  resumeUrl: z.string(),
+  resumeUrl: z.string().optional(),
   category: z.string(),
+  showContactInfo: z.coerce.boolean(),
   professionalTitle: z
     .string()
     .min(5, "Min 5 chracter required")
@@ -69,15 +69,10 @@ const creatJobSeekerProfile = async (req, res) => {
     user.fullName = data.fullName;
     user.phoneNumber = data.phoneNumber;
     user.category = data.category;
-    if (data.profilePictureUrl) {
-      user.profilePictureUrl = data.profilePictureUrl;
-    }
-    if (data.bannerUrl) {
-      user.profile.bannerUrl = data.bannerUrl;
-    }
-    if (data.resumeUrl) {
-      user.profile.resumeUrl = data.resumeUrl;
-    }
+    user.showContactInfo = data.showContactInfo
+    user.profilePictureUrl = data.profilePictureUrl;
+    user.profile.bannerUrl = data.bannerUrl;
+    user.profile.resumeUrl = data.resumeUrl;
     user.profile.professionalTitle = data.professionalTitle;
     user.profile.bio = data.bio;
     user.profile.loaction = data.loaction;
@@ -113,6 +108,7 @@ const getJobSeekerProfile = async (req, res) => {
         profilePictureUrl: 1,
         profile: 1,
         category: 1,
+        showContactInfo: 1
       }
     );
 
@@ -128,6 +124,7 @@ const getJobSeekerProfile = async (req, res) => {
       fullName: user.fullName,
       email: user.email,
       phoneNumber: user.phoneNumber,
+      showContactInfo: user.showContactInfo ?? false,
       category: user.category,
       ...user.profile,
       profilePictureUrl: user.profilePictureUrl,
@@ -278,6 +275,7 @@ const getJobSeekerProfileById = async (req, res) => {
         email: 1,
         profilePictureUrl: 1,
         profile: 1,
+        showContactInfo: 1
       }
     );
 
@@ -306,6 +304,7 @@ const getJobSeekerProfileById = async (req, res) => {
 
     const data = {
       fullName: user.fullName,
+      showContactInfo: user.showContactInfo ?? false,
       ...user.profile,
       profilePictureUrl: user.profilePictureUrl,
       phoneNumber: user.phoneNumber,
@@ -378,7 +377,7 @@ const getJobSeekerList = async (req, res) => {
     }
 
     if (category) {
-      filter["category"] =  { $regex: category, $options: "i" };
+      filter["category"] = { $regex: category, $options: "i" };
     }
 
     let users = await JOBSEEKER.find(filter)

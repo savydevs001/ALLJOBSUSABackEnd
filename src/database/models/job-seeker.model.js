@@ -31,6 +31,7 @@ const jobSeekerSchema = mongoose.Schema(
       default: "active",
     },
     isDeletedByAdmin: Boolean,
+    showContactInfo: Boolean,
 
     //   profile
     profile: {
