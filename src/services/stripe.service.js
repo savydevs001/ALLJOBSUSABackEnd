@@ -269,10 +269,10 @@ const stripeWebhook = async (req, res) => {
         payment_status: "paid",
         parent: paymentIntent.last_payment_error?.payment_method?.id
           ? {
-              subscription_details: {
-                subscription: paymentIntent.invoice?.subscription,
-              },
-            }
+            subscription_details: {
+              subscription: paymentIntent.invoice?.subscription,
+            },
+          }
           : undefined,
       };
 
@@ -351,7 +351,7 @@ const stripeWebhook = async (req, res) => {
               start: now,
               end: new Date(
                 now.getTime() +
-                  requestedSubscription.totalDays * 24 * 60 * 60 * 1000
+                requestedSubscription.totalDays * 24 * 60 * 60 * 1000
               ),
             };
             // console.log("newStripeSubscription: ", newStripeSubscription);
@@ -516,7 +516,7 @@ const stripeWebhook = async (req, res) => {
             ) {
               companyCut = Math.round(
                 totalAmount *
-                  (platformSettings.pricing.platformCommissionPercentage / 100)
+                (platformSettings.pricing.platformCommissionPercentage / 100)
               );
             }
 
@@ -596,7 +596,7 @@ const stripeWebhook = async (req, res) => {
 
       // Hnadle resume
       else if (purpose === "resume-payment") {
-        const { userId, userRole } = metadata;
+        const { userId, userRole, amount } = metadata;
 
         try {
           // Update user to allow download resume
@@ -620,6 +620,11 @@ const stripeWebhook = async (req, res) => {
 
           user.canDownloadResume = true;
           await user.save();
+
+          await PlatformSettings.findOneAndUpdate(
+            {},
+            { $inc: { "earnings.resume": amount } }
+          )
 
           return res.status(200).json({ received: true });
         } catch (err) {
@@ -656,6 +661,11 @@ const stripeWebhook = async (req, res) => {
 
           user.canDownloadCover = true;
           await user.save();
+
+          await PlatformSettings.findOneAndUpdate(
+            {},
+            { $inc: { "earnings.cover": amount } }
+          )
 
           return res.status(200).json({ received: true });
         } catch (err) {
@@ -722,7 +732,7 @@ const stripeWebhook = async (req, res) => {
             start: now,
             end: new Date(
               now.getTime() +
-                requestedSubscription.totalDays * 24 * 60 * 60 * 1000
+              requestedSubscription.totalDays * 24 * 60 * 60 * 1000
             ),
           };
           user.currentSubscription = tempSub;

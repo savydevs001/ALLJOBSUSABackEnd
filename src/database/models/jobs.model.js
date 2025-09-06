@@ -32,7 +32,7 @@ const jobSchema = new Schema(
     // job creation type
     creationType: {
       type: String,
-      enum: ["free", "oneTime", "subscription"],
+      enum: ["free", "oneTime", "subscription", "freelance"],
       required: true,
     },
     stripeSubscriptionId: String,

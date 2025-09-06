@@ -19,6 +19,7 @@ import TRANSACTION from "../database/models/transactions.model.js";
 import PENDING_PAYOUT from "../database/models/pendingPayout.model.js";
 import abortSessionWithMessage from "../utils/abortSession.js";
 import REFUND from "../database/models/refunds.model.js";
+import PlatformSettings from "../database/models/palteform.model.js";
 
 // create admin
 const PASSWORD_REGEX =
@@ -134,6 +135,7 @@ const adminDashboardData = async (req, res) => {
       freelancerAgg,
       jobseekerAgg,
       jobAgg,
+      plateform
     ] = await Promise.all([
       getTotalIncomeAndMonthlyChange(),
       EMPLOYER.aggregate([
@@ -244,6 +246,7 @@ const adminDashboardData = async (req, res) => {
           },
         },
       ]),
+      PlatformSettings.findOne({})
     ]);
 
     // Extract counts
@@ -295,8 +298,8 @@ const adminDashboardData = async (req, res) => {
           ? 0
           : 100
         : ((thisMonthFreelancers - previousMonthFreelancers) /
-            previousMonthFreelancers) *
-          100;
+          previousMonthFreelancers) *
+        100;
 
     const freelancersEarningPercentageChange =
       previousMonthFreelancersEarnings === 0
@@ -304,8 +307,8 @@ const adminDashboardData = async (req, res) => {
           ? 0
           : 100
         : ((thisMonthFreelancersEarnings - previousMonthFreelancersEarnings) /
-            previousMonthFreelancersEarnings) *
-          100;
+          previousMonthFreelancersEarnings) *
+        100;
 
     const jobsPercentChange =
       previousMonthJobs === 0
@@ -313,6 +316,7 @@ const adminDashboardData = async (req, res) => {
           ? 0
           : 100
         : ((thisMonthJobs - previousMonthJobs) / previousMonthJobs) * 100;
+
 
     return res.status(200).json({
       subscriptionEarning,
@@ -324,10 +328,12 @@ const adminDashboardData = async (req, res) => {
       earningPercentageChange: freelancersEarningPercentageChange.toFixed(2),
       allJobs,
       jobsPercentChange: Math.round(jobsPercentChange).toFixed(2),
+      resumeEarning: plateform.earnings.resume || 0,
+      coverEarning: plateform.earnings.cover || 0,
     });
   } catch (err) {
     console.error("❌ Error getting admin dashboard data:", err);
-    return res.status(500).json({ message: "Server Error" });
+    return res.status(500).json({ message: "Error getting admin data", err: err.message });
   }
 };
 
@@ -656,7 +662,7 @@ const getJobs = async (req, res) => {
       Job.aggregate(pipeline),
       Job.aggregate(countPipeline),
     ]);
-    
+
     const transformData = results.map((e) => ({
       _id: e._id,
       title: e.title,
@@ -816,8 +822,8 @@ const getTrendingJobs = async (req, res) => {
         location:
           e.simpleJobDetails?.locationCity && e.simpleJobDetails?.locationState
             ? e.simpleJobDetails.locationCity +
-              ", " +
-              e.simpleJobDetails.locationState
+            ", " +
+            e.simpleJobDetails.locationState
             : "Remote",
       };
     });

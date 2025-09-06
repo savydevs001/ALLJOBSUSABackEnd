@@ -30,6 +30,11 @@ const platformSettingsSchema = new Schema(
       platformCommissionPercentageForNonFreelancersActive: { type: Boolean, default: true },
     },
 
+    earnings: {
+      resume: { type: Number, default: 0 },
+      cover: { type: Number, default: 0 },
+    },
+
     homePageAd: advertisementSchema,
 
     legalContent: {
@@ -37,10 +42,6 @@ const platformSettingsSchema = new Schema(
       privacyPolicy: { type: String },
       termsOfUse: { type: String },
     },
-
-    // trendingJobs: [{ type: Types.ObjectId, ref: "Job" }],
-
-    // satisfiedCustomers: [testimonialSchema],
   },
   {
     timestamps: true,

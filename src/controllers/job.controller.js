@@ -103,6 +103,9 @@ const createJob = async (req, res) => {
       }
       data = { ...data, ...temp };
     }
+    else{
+      return res.status(400).json({message: "Invalid job, either freelance or simple"})
+    }
 
     const user = await EMPLOYER.findById(userId);
     if (!user || user.status == "deleted") {
@@ -117,41 +120,51 @@ const createJob = async (req, res) => {
     let canCreate = false;
     let deadline = new Date();
     data.subscriptionId = "";
-    // check for subscription
-    if (user.currentSubscription) {
-      //  subscription validity
-      if (user.currentSubscription.end > new Date()) {
+
+
+    // check susbcription only for professional jobs
+    if (data.job == "simple") {
+      if (user.currentSubscription) {
+        //  subscription validity
+        if (user.currentSubscription.end > new Date()) {
+          canCreate = true;
+          data.creationType = "subscription";
+          data.stripeSubscriptionId = user.stripeProfileSubscriptionId;
+          deadline = getDateNDaysFromNow(90);
+        } else {
+          user.currentSubscription = null;
+          await user.save();
+          return res.status(400).json({
+            message: "Subscription Expired ",
+            subscriptionRequired: true,
+          });
+        }
+      }
+      // check for oneTime creation
+      else if (user.oneTimeCreate === true) {
         canCreate = true;
-        data.creationType = "subscription";
-        data.stripeSubscriptionId = user.stripeProfileSubscriptionId;
-        deadline = getDateNDaysFromNow(90);
-      } else {
-        user.currentSubscription = null;
-        await user.save();
-        return res.status(400).json({
-          message: "Subscription Expired ",
-          subscriptionRequired: true,
-        });
+        data.creationType = "oneTime";
+        user.oneTimeCreate = false;
+        deadline = getDateNDaysFromNow(30);
+      }
+      // check for free trial
+      else {
+        if (
+          user.freeTrial.availed === true &&
+          user.freeTrial.end > new Date() &&
+          user.jobsCreated < 5
+        ) {
+          canCreate = true;
+          data.creationType = "free";
+          deadline = getDateNDaysFromNow(14);
+        }
       }
     }
-    // check for oneTime creation
-    else if (user.oneTimeCreate === true) {
+    else if(data.job == "freelance"){
+      deadline = getDateNDaysFromNow(365)
       canCreate = true;
-      data.creationType = "oneTime";
-      user.oneTimeCreate = false;
-      deadline = getDateNDaysFromNow(30);
-    }
-    // check for free trial
-    else {
-      if (
-        user.freeTrial.availed === true &&
-        user.freeTrial.end > new Date() &&
-        user.jobsCreated < 5
-      ) {
-        canCreate = true;
-        data.creationType = "free";
-        deadline = getDateNDaysFromNow(14);
-      }
+      data.creationType = "freelance"
+
     }
 
     // if possible create job
@@ -480,20 +493,20 @@ const getAllJobs = async (req, res) => {
       );
       const match = user?.profile
         ? calculateJobMatchPercentage(
-            {
-              title: job.title,
-              description: job.description,
-              category:
-                job.job === "freelance"
-                  ? job.freelanceJobDetails?.category
-                  : job.simpleJobDetails?.category,
-            },
-            {
-              bio: user.profile.professionalTitle + user.profile.bio || " ",
-              skills: user.profile.skills || [],
-              category: user.category,
-            }
-          )
+          {
+            title: job.title,
+            description: job.description,
+            category:
+              job.job === "freelance"
+                ? job.freelanceJobDetails?.category
+                : job.simpleJobDetails?.category,
+          },
+          {
+            bio: user.profile.professionalTitle + user.profile.bio || " ",
+            skills: user.profile.skills || [],
+            category: user.category,
+          }
+        )
         : "";
 
       return {
@@ -728,9 +741,9 @@ const myJobPostings = async (req, res) => {
 
     const textTerms = text
       ? text
-          .split(" ")
-          .map((t) => t.trim())
-          .filter(Boolean)
+        .split(" ")
+        .map((t) => t.trim())
+        .filter(Boolean)
       : [];
 
     // Base filter
@@ -747,16 +760,16 @@ const myJobPostings = async (req, res) => {
     const textFilter =
       textTerms.length > 0
         ? {
-            $and: textTerms.map((term) => {
-              const regex = new RegExp(term, "i");
-              return {
-                $or: [
-                  { title: { $regex: regex } },
-                  { description: { $regex: regex } },
-                ],
-              };
-            }),
-          }
+          $and: textTerms.map((term) => {
+            const regex = new RegExp(term, "i");
+            return {
+              $or: [
+                { title: { $regex: regex } },
+                { description: { $regex: regex } },
+              ],
+            };
+          }),
+        }
         : {};
 
     const finalFilter = {
@@ -780,12 +793,12 @@ const myJobPostings = async (req, res) => {
         e.job == "freelance"
           ? "remote"
           : e.simpleJobDetails.locationCity +
-            " " +
-            e.simpleJobDetails.locationState,
+          " " +
+          e.simpleJobDetails.locationState,
       budget: {
         budgetType:
           e.job == "freelance" &&
-          e.freelanceJobDetails.budget.budgetType == "Start"
+            e.freelanceJobDetails.budget.budgetType == "Start"
             ? "Start"
             : "Fixed",
         price: e.job == "freelance" ? e.freelanceJobDetails.budget.price : 0,
