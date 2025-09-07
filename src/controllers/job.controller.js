@@ -103,8 +103,8 @@ const createJob = async (req, res) => {
       }
       data = { ...data, ...temp };
     }
-    else{
-      return res.status(400).json({message: "Invalid job, either freelance or simple"})
+    else {
+      return res.status(400).json({ message: "Invalid job, either freelance or simple" })
     }
 
     const user = await EMPLOYER.findById(userId);
@@ -160,7 +160,7 @@ const createJob = async (req, res) => {
         }
       }
     }
-    else if(data.job == "freelance"){
+    else if (data.job == "freelance") {
       deadline = getDateNDaysFromNow(365)
       canCreate = true;
       data.creationType = "freelance"
@@ -420,9 +420,7 @@ const getAllJobs = async (req, res) => {
     // Enhanced location search
     if (location) {
       const locationTerms = location.split(",").map((t) => t.trim());
-      if (locationTerms.some((e) => e.toLowerCase() == "remote")) {
-        filters.job = "freelance";
-      } else {
+      if (job == "simple") {
         const locationFilters = locationTerms.map((term) => ({
           $or: [
             {
@@ -430,6 +428,9 @@ const getAllJobs = async (req, res) => {
             },
             {
               "simpleJobDetails.locationState": { $regex: term, $options: "i" },
+            },
+            {
+              "simpleJobDetails.jobModel": { $regex: term, $options: "i" },
             },
           ],
         }));
@@ -456,14 +457,14 @@ const getAllJobs = async (req, res) => {
         $or: [
           { title: { $regex: text, $options: "i" } },
           { description: { $regex: term, $options: "i" } },
-          { "simpleJobDetails.locationCity": { $regex: term, $options: "i" } },
-          { "simpleJobDetails.locationState": { $regex: term, $options: "i" } },
-          {
-            "freelanceJobDetails.requiredSkills": {
-              $regex: term,
-              $options: "i",
-            },
-          },
+          // { "simpleJobDetails.locationCity": { $regex: term, $options: "i" } },
+          // { "simpleJobDetails.locationState": { $regex: term, $options: "i" } },
+          // {
+          //   "freelanceJobDetails.requiredSkills": {
+          //     $regex: term,
+          //     $options: "i",
+          //   },
+          // },
         ],
       }));
 
