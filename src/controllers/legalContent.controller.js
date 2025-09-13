@@ -9,6 +9,7 @@ let lagalContent = {
   privacy: undefined,
   terms: undefined,
   transparency: undefined,
+  cookies: undefined
 };
 
 const getPrivacy = async () => {
@@ -53,11 +54,26 @@ const getCareer = async () => {
   }
 };
 
+
+const getCookies = async () => {
+  try {
+    if (!lagalContent.cookies) {
+      const data = await LEGAL_CONTENT.findOne({ type: "cookies" });
+      lagalContent.cookies = data;
+      return data;
+    } else {
+      return lagalContent.cookies;
+    }
+  } catch (err) {
+    console.log("❌ Error Loading Cookies data from database");
+  }
+};
+
 const getLegalContent = async (req, res) => {
   try {
     const { type } = req.params; // "privacy", "terms", "transparency"
-    if (!["privacy", "terms", "transparency"].includes(type)) {
-      return res.status(400).json({ message: "Invalid Type" });
+    if (!["privacy", "terms", "transparency", "cookies"].includes(type)) {
+      return res.status(400).json({ message: "Invalid Legal content Type" });
     }
 
     let data;
@@ -72,6 +88,9 @@ const getLegalContent = async (req, res) => {
       case "transparency":
         data = await getCareer();
         break;
+      case "cookies":
+        data = await getCookies();
+        break;
       default:
         break;
     }
@@ -83,7 +102,7 @@ const getLegalContent = async (req, res) => {
     return res.status(200).json({ data });
   } catch (err) {
     console.log("Error getting legal Content: ", err);
-    return res.status(500).json({ message: "Server Error" });
+    return res.status(500).json({ message: "Error getting legal data", err: err.message });
   }
 };
 
@@ -93,8 +112,8 @@ const updateContent = async (req, res) => {
     const { content } = req.body;
     const notify = req.query.notify?.toString() == "true" ? true : false;
 
-    if (!["privacy", "terms", "transparency"].includes(type)) {
-      return res.status(400).json({ message: "Invalid Type" });
+    if (!["privacy", "terms", "transparency", "cookies"].includes(type)) {
+      return res.status(400).json({ message: "Invalid Legal content Type" });
     }
 
     const updated = await LEGAL_CONTENT.findOneAndUpdate(
@@ -102,9 +121,6 @@ const updateContent = async (req, res) => {
       { content, updatedAt: new Date() },
       { new: true, upsert: true } // create if not exists
     );
-
-    console.log("query: ", req.query);
-    console.log("notify: ", notify);
 
     switch (type) {
       case "privacy":
@@ -123,6 +139,9 @@ const updateContent = async (req, res) => {
         lagalContent.transparency = undefined;
         await sendRulesUpdatedToMails();
         break;
+      case "cookies":
+        lagalContent.cookies = undefined;
+        break
       default:
         break;
     }
@@ -130,7 +149,7 @@ const updateContent = async (req, res) => {
     return res.status(200).json(updated);
   } catch (err) {
     console.error("Error updating legal content:", err);
-    return res.status(500).json({ message: "Server error", err: err.message });
+    return res.status(500).json({ message: "Error updating legal content", err: err.message });
   }
 };
 

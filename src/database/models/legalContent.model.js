@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const legalContentSchema = new mongoose.Schema({
   type: {
     type: String,
-    enum: ["privacy", "rules", "transparency"],
+    enum: ["privacy", "rules", "transparency", "cookies"],
     required: true,
     unique: true,
   },
