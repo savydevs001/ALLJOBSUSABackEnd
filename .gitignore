@@ -51,3 +51,8 @@ src/public/images/*
 !src/public/images/.keep
 src/public/uploads/*
 !src/public/uploads/.keep
+
+src/chatbotdata.json.backup
+src/chatbotdata.json
+!src/chatbotdata.json.keep
+!src/chatbotdata.json.backup.keep
