@@ -56,6 +56,7 @@ const jobSchema = new Schema(
       },
       locationCity: String,
       locationState: String,
+      locationCountry: String,
       experienceLevel: {
         type: String,
         enum: ["Beginner", "Intermediate", "Expert"],

@@ -19,7 +19,7 @@ if (!EMAIL_CLIENT || !FRONTEND_URL || !EMAIL_PASS) {
 connectToDatabase();
 
 // redis connection
-const redisConnection = new IORedis({ maxRetriesPerRequest: null });
+// const redisConnection = new IORedis({ maxRetriesPerRequest: null });
 const batchSize = 500;
 
 // nodemailer tranporter

@@ -438,6 +438,7 @@ const getApplicationById = async (req, res) => {
         city:
           job.job == "simple" ? job.simpleJobDetails?.locationCity : "Remote",
         state: job.job == "simple" ? job.simpleJobDetails?.locationState : null,
+        country: job.job == "simple" ? job.simpleJobDetails?.locationCountry : null,
         experienceLevel:
           job.job == "simple"
             ? job.simpleJobDetails?.experienceLevel

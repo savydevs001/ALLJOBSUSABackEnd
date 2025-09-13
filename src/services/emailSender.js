@@ -2,12 +2,12 @@ import { Queue } from "bullmq";
 import IORedis from "ioredis";
 
 // 1. Create a connection to Redis
-const redisConnection = new IORedis({
-  maxRetriesPerRequest: null,
-});
+// const redisConnection = new IORedis({
+//   maxRetriesPerRequest: null,
+// });
 
 // 2. Email Queue
-const emailQueue = new Queue("email-queue", { connection: redisConnection });
+// const emailQueue = new Queue("email-queue", { connection: redisConnection });
 
 async function enqueueEmail(to, subject, html) {
   await emailQueue.add("simple-mail", {

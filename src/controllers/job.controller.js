@@ -6,8 +6,6 @@ import EMPLOYER from "../database/models/employers.model.js";
 import getDateNDaysFromNow from "../utils/date-and-days.js";
 import calculateJobMatchPercentage from "../utils/calculate-job-match.js";
 import JOBSEEKER from "../database/models/job-seeker.model.js";
-import { notifyUser } from "./notification.controller.js";
-import { getMemorySubscriptionns } from "./subscriptions.controller.js";
 
 // POST job
 const urlRegex =
@@ -42,6 +40,7 @@ const simpleJobZODSchema = z.object({
   salaryInterval: z.enum(["hourly", "weekly", "monthly", "yearly"]),
   locationCity: z.string().min(2, "City is required"),
   locationState: z.string().min(2, "State is required"),
+  locationCountry: z.string().min(2, "Country is required"),
   experienceLevel: z.enum(["Beginner", "Intermediate", "Expert"]),
   formLink: z
     .string()
@@ -83,6 +82,16 @@ const createJob = async (req, res) => {
     if (data.job === "simple") {
       const temp = simpleJobZODSchema.parse(req.body);
       data = { ...data, ...temp };
+      if (temp.minSalary < 5 || temp.maxSalary < temp.minSalary) {
+        return res
+          .status(4000)
+          .json({ message: "Invalid Minimum or maximum salary" });
+      }
+      else if (temp.minSalary < 5) {
+        return res
+          .status(400)
+          .json({ message: "Minimum Salary should be greater than $5" });
+      }
     } else if (data.job === "freelance") {
       const temp = freelanceZODSchema.parse(req.body);
       if (temp.budget.budgetType === "Fixed") {
@@ -98,7 +107,7 @@ const createJob = async (req, res) => {
         if (temp.budget.price < 5) {
           return res
             .status(400)
-            .json({ message: "Price shoule be greater than $5" });
+            .json({ message: "Price should be greater than $5" });
         }
       }
       data = { ...data, ...temp };
@@ -189,6 +198,7 @@ const createJob = async (req, res) => {
           maxSalary: data.maxSalary,
           locationCity: data.locationCity,
           locationState: data.locationState,
+          locationCountry: data.locationCountry,
           experienceLevel: data.experienceLevel,
           deadline: data.deadline,
           formLink: data.formLink,
@@ -314,6 +324,7 @@ const getJobById = async (req, res) => {
       simpleJobDetails: {
         locationCity: job.simpleJobDetails?.locationCity,
         locationState: job.simpleJobDetails?.locationState,
+        locationCountry: job.simpleJobDetails?.locationCountry || "",
         minSalary: job.simpleJobDetails?.minSalary,
         maxSalary: job.simpleJobDetails?.maxSalary,
         formLink: job.simpleJobDetails?.formLink || "",
@@ -358,14 +369,47 @@ const getAllJobs = async (req, res) => {
       employerId,
       location,
       text,
+      experience,
+      min = 0,
+      max = 0,
+      job_model
     } = req.query;
 
     const userId = req.user?._id;
+    const parsedMin = Number(min) || 0;
+    const parsedMax = Number(max) || 0;
 
     let filters = {};
     if (job) {
+      // Experience
+      if (experience) {
+        if (job === "simple") {
+          filters["simpleJobDetails.experienceLevel"] = experience;
+        } else {
+          filters["freelanceJobDetails.experienceLevel"] = experience;
+        }
+      }
+
+      // job model
+      if (job_model && job == "simple") {
+        filters["simpleJobDetails.jobModel"] = job_model;
+      }
+
+      // Salary / Budget
+      if (job === "simple") {
+        if (parsedMin && parsedMin !== 0) filters["simpleJobDetails.minSalary"] = { $gte: parsedMin };
+        if (parsedMax && parsedMax !== 0) filters["simpleJobDetails.maxSalary"] = { $lte: parsedMax };
+      } else {
+        if (parsedMin && parsedMin !== 0) {
+          filters["freelanceJobDetails.budget.price"] = { $gte: parsedMin }
+          filters["freelanceJobDetails.budget.minimum"] = { $gte: parsedMin }
+        }
+        if (parsedMax && parsedMax !== 0) filters["freelanceJobDetails.budget.maximum"] = { $lte: parsedMax }
+      }
+      // console.log(filters)
       filters.job = job;
     }
+
 
     // get user to check if he had saved this job
     let user;
@@ -430,6 +474,9 @@ const getAllJobs = async (req, res) => {
               "simpleJobDetails.locationState": { $regex: term, $options: "i" },
             },
             {
+              "simpleJobDetails.locationCountry": { $regex: term, $options: "i" },
+            },
+            {
               "simpleJobDetails.jobModel": { $regex: term, $options: "i" },
             },
           ],
@@ -457,8 +504,6 @@ const getAllJobs = async (req, res) => {
         $or: [
           { title: { $regex: text, $options: "i" } },
           { description: { $regex: term, $options: "i" } },
-          // { "simpleJobDetails.locationCity": { $regex: term, $options: "i" } },
-          // { "simpleJobDetails.locationState": { $regex: term, $options: "i" } },
           // {
           //   "freelanceJobDetails.requiredSkills": {
           //     $regex: term,
@@ -483,7 +528,7 @@ const getAllJobs = async (req, res) => {
       .skip(skip)
       .limit(parseInt(limit))
       .select(
-        "_id title description deadline job status createdAt applicants simpleJobDetails.jobType simpleJobDetails.isConfidential simpleJobDetails.jobModel simpleJobDetails.salaryInterval simpleJobDetails.locationCity simpleJobDetails.locationState simpleJobDetails.category simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.budget freelanceJobDetails.category"
+        "_id title description deadline job status createdAt applicants simpleJobDetails.jobType simpleJobDetails.isConfidential simpleJobDetails.jobModel simpleJobDetails.salaryInterval simpleJobDetails.locationCity simpleJobDetails.locationState simpleJobDetails.locationCountry simpleJobDetails.category simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.budget freelanceJobDetails.category"
       )
       .populate("employerId", "fullName ")
       .lean();
@@ -877,6 +922,7 @@ const getJobForEdit = async (req, res) => {
       tranformData.maxSalary = job.simpleJobDetails?.maxSalary;
       tranformData.locationCity = job.simpleJobDetails?.locationCity;
       tranformData.locationState = job.simpleJobDetails?.locationState;
+      tranformData.locationCountry = job.simpleJobDetails?.locationCountry || "";
       tranformData.experienceLevel = job.simpleJobDetails?.experienceLevel;
       tranformData.deadline = job.simpleJobDetails?.deadline;
       tranformData.formLink = job.simpleJobDetails?.formLink;
@@ -986,6 +1032,7 @@ const updateJob = async (req, res) => {
       job.simpleJobDetails.maxSalary = simpleParsed.maxSalary;
       job.simpleJobDetails.locationCity = simpleParsed.locationCity;
       job.simpleJobDetails.locationState = simpleParsed.locationState;
+      job.simpleJobDetails.locationCountry = simpleParsed.locationCountry;
       job.simpleJobDetails.experienceLevel = simpleParsed.experienceLevel;
       job.simpleJobDetails.deadline = simpleParsed.deadline;
       job.simpleJobDetails.formLink = simpleParsed.formLink;
