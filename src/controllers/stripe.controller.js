@@ -222,7 +222,7 @@ const createPaymentIntents = async (req, res) => {
         });
         // initailze params
         const stripeIntentParams = {
-          amount: requestedSubscription.price * 100,
+          amount: Math.round(requestedSubscription.price * 100),
           metadata: {
             purpose: "profile-subscription",
             userId: user._id.toString(),
@@ -423,7 +423,7 @@ const createPaymentIntents = async (req, res) => {
           transaction.orderDeatils.orderId = order._id;
 
           const stripeIntentParams = {
-            amount: (totalAmount + companyCommission) * 100,
+            amount: Math.round((totalAmount + companyCommission) * 100),
             metadata: {
               purpose: "order-payment",
               orderId: order._id.toString(),
@@ -489,7 +489,7 @@ const createPaymentIntents = async (req, res) => {
           }
 
           const stripeIntentParams = {
-            amount: Number(amount) * 100,
+            amount: Math.round(Number(amount) * 100),
             metadata: {
               purpose: "order-bonus",
               orderId: order._id.toString(),
@@ -546,7 +546,7 @@ const createPaymentIntents = async (req, res) => {
           }
 
           const stripeIntentParams = {
-            amount: plan.price * 100,
+            amount: Math.round(plan.price * 100),
             description: "Resume for user: " + user._id,
             metadata: {
               purpose: "resume-payment",
@@ -604,7 +604,7 @@ const createPaymentIntents = async (req, res) => {
           }
 
           const stripeIntentParams = {
-            amount: plan.price * 100,
+            amount: Math.round(plan.price * 100),
             description: "Cover Letter for user: " + user._id,
             metadata: {
               purpose: "cover-payment",
