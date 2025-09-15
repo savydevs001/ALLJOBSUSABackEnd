@@ -368,6 +368,7 @@ const getAllJobs = async (req, res) => {
       jobType,
       employerId,
       location,
+      city,
       text,
       experience,
       min = 0,
@@ -377,11 +378,16 @@ const getAllJobs = async (req, res) => {
 
     const userId = req.user?._id;
     const parsedMin = Number(min) || 0;
-    const parsedMax = Number(max) || 0;
+    const parsedMax = Number(max) || Number.MAX_SAFE_INTEGER;
 
     let filters = {};
+    let andConditions = [];
+    let orConditions = [];
+
+    // ----------------- Job Type / Experience -----------------
     if (job) {
-      // Experience
+      filters.job = job;
+
       if (experience) {
         if (job === "simple") {
           filters["simpleJobDetails.experienceLevel"] = experience;
@@ -390,26 +396,195 @@ const getAllJobs = async (req, res) => {
         }
       }
 
-      // job model
-      if (job_model && job == "simple") {
+      if (job_model && job === "simple") {
         filters["simpleJobDetails.jobModel"] = job_model;
       }
 
-      // Salary / Budget
+      // ----------------- Salary / Budget -----------------
       if (job === "simple") {
-        if (parsedMin && parsedMin !== 0) filters["simpleJobDetails.minSalary"] = { $gte: parsedMin };
-        if (parsedMax && parsedMax !== 0) filters["simpleJobDetails.maxSalary"] = { $lte: parsedMax };
-      } else {
-        if (parsedMin && parsedMin !== 0) {
-          filters["freelanceJobDetails.budget.price"] = { $gte: parsedMin }
-          filters["freelanceJobDetails.budget.minimum"] = { $gte: parsedMin }
+        if (parsedMin && parsedMax) {
+          andConditions.push({
+            $and: [
+              { "simpleJobDetails.minSalary": { $gte: parsedMin } },
+              { "simpleJobDetails.maxSalary": { $lte: parsedMax } },
+            ],
+          });
         }
-        if (parsedMax && parsedMax !== 0) filters["freelanceJobDetails.budget.maximum"] = { $lte: parsedMax }
+        else if (parsedMin) {
+          andConditions.push({ "simpleJobDetails.minSalary": { $gte: parsedMin } })
+        }
+        else if (parsedMax) {
+          andConditions.push({ "simpleJobDetails.maxSalary": { $lte: parsedMax } },)
+        }
       }
-      // console.log(filters)
-      filters.job = job;
+      else if (job === "freelance") {
+        if (parsedMin && parsedMax) {
+          andConditions.push({
+            $or: [
+              // Fixed price jobs
+              {
+                "freelanceJobDetails.budget.price": {
+                  $gte: parsedMin,
+                  $lte: parsedMax,
+                  $ne: null,
+                  $exists: true
+                }
+              },
+
+              // Range-based jobs
+              {
+                $and: [
+                  {
+                    "freelanceJobDetails.budget.minimum": {
+                      $gte: parsedMin,
+                      $ne: null,
+                      $exists: true
+                    }
+                  },
+                  {
+                    "freelanceJobDetails.budget.maximum": {
+                      $lte: parsedMax,
+                      $ne: null,
+                      $exists: true
+                    }
+                  },
+                ]
+              },
+            ]
+          });
+        } else if (parsedMin) {
+          andConditions.push({
+            $or: [
+              {
+                "freelanceJobDetails.budget.price": {
+                  $gte: parsedMin,
+                  $ne: null,
+                  $exists: true
+                }
+              },
+              {
+                "freelanceJobDetails.budget.minimum": {
+                  $gte: parsedMin,
+                  $ne: null,
+                  $exists: true
+                }
+              },
+            ]
+          });
+        } else if (parsedMax) {
+          andConditions.push({
+            $or: [
+              {
+                "freelanceJobDetails.budget.price": {
+                  $lte: parsedMax,
+                  $ne: null,
+                  $exists: true
+                }
+              },
+              {
+                "freelanceJobDetails.budget.maximum": {
+                  $lte: parsedMax,
+                  $ne: null,
+                  $exists: true
+                }
+              },
+            ]
+          });
+        }
+      }
     }
 
+    // ----------------- Job Status -----------------
+    if (status && status !== "expired") {
+      filters.status = status;
+    } else if (!["admin", "manager"].includes(req.user?.role)) {
+      filters.status = "empty";
+    }
+
+    // ----------------- Category -----------------
+    if (category) {
+      orConditions.push(
+        { "simpleJobDetails.category": category },
+        { "freelanceJobDetails.category": category }
+      );
+    }
+
+    // ----------------- Job Type -----------------
+    if (jobType && job == "simple") {
+      filters["simpleJobDetails.jobType"] = jobType;
+    }
+
+    // ----------------- Tags -----------------
+    if (tags) {
+      const tagArray = Array.isArray(tags) ? tags : tags.split(",").map((t) => t.trim());
+      filters.tags = { $in: tagArray };
+    }
+
+    // ----------------- Employer -----------------
+    if (employerId) {
+      if (!mongoose.Types.ObjectId.isValid(employerId)) {
+        return res.status(400).json({ message: "Invalid employerId" });
+      }
+      filters.employerId = employerId;
+    }
+
+    // ----------------- Location -----------------
+    if (location && job === "simple") {
+      const locationTerms = location.split(",").map((t) => t.trim());
+      const locationFilters = locationTerms.flatMap((term) => [
+        { "simpleJobDetails.locationCountry": { $regex: term, $options: "i" } },
+        { "simpleJobDetails.jobModel": { $regex: term, $options: "i" } },
+      ]);
+      andConditions.push(...locationFilters);
+    }
+
+    // ----------------- City -----------------
+    if (city && job === "simple") {
+      const cityTerms = city.split(",").map((t) => t.trim());
+      const cityFilters = cityTerms.flatMap((term) => [
+        { "simpleJobDetails.locationCity": { $regex: term, $options: "i" } },
+        { "simpleJobDetails.jobModel": { $regex: term, $options: "i" } },
+      ]);
+      andConditions.push(...cityFilters);
+    }
+
+    // ----------------- Text Search -----------------
+    if (text) {
+      const textTerms = text.split(" ").map((t) => t.trim()).filter(Boolean);
+      const textFilters = textTerms.flatMap((term) => [
+        { title: { $regex: term, $options: "i" } },
+        { description: { $regex: term, $options: "i" } },
+        // uncomment if needed:
+        // { "freelanceJobDetails.requiredSkills": { $regex: term, $options: "i" } },
+      ]);
+      andConditions.push(...textFilters);
+    }
+
+    console.log("or: ", orConditions)
+    console.log("and: ", andConditions)
+    console.log(parsedMax)
+    console.log(parsedMin)
+
+    // ----------------- Merge OR conditions into AND -----------------
+    if (orConditions.length > 0) {
+      andConditions.push({ $or: orConditions });
+    }
+
+    if (andConditions.length > 0) {
+      filters.$and = andConditions;
+    }
+
+    console.log(filters)
+
+    const jobs = await Job.find(filters)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .select(
+        "_id title description deadline job status createdAt applicants simpleJobDetails.jobType simpleJobDetails.isConfidential simpleJobDetails.jobModel simpleJobDetails.salaryInterval simpleJobDetails.locationCity simpleJobDetails.locationState simpleJobDetails.locationCountry simpleJobDetails.category simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.budget freelanceJobDetails.category"
+      )
+      .populate("employerId", "fullName ")
+      .lean();
 
     // get user to check if he had saved this job
     let user;
@@ -422,116 +597,6 @@ const getAllJobs = async (req, res) => {
         "savedJobs profile.bio profile.skills profile.professionalTitle category"
       );
     }
-
-    // Filter by job status
-    if (status && status !== "expired") {
-      filters.status = status;
-    } else {
-      if (!["admin", "manager"].includes(req.user?.role)) {
-        filters.status = "empty";
-      }
-    }
-
-    // Filter by category
-    if (category) {
-      filters.$or = [
-        { "simpleJobDetails.category": { $regex: category, $options: "i" } },
-        { "freelanceJobDetails.category": { $regex: category, $options: "i" } },
-      ];
-    }
-
-    // Filter by jobType
-    if (jobType) {
-      filters["simpleJobDetails.jobType"] = jobType;
-    }
-
-    // Filter by tags
-    if (tags) {
-      const tagArray = Array.isArray(tags)
-        ? tags
-        : tags.split(",").map((t) => t.trim());
-      filters.tags = { $in: tagArray };
-    }
-
-    // Filter by employer ID
-    if (employerId) {
-      if (!mongoose.Types.ObjectId.isValid(employerId)) {
-        return res.status(400).json({ message: "Invalid employerId" });
-      }
-      filters.employerId = employerId;
-    }
-
-    // Enhanced location search
-    if (location) {
-      const locationTerms = location.split(",").map((t) => t.trim());
-      if (job == "simple") {
-        const locationFilters = locationTerms.map((term) => ({
-          $or: [
-            {
-              "simpleJobDetails.locationCity": { $regex: term, $options: "i" },
-            },
-            {
-              "simpleJobDetails.locationState": { $regex: term, $options: "i" },
-            },
-            {
-              "simpleJobDetails.locationCountry": { $regex: term, $options: "i" },
-            },
-            {
-              "simpleJobDetails.jobModel": { $regex: term, $options: "i" },
-            },
-          ],
-        }));
-
-        if (filters.$or) {
-          filters.$and = [{ $or: filters.$or }, ...locationFilters];
-          delete filters.$or;
-        } else {
-          filters.$or =
-            locationFilters.length === 1
-              ? locationFilters[0].$or
-              : locationFilters;
-        }
-      }
-    }
-
-    // Enhanced text search across relevant fields
-    if (text) {
-      const textTerms = text
-        .split(" ")
-        .map((t) => t.trim())
-        .filter((t) => t);
-      const textFilters = textTerms.map((term) => ({
-        $or: [
-          { title: { $regex: text, $options: "i" } },
-          { description: { $regex: term, $options: "i" } },
-          // {
-          //   "freelanceJobDetails.requiredSkills": {
-          //     $regex: term,
-          //     $options: "i",
-          //   },
-          // },
-        ],
-      }));
-
-      if (filters.$and) {
-        filters.$and = [...filters.$and, ...textFilters];
-      } else if (filters.$or) {
-        filters.$and = [{ $or: filters.$or }, ...textFilters];
-        delete filters.$or;
-      } else {
-        filters.$and = textFilters;
-      }
-    }
-
-    const jobs = await Job.find(filters)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit))
-      .select(
-        "_id title description deadline job status createdAt applicants simpleJobDetails.jobType simpleJobDetails.isConfidential simpleJobDetails.jobModel simpleJobDetails.salaryInterval simpleJobDetails.locationCity simpleJobDetails.locationState simpleJobDetails.locationCountry simpleJobDetails.category simpleJobDetails.minSalary simpleJobDetails.maxSalary freelanceJobDetails.budget freelanceJobDetails.category"
-      )
-      .populate("employerId", "fullName ")
-      .lean();
 
     const transformedJobs = jobs.map((job) => {
       const isSaved = user?.savedJobs?.some((savedId) =>

@@ -24,8 +24,6 @@ const verifyTokenMiddleware =
       return next();
     }
 
-    // console.log("token: ", token)
-
     try {
       const deocded = verifyToken(token);
       // console.log("decoded: ", deocded)
