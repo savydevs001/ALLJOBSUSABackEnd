@@ -12,10 +12,15 @@ import {
   createGoogleSignInLink,
   googleCallback,
   verifyEmailToken,
+  createAppleSignInLink,
+  appleCallback,
 } from "../controllers/authentication.controller.js";
 
 AuthenticationRouter.get("/google", a(createGoogleSignInLink));
 AuthenticationRouter.get("/google/callback", a(googleCallback));
+
+AuthenticationRouter.get("/apple", a(createAppleSignInLink));
+AuthenticationRouter.get("/apple/callback", a(appleCallback));
 
 AuthenticationRouter.post(
   "/signup",

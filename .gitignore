@@ -56,3 +56,9 @@ src/chatbotdata.json.backup
 src/chatbotdata.json
 !src/chatbotdata.json.keep
 !src/chatbotdata.json.backup.keep
+
+# Apple Key
+apple_key.p8
+
+# temp
+temp.js

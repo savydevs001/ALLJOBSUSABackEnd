@@ -2,8 +2,6 @@ import { z } from "zod";
 import dotenv from "dotenv";
 import crypto from "crypto";
 import { hashPassword, verifyPassword } from "../utils/password.js";
-// import sendEmail from "../utils/emailSender.js";
-
 import { jwtToken } from "../utils/jwt.js";
 import EMPLOYER from "../database/models/employers.model.js";
 import FREELANCER from "../database/models/freelancer.model.js";
@@ -15,11 +13,12 @@ import {
 } from "../utils/email-templates.js";
 import generateVerificationCode from "../utils/create-verification-code.js";
 import mongoose from "mongoose";
+import jwt from "jsonwebtoken"
+import fs from "fs";
 
 dotenv.config();
 
 let emailsWithThirdPartySignUp = [];
-
 const PASSWORD_REGEX =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d])[A-Za-z\d\S]{8,}$/;
 
@@ -424,7 +423,7 @@ const forgotPassword = async (req, res) => {
     if (
       user.password?.lastResetTokenTime &&
       Date.now() - new Date(user.password.lastResetTokenTime).getTime() <
-        1000 * 60 * 5
+      1000 * 60 * 5
     ) {
       return res.status(400).json({ message: "Please try again in 5 minutes" });
     }
@@ -507,6 +506,7 @@ const resetPassword = async (req, res) => {
   return res.status(200).json({ message: "Password reset successful" });
 };
 
+// Google Signin
 const createGoogleSignInLink = async (req, res) => {
   try {
     const role = req.query.role;
@@ -529,7 +529,7 @@ const createGoogleSignInLink = async (req, res) => {
     return res.status(200).json({ url });
   } catch (err) {
     console.error("❌ Google create Signin link error:", err);
-    return res.status(500).json({ message: "Server Error" });
+    return res.status(500).json({ message: "Error Signing In with Google", err: err.message });
   }
 };
 
@@ -651,7 +651,173 @@ const googleCallback = async (req, res) => {
     });
   } catch (err) {
     console.error("❌ Google callback Signin  error:", err);
-    return res.status(500).json({ message: "Unable to Signin with google" });
+    return res.status(500).json({ message: "Unable to Signin with google", err: err.message });
+  }
+};
+
+// Apple Signin
+const createAppleSignInLink = async (req, res) => {
+  try {
+    const role = req.query.role;
+    const redirect_uri = process.env.FRONTEND_URL + "/login";
+
+    // Validate role
+    if (!role || !["employer", "freelancer", "job-seeker"].includes(role)) {
+      return res.status(400).json({ message: "Invalid Role" });
+    }
+
+    // Encode state (safe transport of extra data)
+    const state = Buffer.from(JSON.stringify({ role })).toString("base64");
+
+    const params = new URLSearchParams({
+      response_type: "code",
+      response_mode: "form_post", // Apple supports "form_post" or "query"
+      client_id: process.env.APPLE_CLIENT_ID,
+      redirect_uri,
+      scope: "name email",
+      state,
+    });
+
+    const url = `https://appleid.apple.com/auth/authorize?${params}`;
+
+    return res.status(200).json({ url });
+  } catch (err) {
+    console.error("❌ Apple create Signin link error:", err);
+    return res.status(500).json({ message: "Error Signing In with Apple", err: err.message });
+  }
+};
+
+const applePrivateKey = fs.readFileSync(process.env.APPLE_PRIVATE_KEY_PATH, "utf8");
+const appleCallback = async (req, res) => {
+  try {
+    const { code, state } = req.query;
+    if (!code) {
+      return res.status(400).json({ message: "Code missing from request" });
+    }
+
+    const { role } = JSON.parse(Buffer.from(state, "base64").toString());
+    if (!role || !["employer", "freelancer", "job-seeker"].includes(role)) {
+      return res.status(400).json({ message: "Invalid role" });
+    }
+    const redirect_uri = process.env.FRONTEND_URL + "/login";
+
+    // create Apple client Secret
+    const clientSecret = jwt.sign({
+      iss: process.env.APPLE_TEAM_ID,
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24, // 24h
+      aud: "https://appleid.apple.com",
+      sub: process.env.APPLE_CLIENT_ID,
+    },
+      applePrivateKey,
+      {
+        algorithm: "ES256",
+        keyid: process.env.APPLE_KEY_ID,
+      }
+    )
+
+    // Exchanging token with apple
+    const tokenRes = await fetch("https://appleid.apple.com/auth/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        client_id: process.env.APPLE_CLIENT_ID,
+        client_secret: process.env.clientSecret,
+        code,
+        redirect_uri: redirect_uri,
+        grant_type: "authorization_code",
+      }).toString(),
+    });
+    if (!tokenRes.ok) {
+      return res.status(400).json({
+        message: "Failed to exchange code for token",
+      });
+    }
+
+    const tokenResponse = await tokenRes.json();
+    const { id_token } = tokenResponse;
+    const decoded = jwt.decode(id_token);
+    const email = decoded.email;
+    const name = decoded.name || decoded.sub; // Apple only gives full name on first login
+
+    let token = null;
+    let newUser = false;
+
+    // search Employers
+    let user;
+    if (role == "employer") {
+      user = await EMPLOYER.findOneAndUpdate(
+        { email: email },
+        { lastLogin: new Date() }
+      );
+      if (!user) {
+        newUser = true;
+      }
+      if (user) {
+        token = jwtToken(user, role, true);
+      }
+    }
+    // Search Freelancers or Job-Seekers
+    else if (role == "freelancer") {
+      user = await FREELANCER.findOneAndUpdate(
+        { email: email },
+        { lastLogin: new Date() }
+      );
+      if (!user) {
+        newUser = true;
+      }
+      if (user) {
+        token = jwtToken(user, role, true);
+      }
+    } else if (role == "job-seeker") {
+      user = await JOBSEEKER.findOneAndUpdate(
+        { email: email },
+        { lastLogin: new Date() }
+      );
+      if (!user) {
+        newUser = true;
+      }
+      if (user) {
+        token = jwtToken(user, role, true);
+      }
+    }
+    // Invalid role
+    else {
+      return res.status(400).json({ message: "Invalid user role" });
+    }
+
+    if (!newUser && user?.status == "deleted") {
+      if (user.isDeletedByAdmin === true) {
+        return res
+          .status(400)
+          .json({ message: "You are restricted from acessing platefrom" });
+      }
+      return res.status(404).json({ message: "No User found" });
+    }
+
+    if (!newUser && token === null) {
+      console.log("❌ Error creating jwt token");
+      return res.status(500).json({ message: "Error creating token", err: err.message });
+    }
+
+    if (newUser) {
+      emailsWithThirdPartySignUp.push(email);
+    }
+
+    return res.status(201).json({
+      message: "Signup successful",
+      token: newUser ? "" : token,
+      passwordSetupRequired: newUser,
+      email: email,
+      fullName: name,
+      profilePictureUrl: picture,
+      role: role,
+    });
+  } catch (err) {
+    console.error("❌ Apple callback Signin  error:", err);
+    return res.status(500).json({ message: "Unable to Signin with Apple", err: err.message });
   }
 };
 
@@ -736,4 +902,6 @@ export {
   createGoogleSignInLink,
   googleCallback,
   verifyEmailToken,
+  createAppleSignInLink,
+  appleCallback
 };
