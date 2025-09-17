@@ -659,7 +659,12 @@ const googleCallback = async (req, res) => {
 const createAppleSignInLink = async (req, res) => {
   try {
     const role = req.query.role;
-    const redirect_uri = process.env.FRONTEND_URL + "/login";
+    const client = req.query.client;
+    if (!client || !["desktop", "mobile"].includes(client)) {
+      return res.status(400).json({ message: "Invalid client", err: "Please specify a client i.e desktop or mobile" })
+    }
+    const redirect_uri = process.env.FRONTEND_URL + "/api/auth/apple/callback";
+    // const redirect_uri = "https://alljobsusa.com/api/auth/apple/callback";
 
     // Validate role
     if (!role || !["employer", "freelancer", "job-seeker"].includes(role)) {
@@ -667,11 +672,11 @@ const createAppleSignInLink = async (req, res) => {
     }
 
     // Encode state (safe transport of extra data)
-    const state = Buffer.from(JSON.stringify({ role })).toString("base64");
+    const state = Buffer.from(JSON.stringify({ role, client })).toString("base64");
 
     const params = new URLSearchParams({
       response_type: "code",
-      response_mode: "query",
+      response_mode: "form_post",
       client_id: process.env.APPLE_CLIENT_ID,
       redirect_uri,
       scope: "name email",
@@ -690,16 +695,23 @@ const createAppleSignInLink = async (req, res) => {
 const applePrivateKey = fs.readFileSync(process.env.APPLE_PRIVATE_KEY_PATH, "utf8");
 const appleCallback = async (req, res) => {
   try {
-    const { code, state } = req.query;
+    const { code, state } = req.body;
+    const redirect_uri = process.env.FRONTEND_URL;
     if (!code) {
       return res.status(400).json({ message: "Code missing from request" });
     }
 
-    const { role } = JSON.parse(Buffer.from(state, "base64").toString());
+    const { role, client } = JSON.parse(Buffer.from(state, "base64").toString());
+    const mobileClient = client === "mobile"
+    const desktop_redirect_url = redirect_uri + "/signup"
     if (!role || !["employer", "freelancer", "job-seeker"].includes(role)) {
-      return res.status(400).json({ message: "Invalid role" });
+      if (mobileClient) {
+        return res.status(400).json({ message: "Invalid role" });
+      }
+      else {
+        return res.redirect(`${desktop_redirect_url}?apple_callback_error=Invalid Role`);
+      }
     }
-    const redirect_uri = process.env.FRONTEND_URL + "/login";
 
     // create Apple client Secret
     const clientSecret = jwt.sign({
@@ -726,14 +738,19 @@ const appleCallback = async (req, res) => {
         client_id: process.env.APPLE_CLIENT_ID,
         client_secret: clientSecret,
         code,
-        redirect_uri: redirect_uri,
+        redirect_uri: redirect_uri + "/api/auth/apple/callback",
         grant_type: "authorization_code",
       }).toString(),
     });
     if (!tokenRes.ok) {
-      return res.status(400).json({
-        message: "Failed to exchange code for token",
-      });
+      if (mobileClient) {
+        return res.status(400).json({
+          message: "Failed to exchange code for token",
+        });
+      }
+      else {
+        return res.redirect(`${desktop_redirect_url}?apple_callback_error=Failed to exchange code for token`)
+      }
     }
 
     const tokenResponse = await tokenRes.json();
@@ -785,36 +802,61 @@ const appleCallback = async (req, res) => {
     }
     // Invalid role
     else {
-      return res.status(400).json({ message: "Invalid user role" });
+      if (mobileClient) {
+        return res.status(400).json({ message: "Invalid user role" });
+      }
+      else {
+        return res.redirect(`${desktop_redirect_url}?apple_callback_error=Invalid Role`);
+      }
     }
 
     if (!newUser && user?.status == "deleted") {
       if (user.isDeletedByAdmin === true) {
-        return res
-          .status(400)
-          .json({ message: "You are restricted from acessing platefrom" });
+        if (mobileClient) {
+          return res
+            .status(400)
+            .json({ message: "You are restricted from acessing platefrom" });
+        }
+        else {
+          return res.redirect(`${desktop_redirect_url}?apple_callback_error=You are restricted from acessing platefrom`);
+        }
       }
-      return res.status(404).json({ message: "No User found" });
+      if (mobileClient) {
+        return res.status(404).json({ message: "No User found" });
+      }
+      else {
+        return res.redirect(`${desktop_redirect_url}?apple_callback_error=No User found"`);
+      }
     }
 
     if (!newUser && token === null) {
       console.log("❌ Error creating jwt token");
-      return res.status(500).json({ message: "Error creating token", err: err.message });
+      if (mobileClient) {
+        return res.status(500).json({ message: "Error creating token", err: err.message });
+      }
+      else {
+        return res.redirect(`${desktop_redirect_url}?apple_callback_error=Error creating token`);
+      }
     }
 
     if (newUser) {
       emailsWithThirdPartySignUp.push(email);
     }
 
-    return res.status(201).json({
-      message: "Signup successful",
-      token: newUser ? "" : token,
-      passwordSetupRequired: newUser,
-      email: email,
-      fullName: name,
-      profilePictureUrl: picture,
-      role: role,
-    });
+    if (mobileClient) {
+      return res.status(201).json({
+        message: "Signup successful",
+        token: newUser ? "" : token,
+        passwordSetupRequired: newUser,
+        email: email,
+        fullName: name,
+        profilePictureUrl: picture,
+        role: role,
+      });
+    }
+    else {
+      return res.redirect(`${desktop_redirect_url}?token=${token}&password-setup=${passwordSetupRequired}&email=${email}&fullName=${fullName}&profilePictureUrl=${profilePictureUrl}&role=${role}`);
+    }
   } catch (err) {
     console.error("❌ Apple callback Signin  error:", err);
     return res.status(500).json({ message: "Unable to Signin with Apple", err: err.message });

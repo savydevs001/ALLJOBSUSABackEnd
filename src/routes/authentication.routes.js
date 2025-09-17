@@ -20,7 +20,7 @@ AuthenticationRouter.get("/google", a(createGoogleSignInLink));
 AuthenticationRouter.get("/google/callback", a(googleCallback));
 
 AuthenticationRouter.get("/apple", a(createAppleSignInLink));
-AuthenticationRouter.get("/apple/callback", a(appleCallback));
+AuthenticationRouter.post("/apple/callback", a(appleCallback));
 
 AuthenticationRouter.post(
   "/signup",
