@@ -671,7 +671,7 @@ const createAppleSignInLink = async (req, res) => {
 
     const params = new URLSearchParams({
       response_type: "code",
-      response_mode: "form_post", // Apple supports "form_post" or "query"
+      response_mode: "query",
       client_id: process.env.APPLE_CLIENT_ID,
       redirect_uri,
       scope: "name email",
@@ -724,7 +724,7 @@ const appleCallback = async (req, res) => {
       },
       body: new URLSearchParams({
         client_id: process.env.APPLE_CLIENT_ID,
-        client_secret: process.env.clientSecret,
+        client_secret: clientSecret,
         code,
         redirect_uri: redirect_uri,
         grant_type: "authorization_code",
