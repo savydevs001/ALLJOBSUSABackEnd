@@ -418,9 +418,9 @@ const getReceivedOffers = async (req, res) => {
 
     const textTerms = text
       ? text
-          .split(" ")
-          .map((t) => t.trim())
-          .filter(Boolean)
+        .split(" ")
+        .map((t) => t.trim())
+        .filter(Boolean)
       : [];
 
     const initialFilter = {
@@ -621,9 +621,8 @@ const getOfferById = async (req, res) => {
         location:
           jobType === "freelance"
             ? "remote"
-            : `${offer.jobId.simpleJobDetails?.locationCity || ""}, ${
-                offer.jobId.simpleJobDetails?.locationState || ""
-              }`,
+            : `${offer.jobId.simpleJobDetails?.locationCity || ""}, ${offer.jobId.simpleJobDetails?.locationState || ""
+            }`,
         deadline: offer.jobId.deadline,
         experienceLevel:
           jobType === "freelance"
@@ -635,8 +634,8 @@ const getOfferById = async (req, res) => {
             jobType === "simple"
               ? "fixed"
               : offer.jobId.freelanceJobDetails?.budget?.budgetType === "Fixed"
-              ? "fixed"
-              : "start",
+                ? "fixed"
+                : "start",
           price:
             jobType === "freelance"
               ? offer.jobId.freelanceJobDetails?.budget?.price
@@ -659,9 +658,8 @@ const getOfferById = async (req, res) => {
         <div style="font-family: Arial, sans-serif; padding: 10px;">
           <h2 style="color: #003366;">Offer Reviewed</h2>
           <p>Hello ${offer.senderId.fullName || "Freelancer"},</p>
-          <p>Your offer titled <strong>"${
-            offer.title
-          }"</strong> has been reviewed by the employer.</p>
+          <p>Your offer titled <strong>"${offer.title
+        }"</strong> has been reviewed by the employer.</p>
           <p>We will keep you updated on further actions.</p>
           <br/>
           <p>Regards,<br/>Freelancing Platform Team</p>
@@ -818,7 +816,7 @@ const getOfferByIdForMessage = async (req, res) => {
         fullName: offer.senderId.fullName,
         profilePictureUrl: offer.senderId.profilePictureUrl,
         isRated: offer.senderId.rating.isRated || false,
-        value: offer.senderId.rating.value || 0,
+        value: offer.senderId.rating.value ? Number(offer.senderId.rating.value).toFixed(1) : 0,
       },
     };
 

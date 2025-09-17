@@ -530,11 +530,9 @@ const getAllJobs = async (req, res) => {
 
     // ----------------- Location -----------------
     if (location && job === "simple") {
-      const locationTerms = location.split(",").map((t) => t.trim());
-      const locationFilters = locationTerms.flatMap((term) => [
-        { "simpleJobDetails.locationCountry": { $regex: term, $options: "i" } },
-        { "simpleJobDetails.jobModel": { $regex: term, $options: "i" } },
-      ]);
+      const locationFilters = [
+        { "simpleJobDetails.locationCountry": location },
+      ]
       andConditions.push(...locationFilters);
     }
 
@@ -554,8 +552,6 @@ const getAllJobs = async (req, res) => {
       const textFilters = textTerms.flatMap((term) => [
         { title: { $regex: term, $options: "i" } },
         { description: { $regex: term, $options: "i" } },
-        // uncomment if needed:
-        // { "freelanceJobDetails.requiredSkills": { $regex: term, $options: "i" } },
       ]);
       andConditions.push(...textFilters);
     }

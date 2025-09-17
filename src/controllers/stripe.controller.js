@@ -529,6 +529,13 @@ const createPaymentIntents = async (req, res) => {
 
           if (userRole == "freelancer" && user.currentBalance) {
             if (user.currentBalance >= plan.price) {
+              const resume_transaction = new TRANSACTION({
+                resumeOrCoverDetails: {
+                  amount: plan.price,
+                  userId: user._id.toString()
+                },
+                mode: "resume"
+              })
               user.currentBalance = Number(user.currentBalance - plan.price);
               user.canDownloadResume = true;
               await user.save();
@@ -536,6 +543,7 @@ const createPaymentIntents = async (req, res) => {
                 {},
                 { $inc: { "earnings.resume": plan.price } }
               )
+              await resume_transaction.save()
               return res.status(200).json({
                 message: "Transfer done from freelancer earnings",
                 paid: true,
@@ -589,11 +597,20 @@ const createPaymentIntents = async (req, res) => {
             if (user.currentBalance >= plan.price) {
               user.currentBalance = Number(user.currentBalance - plan.price);
               user.canDownloadCover = true;
+              const cover_transaction = new TRANSACTION({
+                resumeOrCoverDetails: {
+                  amount: plan.price,
+                  userId: user._id.toString()
+                },
+                mode: "cover"
+              })
+
               await user.save();
               await PlatformSettings.findOneAndUpdate(
                 {},
                 { $inc: { "earnings.cover": plan.price } }
               )
+              await cover_transaction.save()
               return res.status(200).json({
                 message: "Transfer done from freelancer earnings",
                 paid: true,
@@ -893,8 +910,17 @@ const createFreelancerPayout = async (req, res) => {
       user.activity.splice(3);
     }
 
+    const withDrawTransaction = new TRANSACTION({
+      mode: "withdraw",
+      withdrawDetails: {
+        userId: user._id.toString(),
+        amount: amount
+      }
+    })
+
     user.currentBalance = user.currentBalance - amount;
     await user.save({ session: mongooseSession });
+    await withDrawTransaction.save({session: mongooseSession})
 
     await mongooseSession.commitTransaction();
     await mongooseSession.endSession();

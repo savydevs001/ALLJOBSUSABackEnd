@@ -4,7 +4,7 @@ const { Schema, model, Types } = mongoose;
 
 const transactionSchema = new Schema(
   {
-    mode: { type: String, enum: ["profile-subscription", "order"] },
+    mode: { type: String, enum: ["profile-subscription", "order", "resume", "cover", "withdraw"] },
 
     // susbscription details if mode is subscriptions
     subscriptionDetails: {
@@ -50,6 +50,16 @@ const transactionSchema = new Schema(
       stripeSessionId: String,
       stripeIntentId: String,
     },
+
+    resumeOrCoverDetails: {
+      amount: Number,
+      userId: String
+    },
+
+    withdrawDetails: {
+      amount: Number,
+      userId: String
+    }
   },
 
   {

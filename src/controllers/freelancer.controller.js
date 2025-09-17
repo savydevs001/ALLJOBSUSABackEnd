@@ -804,13 +804,24 @@ const getFreelancerPaymentHistory = async (req, res) => {
       return res.status(200).json({ onboardRequired: true });
     }
 
-    const payouts = await PENDING_PAYOUT.find({
-      freelancerId: freelancerId,
-    })
-      .populate("orderId", "title")
-      .sort({
-        createdAt: -1,
-      });
+    const [payouts, transactions] = await Promise.all([
+      PENDING_PAYOUT.find({
+        freelancerId: freelancerId,
+      })
+        .populate("orderId", "title")
+        .sort({
+          createdAt: -1,
+        }),
+
+      TRANSACTION.find({
+        mode: { $in: ["resume", "cover", "withdraw"] },
+        $or: [
+          { "resumeOrCoverDetails.userId": freelancerId },
+          { "withdrawDetails.userId": freelancerId }
+        ]
+      })
+
+    ])
 
     const transformed = payouts.map((e) => ({
       _id: e._id,
@@ -821,7 +832,21 @@ const getFreelancerPaymentHistory = async (req, res) => {
       amount: e.amount,
       date: e.createdAt,
     }));
-    return res.status(200).json({ data: transformed });
+
+    const transformedT = transactions.map(e => ({
+      _id: e._id,
+      orderId: e._id,
+      type: e.mode,
+      title: e.mode,
+      status: "completed",
+      amount: e.mode == "cover" || e.mode == "resume" ? e.resumeOrCoverDetails.amount : e.withdrawDetails.amount,
+      date: e.createdAt,
+    }))
+
+    const mergerd = [...transformed, ...transformedT]
+    mergerd.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+    return res.status(200).json({ data: mergerd });
   } catch (err) {
     console.error("❌ Error getting payment History:", err);
     return res.status(500).json({ message: "Server Error" });
