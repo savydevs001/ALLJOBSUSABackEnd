@@ -451,6 +451,7 @@ const stripeWebhook = async (req, res) => {
               title: "Offer Accepted & Order Created",
               message: offer.title,
               from: order.employerId?.fullName || "untitled",
+              fcm_token: freelancer.fcm_token
             },
             mongooseSession
           );
@@ -565,6 +566,7 @@ const stripeWebhook = async (req, res) => {
                 " for order: " +
                 orderId,
               from: order.title,
+              fcm_token: freelancer.fcm_token
             });
 
             return res.status(200).json({

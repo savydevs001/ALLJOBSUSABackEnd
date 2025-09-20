@@ -920,7 +920,7 @@ const createFreelancerPayout = async (req, res) => {
 
     user.currentBalance = user.currentBalance - amount;
     await user.save({ session: mongooseSession });
-    await withDrawTransaction.save({session: mongooseSession})
+    await withDrawTransaction.save({ session: mongooseSession })
 
     await mongooseSession.commitTransaction();
     await mongooseSession.endSession();
@@ -932,6 +932,7 @@ const createFreelancerPayout = async (req, res) => {
       title: "Payment Transfer",
       message: `You payment of $${amount} will reach you account in 1-2 working days`,
       from: "ALLJOBSUSA",
+      fcm_token: user.fcm_token
     });
 
     return res.json({

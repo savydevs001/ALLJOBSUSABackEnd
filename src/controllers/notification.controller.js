@@ -3,9 +3,10 @@ import Notification from "../database/models/notifications.model.js";
 import { sendNewNotification } from "../socket/init-socket.js";
 import enqueueEmail from "../services/emailSender.js";
 import { getNotificationTemplate } from "../utils/email-templates.js";
+import { sendMobileNotification } from "../config/firebase.js";
 
 const notifyUser = async (
-  { userId, userMail, title, message, from, ctaUrl },
+  { userId, userMail, title, message, from, ctaUrl, fcm_token },
   mongooseSession = null
 ) => {
   try {
@@ -24,6 +25,9 @@ const notifyUser = async (
     }
 
     sendNewNotification(userId.toString(), notification._id.toString());
+    if(fcm_token){
+      await sendMobileNotification(fcm_token, title, message, {from, ctaUrl})
+    }
     if (userMail) {
       await enqueueEmail(
         userMail,

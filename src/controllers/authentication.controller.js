@@ -15,7 +15,6 @@ import generateVerificationCode from "../utils/create-verification-code.js";
 import mongoose from "mongoose";
 import jwt from "jsonwebtoken"
 import fs from "fs";
-import admin from "../config/firebase.js";
 
 dotenv.config();
 
@@ -674,7 +673,6 @@ const createAppleSignInLink = async (req, res) => {
       return res.status(400).json({ message: "Invalid client", err: "Please specify a client i.e desktop or mobile" })
     }
     const redirect_uri = process.env.FRONTEND_URL + "/api/auth/apple/callback";
-    // const redirect_uri = "https://alljobsusa.com/api/auth/apple/callback";
 
     // Validate role
     if (!role || !["employer", "freelancer", "job-seeker"].includes(role)) {
@@ -767,6 +765,7 @@ const appleCallback = async (req, res) => {
     const { id_token } = tokenResponse;
     const decoded = jwt.decode(id_token);
     const email = decoded.email;
+    const picture = decoded.picture || "";
     const name = decoded.name || decoded.sub; // Apple only gives full name on first login
 
     let token = null;
@@ -835,14 +834,14 @@ const appleCallback = async (req, res) => {
         return res.status(404).json({ message: "No User found" });
       }
       else {
-        return res.redirect(`${desktop_redirect_url}?apple_callback_error=No User found"`);
+        return res.redirect(`${desktop_redirect_url}?apple_callback_error=No User found`);
       }
     }
 
     if (!newUser && token === null) {
       console.log("❌ Error creating jwt token");
       if (mobileClient) {
-        return res.status(500).json({ message: "Error creating token", err: err.message });
+        return res.status(500).json({ message: "Error creating token"});
       }
       else {
         return res.redirect(`${desktop_redirect_url}?apple_callback_error=Error creating token`);
@@ -865,7 +864,7 @@ const appleCallback = async (req, res) => {
       });
     }
     else {
-      return res.redirect(`${desktop_redirect_url}?token=${token}&password-setup=${passwordSetupRequired}&email=${email}&fullName=${fullName}&profilePictureUrl=${profilePictureUrl}&role=${role}`);
+      return res.redirect(`${desktop_redirect_url}?token=${token}&password-setup=${newUser}&email=${email}&fullName=${name}&profilePictureUrl=${picture}&role=${role}`);
     }
   } catch (err) {
     console.error("❌ Apple callback Signin  error:", err);
@@ -1096,6 +1095,6 @@ export {
   verifyEmailToken,
   createAppleSignInLink,
   appleCallback,
-  // firebaseGoogleSignin
+  firbase_FCM_Token,
   MobileGoogleSignin
 };

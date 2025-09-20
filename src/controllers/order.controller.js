@@ -321,8 +321,8 @@ const getClientOrders = async (req, res) => {
       clientModel == "employer"
         ? "employer"
         : clientModel == "job-seeker"
-        ? "jobSeeker"
-        : "";
+          ? "jobSeeker"
+          : "";
 
     if (tempClientModel == "") {
       return res.status(400).json({ message: "Invalid Model" });
@@ -473,10 +473,6 @@ const markOrderAsComplete = async (req, res) => {
     order.status = "completed";
     order.completionDate = new Date();
 
-    //  set status to paid
-    // transaction.orderDeatils.status = "released_to_freelancer";
-    // await transaction.save({ session: mongooseSession });
-
     // increment total orders for employer
     const employer = order.employerId;
     if (employer) {
@@ -506,6 +502,7 @@ const markOrderAsComplete = async (req, res) => {
       userId: order.employerId?._id?.toString(),
       userMail: employer.email,
       ctaUrl: `orders/${order._id.toString()}`,
+      fcm_token: employer.fcm_token,
     });
     await notifyUser({
       from: employer.fullName,
@@ -514,6 +511,7 @@ const markOrderAsComplete = async (req, res) => {
       userId: freelancer._id?.toString(),
       userMail: freelancer.email,
       ctaUrl: `orders/${order._id.toString()}`,
+      fcm_token: freelancer.fcm_token
     });
 
     return res.status(200).json({
@@ -561,7 +559,7 @@ const delieverOrderForRevsions = async (req, res) => {
 
     const order = await Order.findOne({ _id: orderId, freelancerId }).populate(
       "employerId",
-      "email"
+      "email fcm_token"
     );
     if (!order) return res.status(404).json({ message: "Order not found" });
 
@@ -590,6 +588,7 @@ const delieverOrderForRevsions = async (req, res) => {
       title: "Order " + order._id + ", Deleivered",
       userMail: order.employerId?.email,
       ctaUrl: `orders/${order._id.toString()}`,
+      fcm_token: order.employerId.fcm_token
     });
 
     return res.status(200).json({
@@ -662,7 +661,7 @@ const attachNewFilesToOrder = async (req, res) => {
 
     const order = await Order.findOne({ _id: orderId, freelancerId }).populate(
       "employerId",
-      "email"
+      "email fcm_token"
     );
     if (!order) return res.status(404).json({ message: "Order not found" });
 
@@ -683,6 +682,7 @@ const attachNewFilesToOrder = async (req, res) => {
       from: order.title,
       userMail: order.employerId?.email,
       ctaUrl: `orders/${order._id.toString()}`,
+      fcm_token: order.employerId.fcm_token
     });
 
     return res.status(200).json({
@@ -723,11 +723,11 @@ const getOrderById = async (req, res) => {
 
     const review = order.reviewId
       ? {
-          _id: order.reviewId?._id,
-          rating: order.reviewId?.rating,
-          comment: order.reviewId?.comment,
-          createdAt: order.createdAt,
-        }
+        _id: order.reviewId?._id,
+        rating: order.reviewId?.rating,
+        comment: order.reviewId?.comment,
+        createdAt: order.createdAt,
+      }
       : null;
 
     const transformed = {
@@ -762,8 +762,8 @@ const getOrderById = async (req, res) => {
           order.employerModel === "jobSeeker"
             ? "job-seeker"
             : order.employerModel === "employer"
-            ? "employer"
-            : "",
+              ? "employer"
+              : "",
       },
       review: review,
     };
@@ -813,7 +813,7 @@ const requestNewDeadline = async (req, res) => {
     if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
       return res.status(400).json({ message: "Invalid order id" });
     }
-    const order = await Order.findById(orderId).populate("employerId", "email");
+    const order = await Order.findById(orderId).populate("employerId", "email fcm_token");
     if (!order) {
       return res.status(404).json({ message: "Order not found!" });
     }
@@ -854,6 +854,7 @@ const requestNewDeadline = async (req, res) => {
       userId: order.employerId?._id?.toString(),
       userMail: order.employerId?.email,
       ctaUrl: `orders/${order._id.toString()}`,
+      fcm_token: order.employerId.fcm_token
     });
 
     return res.status(200).json({ message: "Deadline extention Request sent" });
@@ -876,7 +877,7 @@ const AcceptNewDeadline = async (req, res) => {
     }
     const order = await Order.findById(orderId).populate(
       "freelancerId",
-      "email"
+      "email fcm_token"
     );
     if (!order) {
       return res.status(404).json({ message: "Order not found!" });
@@ -918,6 +919,7 @@ const AcceptNewDeadline = async (req, res) => {
       userId: order.freelancerId?._id?.toString(),
       userMail: order.freelancerId?.email,
       ctaUrl: `orders/${order._id.toString()}`,
+      fcm_token: order.freelancerId.fcm_token
     });
 
     return res.status(200).json({ message: "Deadline extened" });

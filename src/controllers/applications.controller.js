@@ -153,6 +153,7 @@ const createApplication = async (req, res) => {
         from: user.fullName,
         message: "Applied to job: " + job._id.toString(),
         title: "New Application",
+        fcm_token: employer.fcm_token
       });
 
       return res.status(200).json({

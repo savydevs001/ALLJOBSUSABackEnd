@@ -212,6 +212,7 @@ const createOffer = async (req, res, next) => {
         title: "New Offer received",
         message: offer.title,
         from: user.fullName,
+        fcm_token: employer.fcm_token
       });
 
       return res.status(200).json({
@@ -699,7 +700,7 @@ const rejectOffer = async (req, res) => {
 
   const offer = await Offer.findById(offerId)
     .populate("receiverId", "fullName")
-    .populate("senderId", "email");
+    .populate("senderId", "email fcm_token");
 
   if (!offer) {
     return res.status(404).json({ message: "Offer not found" });
@@ -734,6 +735,7 @@ const rejectOffer = async (req, res) => {
     title: `Offer ${offer._id.toString()} Rejected`,
     message: offer.title,
     from: offer.receiverId.fullName || "Employer",
+    fcm_token: offer.senderId.fcm_token
   });
 
   return res.status(200).json({

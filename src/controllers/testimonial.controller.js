@@ -177,11 +177,11 @@ const userCreateTestimonial = async (req, res) => {
         from: user.fullName,
         title: `New Testimonial`,
         ctaUrl: `admin/testimonial`,
-        message: `User: ${
-          user.fullName + " - " + user._id.toString()
-        } has sent a testimonial/feeback`,
+        message: `User: ${user.fullName + " - " + user._id.toString()
+          } has sent a testimonial/feeback`,
         userId: adminId,
         userMail: process.env.SUPPORT_RECIEVE_EMAIL,
+        fcm_token: null
       });
     } catch (err) {
       // do nothing here

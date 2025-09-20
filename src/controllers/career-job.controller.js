@@ -4,6 +4,9 @@ import mongoose from "mongoose";
 import { notifyUser } from "./notification.controller.js";
 import { getSupportAdminId, getSupportIds } from "./support.controller.js";
 import dotenv from "dotenv"
+import EMPLOYER from "../database/models/employers.model.js";
+import JOBSEEKER from "../database/models/job-seeker.model.js";
+import FREELANCER from "../database/models/freelancer.model.js";
 dotenv.config()
 
 const createCareerJobZodSchema = z.object({
@@ -104,8 +107,8 @@ const getCareerById = async (req, res) => {
         salary: career.salary,
         alreadyApplied: userId
           ? career.applicants.some(
-              (e) => e.userId?.toString() === userId?.toString()
-            )
+            (e) => e.userId?.toString() === userId?.toString()
+          )
           : false,
       };
     }
@@ -186,6 +189,21 @@ const applyToJob = async (req, res) => {
       return res.status(404).json({ message: "Career Not found" });
     }
 
+    let user;
+    switch (userRole) {
+      case "employer":
+        user = await EMPLOYER.findById(parsed.userId);
+        break;
+      case "job-seeker":
+        user = await JOBSEEKER.findById(parsed.userId);
+        break;
+      case "freelancer":
+        user = await FREELANCER.findById(parsed.userId);
+        break;
+      default:
+        break;
+    }
+
     const applied = (career.applicants || []).some(
       (e) => e.userId?.toString() == userId?.toString()
     );
@@ -207,12 +225,13 @@ const applyToJob = async (req, res) => {
     try {
       const adminId = await getSupportAdminId();
       notifyUser({
-        from: "User",
+        from: user.fullName || "User",
         title: `New Application: ${career.title}`,
         ctaUrl: `admin/careers/${career._id.toString()}`,
         message: `User has applied to Career ${career.title}`,
         userId: adminId,
         userMail: process.env.SUPPORT_RECIEVE_EMAIL,
+        fcm_token: null
       });
 
     } catch (err) {
