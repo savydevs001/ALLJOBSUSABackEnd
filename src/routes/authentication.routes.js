@@ -15,7 +15,8 @@ import {
   createAppleSignInLink,
   appleCallback,
   MobileGoogleSignin,
-  firbase_FCM_Token
+  firbase_FCM_Token,
+  MobileAppleSignIn,
 } from "../controllers/authentication.controller.js";
 
 AuthenticationRouter.get("/google", a(createGoogleSignInLink));
@@ -24,6 +25,7 @@ AuthenticationRouter.get("/google/callback", a(googleCallback));
 AuthenticationRouter.get("/apple", a(createAppleSignInLink));
 AuthenticationRouter.post("/apple/callback", a(appleCallback));
 AuthenticationRouter.post("/google-mobile", a(MobileGoogleSignin))
+AuthenticationRouter.post("/apple-mobile", a(MobileAppleSignIn))
 AuthenticationRouter.post("/fcm-token", a(firbase_FCM_Token))
 
 
