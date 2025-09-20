@@ -15,6 +15,7 @@ import generateVerificationCode from "../utils/create-verification-code.js";
 import mongoose from "mongoose";
 import jwt from "jsonwebtoken"
 import fs from "fs";
+import admin from "../config/firebase.js";
 
 dotenv.config();
 
@@ -89,6 +90,15 @@ const resetPasswordSchema = z.object({
 });
 const verifyEmailSchema = z.object({
   code: z.string().length(6, "Verification code must be 6 digits"),
+  userId: z.string(),
+  role: z.enum(["employer", "freelancer", "job-seeker"], {
+    errorMap: () => ({
+      message: "Invalid User Role",
+    }),
+  }),
+});
+const FCMSchema = z.object({
+  fcm_token: z.string().describe("FCM token"),
   userId: z.string(),
   role: z.enum(["employer", "freelancer", "job-seeker"], {
     errorMap: () => ({
@@ -863,6 +873,106 @@ const appleCallback = async (req, res) => {
   }
 };
 
+const MobileGoogleSignin = async (req, res) => {
+  try {
+    const { idToken, role } = req.body;
+    if (!idToken) {
+      return res.status(400).json({ message: "ID token required" });
+    }
+    if (!role || !["employer", "freelancer", "job-seeker"].includes(role)) {
+      return res.status(400).json({ message: "Invalid role" });
+    }
+
+    const profileRes = await fetch(
+      `https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=${idToken}`,
+      {
+        method: "GET",
+      }
+    );
+    const profileResponse = await profileRes.json();
+    const { email, name, picture } = profileResponse;
+
+    let token = null;
+    let newUser = false;
+
+    // search Employers
+    let user;
+    if (role == "employer") {
+      user = await EMPLOYER.findOneAndUpdate(
+        { email: email },
+        { lastLogin: new Date() }
+      );
+      if (!user) {
+        newUser = true;
+      }
+      if (user) {
+        token = jwtToken(user, role, true);
+      }
+    }
+    // Search Freelancers or Job-Seekers
+    else if (role == "freelancer") {
+      user = await FREELANCER.findOneAndUpdate(
+        { email: email },
+        { lastLogin: new Date() }
+      );
+      if (!user) {
+        newUser = true;
+      }
+      if (user) {
+        token = jwtToken(user, role, true);
+      }
+    } else if (role == "job-seeker") {
+      user = await JOBSEEKER.findOneAndUpdate(
+        { email: email },
+        { lastLogin: new Date() }
+      );
+      if (!user) {
+        newUser = true;
+      }
+      if (user) {
+        token = jwtToken(user, role, true);
+      }
+    }
+    // Invalid role
+    else {
+      return res.status(400).json({ message: "Invalid user role" });
+    }
+
+    if (!newUser && user.status == "deleted") {
+      if (user.isDeletedByAdmin === true) {
+        return res
+          .status(400)
+          .json({ message: "You are restricted from acessing platefrom" });
+      }
+      return res.status(404).json({ message: "No User found" });
+    }
+
+    if (!newUser && token === null) {
+      console.log("❌ Error creating jwt token");
+      return res.status(500).json({ message: "Server Error" });
+    }
+
+    if (newUser) {
+      emailsWithThirdPartySignUp.push(email);
+    }
+
+    return res.status(201).json({
+      message: "Signup successful",
+      token: newUser ? "" : token,
+      passwordSetupRequired: newUser,
+      email: email,
+      fullName: name,
+      profilePictureUrl: picture,
+      role: role,
+    });
+
+  }
+  catch (err) {
+    console.error("❌ Firebase Google Signin  error:", err);
+    return res.status(500).json({ message: "Unable to Signin with Google using Firebase", err: err.message });
+  }
+}
+
 const verifyEmailToken = async (req, res) => {
   const paresed = verifyEmailSchema.parse(req.body);
   try {
@@ -935,6 +1045,46 @@ const verifyEmailToken = async (req, res) => {
   }
 };
 
+const firbase_FCM_Token = async (req, res) => {
+  const parsed = FCMSchema.parse(req.body);
+  try {
+    if (!mongoose.Types.ObjectId.isValid(parsed.userId)) {
+      return res.status(400).json({ message: "Invalid User Id" });
+    }
+
+    let user;
+    switch (parsed.role) {
+      case "employer":
+        user = await EMPLOYER.findById(parsed.userId);
+        break;
+      case "job-seeker":
+        user = await JOBSEEKER.findById(parsed.userId);
+        break;
+      case "freelancer":
+        user = await FREELANCER.findById(parsed.userId);
+        break;
+      default:
+        break;
+    }
+    if (!user) {
+      return res.status(404).json({ message: "User not found!" });
+    }
+
+    user.fcm_token = parsed.fcm_token;
+    await user.save()
+
+    return res.status(200).json({
+      message: "FCM Token Added",
+    })
+
+  } catch (err) {
+    console.log("Error adding FCM token: ", err);
+    return res
+      .status(500)
+      .json({ message: "Unable to add FCM token", err: err.message });
+  }
+}
+
 export {
   signUp,
   signIn,
@@ -945,5 +1095,7 @@ export {
   googleCallback,
   verifyEmailToken,
   createAppleSignInLink,
-  appleCallback
+  appleCallback,
+  // firebaseGoogleSignin
+  MobileGoogleSignin
 };

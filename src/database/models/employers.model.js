@@ -22,6 +22,7 @@ const employerSchema = mongoose.Schema(
     email: { type: String, required: true },
     fullName: { type: String, required: true },
     profilePictureUrl: String,
+    fcm_token: String,
     password: {
       hash: String,
       salt: String,

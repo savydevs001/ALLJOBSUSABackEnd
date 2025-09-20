@@ -17,6 +17,7 @@ const jobSeekerSchema = mongoose.Schema(
     phoneNumber: String,
     profilePictureUrl: String,
     category: String,
+    fcm_token: String,
     password: {
       hash: String,
       salt: String,

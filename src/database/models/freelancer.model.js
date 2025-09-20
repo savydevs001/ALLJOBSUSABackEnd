@@ -26,6 +26,7 @@ const freelancerSchema = mongoose.Schema(
     email: { type: String, required: true },
     profilePictureUrl: String,
     category: String,
+    fcm_token: String,
     password: {
       hash: String,
       salt: String,
