@@ -93,6 +93,7 @@ const getFreelancerProfile = async (req, res) => {
         projectsCompleted: 1,
         createdAt: 1,
         category: 1,
+        email: 1,
       }
     );
 
@@ -113,6 +114,7 @@ const getFreelancerProfile = async (req, res) => {
       rating: user.rating,
       projectsCompleted: user.projectsCompleted,
       createdAt: user.createdAt,
+      email: user.email
     };
     data.jobActivity.profileViews =
       user.profile?.jobActivity?.profileViews?.length;

@@ -270,6 +270,7 @@ const signUp = async (req, res) => {
       user: {
         _id: user?._id,
         fullName: user?.fullName,
+        email: user?.email,
         role: role,
         profilePictureUrl: user?.profilePictureUrl,
       },
@@ -382,10 +383,10 @@ const signIn = async (req, res) => {
     return res.status(200).json({
       message: "Login successful",
       token,
-      userInfo: user,
       user: {
         _id: user?._id,
         fullName: user?.fullName,
+        email: user?.email,
         role: role,
         profilePictureUrl: user?.profilePictureUrl,
       },

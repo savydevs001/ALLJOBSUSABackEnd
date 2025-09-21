@@ -556,11 +556,6 @@ const getAllJobs = async (req, res) => {
       andConditions.push(...textFilters);
     }
 
-    console.log("or: ", orConditions)
-    console.log("and: ", andConditions)
-    console.log(parsedMax)
-    console.log(parsedMin)
-
     // ----------------- Merge OR conditions into AND -----------------
     if (orConditions.length > 0) {
       andConditions.push({ $or: orConditions });
