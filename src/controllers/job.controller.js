@@ -565,8 +565,6 @@ const getAllJobs = async (req, res) => {
       filters.$and = andConditions;
     }
 
-    console.log(filters)
-
     const jobs = await Job.find(filters)
       .sort({ createdAt: -1 })
       .skip(skip)
