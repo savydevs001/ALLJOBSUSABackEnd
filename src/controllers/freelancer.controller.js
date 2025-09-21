@@ -86,7 +86,6 @@ const getFreelancerProfile = async (req, res) => {
     const user = await FREELANCER.findOne(
       { _id: userId, status: { $nin: ["deleted"] } },
       {
-        email: 1,
         fullName: 1,
         profilePictureUrl: 1,
         profile: 1,
@@ -108,7 +107,6 @@ const getFreelancerProfile = async (req, res) => {
     const data = {
       _id: user._id,
       fullName: user.fullName,
-      email: user.email,
       category: user.category,
       ...user.profile,
       profilePictureUrl: user.profilePictureUrl,

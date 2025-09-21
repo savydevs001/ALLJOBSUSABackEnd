@@ -16,6 +16,7 @@ import mongoose from "mongoose";
 import jwt from "jsonwebtoken"
 import fs from "fs";
 import { jwtVerify } from "jose"
+import { userInfo } from "os";
 
 dotenv.config();
 
@@ -381,6 +382,7 @@ const signIn = async (req, res) => {
     return res.status(200).json({
       message: "Login successful",
       token,
+      userInfo: user,
       user: {
         _id: user?._id,
         fullName: user?.fullName,
