@@ -12,6 +12,7 @@ import {
 import mongoose from "mongoose";
 import SupportMessage from "../database/models/support-message.model.js";
 import { getSupportIds } from "../controllers/support.controller.js";
+import { Send_FCM_Notifcation_OnChat, Send_FCM_Notifcation_OnSupportChat } from "../services/notification-queue.js";
 
 dotenv.config();
 
@@ -174,6 +175,10 @@ const initSocket = (httpServer) => {
                 }
               }
             }
+
+            if(mode == "from_support_to_user"){
+              Send_FCM_Notifcation_OnSupportChat(supportMessage)
+            }
           } catch (err) {
             console.log("Error Sending support message: ", err);
             socket.emit("error", {
@@ -310,6 +315,9 @@ const handleMessage = async ({
     if (receiver && receiver.socketId) {
       io.to(receiver.socketId).emit("message", message);
     }
+
+    await Send_FCM_Notifcation_OnChat(message)
+
   } catch (err) {
     console.log("Error Sending Message: ", err);
     socket.emit("error", {

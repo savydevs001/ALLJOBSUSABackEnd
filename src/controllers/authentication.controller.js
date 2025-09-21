@@ -15,7 +15,7 @@ import generateVerificationCode from "../utils/create-verification-code.js";
 import mongoose from "mongoose";
 import jwt from "jsonwebtoken"
 import fs from "fs";
-import {jwtVerify} from "jose"
+import { jwtVerify } from "jose"
 
 dotenv.config();
 
@@ -999,11 +999,11 @@ const verifyEmailToken = async (req, res) => {
     }
 
     if (user.emailVerified === true) {
-      return res.status(404).json({ message: "Email LAready verified!" });
+      return res.status(400).json({ message: "Email Already verified!" });
     }
 
-    if (new Date() > new Date(user.emailVerifyTokenExpiry)) {
-      return res.status(400).json({ message: "Code Expired" });
+    if (!user.emailVerifyTokenExpiry || new Date() > new Date(user.emailVerifyTokenExpiry)) {
+      return res.status(400).json({ success: false, message: "Verification code expired" });
     }
 
     if (user.emailVerifyCode === paresed.code) {
@@ -1019,13 +1019,13 @@ const verifyEmailToken = async (req, res) => {
       }
       // Remove mail on Susccessful signup
       emailsWithThirdPartySignUp = emailsWithThirdPartySignUp.filter(
-        (e) => e != email
+        (e) => e != user.email
       );
 
       await user.save();
 
       return res.status(200).json({
-        message: "Verifiction successful",
+        message: "Verification successful",
         token,
         user: {
           _id: user?._id,
@@ -1035,13 +1035,13 @@ const verifyEmailToken = async (req, res) => {
         },
       });
     } else {
-      return res.status(400).json({ message: "Inconrrect Verification code" });
+      return res.status(400).json({ message: "Incorrect verification code" });
     }
   } catch (err) {
     console.log("Error verify token for email: ", err);
     return res
       .status(500)
-      .json({ message: "Unable to veriy Email", err: err.message });
+      .json({ message: "Unable to verify Email", err: err.message });
   }
 };
 

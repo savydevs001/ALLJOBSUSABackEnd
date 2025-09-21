@@ -9,8 +9,8 @@ const dbName = "ALLJOBSUSA_DB";
 const connectToDatabase = async () => {
   try {
     await mongoose.connect(MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
+      // useNewUrlParser: true,
+      // useUnifiedTopology: true,
       dbName: dbName,
     });
     console.log("✅ Connected to MongoDB via Mongoose");

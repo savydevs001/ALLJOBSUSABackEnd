@@ -14,6 +14,14 @@ async function enqueueEmail(to, subject, html) {
     to,
     subject,
     html,
+  }, {
+    attempts: 3,
+    backoff: {
+      type: "exponential",
+      delay: 3000,
+    },
+    removeOnComplete: true,
+    removeOnFail: true,
   });
 }
 

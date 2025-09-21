@@ -4,10 +4,10 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"nodemon index.js --watch\" \"nodemon src/workers/email-worker.js --watch\"",
+    "dev": "concurrently \"nodemon index.js --watch\" \"nodemon src/workers/email-worker.js --watch\" \"nodemon src/workers/notification-worker.js --watch\"",
     "devapp": "nodemon index.js",
     "devworker": "nodemon src/workers/email-worker.js",
-    "start": "npx puppeteer browsers install chrome && concurrently \"node index.js\" \"node src/workers/email-worker.js\"",
+    "start": "npx puppeteer browsers install chrome && concurrently \"node index.js\" \"node src/workers/email-worker.js\" \"nodemon src/workers/notification-worker.js --watch\"",
     "build": "echo \"No build step needed\""
   },
   "author": "",
