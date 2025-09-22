@@ -707,16 +707,17 @@ const createAppleSignInLink = async (req, res) => {
 
 const applePrivateKey = fs.readFileSync(process.env.APPLE_PRIVATE_KEY_PATH, "utf8");
 const appleCallback = async (req, res) => {
+  const redirect_uri = process.env.FRONTEND_URL;
+  const mobileClient = client === "mobile"
+  const desktop_redirect_url = redirect_uri + "/signup"
   try {
     const { code, state } = req.body;
-    const redirect_uri = process.env.FRONTEND_URL;
     if (!code) {
       return res.status(400).json({ message: "Code missing from request" });
     }
 
     const { role, client } = JSON.parse(Buffer.from(state, "base64").toString());
-    const mobileClient = client === "mobile"
-    const desktop_redirect_url = redirect_uri + "/signup"
+
     if (!role || !["employer", "freelancer", "job-seeker"].includes(role)) {
       if (mobileClient) {
         return res.status(400).json({ message: "Invalid role" });
@@ -873,7 +874,7 @@ const appleCallback = async (req, res) => {
     }
   } catch (err) {
     console.error("❌ Apple callback Signin  error:", err);
-    return res.status(500).json({ message: "Unable to Signin with Apple", err: err.message });
+    return res.redirect(`${desktop_redirect_url}?apple_callback_error=Unable to Signin with Apple`)
   }
 };
 
