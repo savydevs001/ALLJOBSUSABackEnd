@@ -661,6 +661,7 @@ const googleCallback = async (req, res) => {
       fullName: name,
       profilePictureUrl: picture,
       role: role,
+      _id: newUser ? null : user._id
     });
   } catch (err) {
     console.error("❌ Google callback Signin  error:", err);
@@ -967,6 +968,7 @@ const MobileGoogleSignin = async (req, res) => {
       fullName: name,
       profilePictureUrl: picture,
       role: role,
+      _id: newUser ? null : user._id
     });
 
   }
@@ -1174,6 +1176,7 @@ const MobileAppleSignIn = async (req, res) => {
       fullName: name,
       profilePictureUrl: picture,
       role,
+      _id: newUser ? null : user._id
     });
 
   } catch (err) {
