@@ -337,7 +337,8 @@ const signIn = async (req, res) => {
         user.emailVerifyTokenExpiry &&
         new Date() < new Date(user.emailVerifyTokenExpiry)
       ) {
-        return res.status(400).json({
+        return res.status(200).json({
+          verifyEmail: true,
           message:
             "Please verify your email with the link we sent you or Get a New One After 5 minutes",
           err: "Verification mails can be sent only once in 5 minutes",
