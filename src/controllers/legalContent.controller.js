@@ -1,5 +1,6 @@
 import LEGAL_CONTENT from "../database/models/legalContent.model.js";
 import {
+  sendCookiesUpdatedToMails,
   sendPolicyUpdatedToMails,
   sendRulesUpdatedToMails,
   sendTermsUpdatedToMails,
@@ -141,6 +142,9 @@ const updateContent = async (req, res) => {
         break;
       case "cookies":
         lagalContent.cookies = undefined;
+        if (notify == true) {
+          await sendCookiesUpdatedToMails()
+        }
         break
       default:
         break;

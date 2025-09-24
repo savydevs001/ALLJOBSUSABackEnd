@@ -37,4 +37,8 @@ export async function sendRulesUpdatedToMails() {
   await emailQueue.add("send-rules-update", {});
 }
 
+export async function sendCookiesUpdatedToMails() {
+  await emailQueue.add("send-cookies-update", {});
+}
+
 export default enqueueEmail;

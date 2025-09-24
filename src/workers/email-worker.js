@@ -198,6 +198,57 @@ const worker = new Worker(
         console.log("Terms Update Emails sent: ", totalEmailsSent);
       }
 
+      // change of cookies
+      if (job.name === "send-cookies-update") {
+        const userCollections = [JOBSEEKER, EMPLOYER, FREELANCER];
+
+        let totalEmailsSent = 0;
+        const cookiesUpdateEmailTemplate = getTermsUpdateTemplate({
+          title: "Cookies Updated",
+          buttonText: "View Cookies",
+          buttonUrl: FRONTEND_URL + "/policy?section=cookies",
+          message:
+            "We are updating our cookies policy, Please review our new policy to stay up-to-date",
+        });
+
+        // loop throgh each collection
+        for (const collection of userCollections) {
+          console.log(
+            `--- Starting to process collection for policy updates: ${collection.modelName || "Unknown"
+            } ---`
+          );
+          let cursor = 0;
+          let users;
+
+          do {
+            users = await collection
+              .find({})
+              .select({ email: 1 })
+              .sort({ createdAt: 1 })
+              .skip(cursor)
+              .limit(batchSize);
+            for (const user of users) {
+              try {
+                const mailOptions = {
+                  from: `"ALLJOBSUSA" <${EMAIL_CLIENT}>`,
+                  to: user.email,
+                  subject: "Cookies Updated",
+                  html: cookiesUpdateEmailTemplate,
+                };
+                await transporter.sendMail(mailOptions);
+                totalEmailsSent += 1;
+              } catch (err) {
+                console.error(`Failed to send email to ${user.email}`, err);
+              }
+              await delayFunction(0.1);
+            }
+            cursor += batchSize;
+          } while (users.length == batchSize);
+        }
+
+        console.log("Cookies Update Emails sent: ", totalEmailsSent);
+      }
+
       // simple mails
       if (job.name == "simple-mail") {
         const data = job.data;
@@ -214,7 +265,7 @@ const worker = new Worker(
       console.log("Error executin email job: ", err)
     }
   },
-  { connection: redisConnection, concurrency: 5 }
+  { connection: redisConnection, concurrency: 15 }
 );
 
 console.log("Worker is listening for jobs...");
@@ -228,6 +279,6 @@ worker.on("completed", async (job) => {
   }
 });
 
-worker.on("failed", async(job, err) => {
+worker.on("failed", async (job, err) => {
   console.log(`Job ${job.id} has failed with ${err.message}`);
 });
