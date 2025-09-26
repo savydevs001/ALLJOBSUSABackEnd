@@ -25,9 +25,13 @@ const notifyUser = async (
     }
 
     sendNewNotification(userId.toString(), notification._id.toString());
+
+    console.log("FCM: ", fcm_token)
+    console.log("notification: ", notification)
     if(fcm_token){
-      await sendMobileNotification(fcm_token, title, message, {from, ctaUrl})
+      await sendMobileNotification(fcm_token, title, message, {fromUser: from, ctaUrl})
     }
+
     if (userMail) {
       await enqueueEmail(
         userMail,
@@ -39,6 +43,7 @@ const notifyUser = async (
         })
       );
     }
+
   } catch (error) {
     console.error("❌ Failed to create notification:", error.message);
   }

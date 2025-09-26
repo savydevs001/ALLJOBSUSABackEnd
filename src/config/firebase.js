@@ -17,7 +17,7 @@ export async function sendMobileNotification(fcmToken, title, body, data = {}) {
       title: title,
       body: body,
     },
-    data: data, // optional custom data
+    data: data, 
   };
 
   try {
