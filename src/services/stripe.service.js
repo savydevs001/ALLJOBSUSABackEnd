@@ -405,6 +405,7 @@ const stripeWebhook = async (req, res) => {
           // freelancer
           const freelancer = await FREELANCER.findById(freelancerId).select({
             email: 1,
+            fcm_token: 1
           });
 
           // Update offer status
