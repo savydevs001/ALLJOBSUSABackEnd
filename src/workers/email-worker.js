@@ -148,7 +148,7 @@ const worker = new Worker(
       }
 
       // on change of rules
-      if (job.name === "send-terms-update") {
+      if (job.name === "send-rules-update") {
         const userCollections = [JOBSEEKER, EMPLOYER, FREELANCER];
 
         let totalEmailsSent = 0;
