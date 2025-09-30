@@ -1191,6 +1191,56 @@ const MobileAppleSignIn = async (req, res) => {
 };
 
 
+const removeAccountSchema = z.object({
+  email: z.string().email("Invalid email format"),
+  role: z.enum(["employer", "freelancer", "job-seeker"], {
+    errorMap: () => ({
+      message: "Invalid User Role",
+    }),
+  }),
+})
+const removeAccount = async (req, res) => {
+  const { email, role } = removeAccountSchema.parse(req.body)
+  try {
+    let user = null;
+    if (role === "employer") {
+      // Employer Signin
+      user = await EMPLOYER.findOne({
+        email: email,
+      });
+    } else if (role == "freelancer") {
+      // Freelancer Signin
+      user = await FREELANCER.findOne({
+        email: email,
+      });
+    } else if (role == "job-seeker") {
+      user = await JOBSEEKER.findOne({
+        email: email,
+      });
+    }
+
+    if (!user) {
+      return res.status(401).json({ message: "No User found!" });
+    }
+
+    if (user.status == "deleted") {
+      return res.status(200).json({ message: "No User found!" });
+    }
+
+    user.status = "deleted";
+    await user.save();
+    return res.status(200).json({ message: "User Account deleted!" });
+  }
+  catch (err) {
+    console.error("❌ Account deletion  error:", err);
+    return res.status(500).json({
+      message: "Unable to remove account",
+      err: err.message,
+    });
+  }
+}
+
+
 export {
   signUp,
   signIn,
@@ -1204,5 +1254,6 @@ export {
   appleCallback,
   firbase_FCM_Token,
   MobileGoogleSignin,
-  MobileAppleSignIn
+  MobileAppleSignIn,
+  removeAccount
 };

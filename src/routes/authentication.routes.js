@@ -17,6 +17,7 @@ import {
   MobileGoogleSignin,
   firbase_FCM_Token,
   MobileAppleSignIn,
+  removeAccount,
 } from "../controllers/authentication.controller.js";
 
 AuthenticationRouter.get("/google", a(createGoogleSignInLink));
@@ -40,5 +41,6 @@ AuthenticationRouter.post("/signout", a(signOut));
 AuthenticationRouter.post("/forgot-password", a(forgotPassword));
 AuthenticationRouter.post("/reset-password", a(resetPassword));
 AuthenticationRouter.post("/verify-email", a(verifyEmailToken));
+AuthenticationRouter.post("/remove-account", a(removeAccount))
 
 export default AuthenticationRouter;
