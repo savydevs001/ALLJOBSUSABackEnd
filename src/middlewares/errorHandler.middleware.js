@@ -6,11 +6,8 @@ const errorHandlerMiddleware = (err, req, res, next) => {
   if (err instanceof ZodError) {
     return res.status(400).json({
       success: false,
-      message: "Form validation error, use valid data",
-      errors: err.errors.map((e) => ({
-        path: e.path.join("."),
-        message: e.message,
-      })),
+      message:  "Form validation error, use valid data",
+      errors: err.issues
     });
   }
   res.status(statusCode).json({

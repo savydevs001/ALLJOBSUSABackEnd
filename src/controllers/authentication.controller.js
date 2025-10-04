@@ -1092,37 +1092,122 @@ const firbase_FCM_Token = async (req, res) => {
   }
 }
 
+// const MobileAppleSignIn = async (req, res) => {
+//   try {
+//     const { idToken, role } = req.body;
+
+//     if (!idToken) {
+//       return res.status(400).json({ message: "ID token required" });
+//     }
+
+//     if (!role || !["employer", "freelancer", "job-seeker"].includes(role)) {
+//       return res.status(400).json({ message: "Invalid role" });
+//     }
+
+//     // -------------------------------
+//     // 1️⃣ Verify Apple ID Token via JWKS
+//     // -------------------------------
+//     const JWKS = createRemoteJWKSet(new URL("https://appleid.apple.com/auth/keys"));
+
+//     const { payload } = await jwtVerify(idToken, JWKS, {
+//       audience: process.env.APPLE_CLIENT_ID, // Your Apple Service ID / App ID
+//       issuer: "https://appleid.apple.com",
+//     });
+
+//     const email = payload.email;
+//     const name = payload.name || payload.sub; // name may only exist on first login
+//     const picture = ""; // Apple does not provide a profile picture
+
+//     // -------------------------------
+//     // 2️⃣ Find or Create User
+//     // -------------------------------
+//     let token = null;
+//     let newUser = false;
+//     let user;
+
+//     if (role === "employer") {
+//       user = await EMPLOYER.findOneAndUpdate(
+//         { email },
+//         { lastLogin: new Date() }
+//       );
+//       if (!user) newUser = true;
+//       if (user) token = jwtToken(user, role, true);
+//     } else if (role === "freelancer") {
+//       user = await FREELANCER.findOneAndUpdate(
+//         { email },
+//         { lastLogin: new Date() }
+//       );
+//       if (!user) newUser = true;
+//       if (user) token = jwtToken(user, role, true);
+//     } else if (role === "job-seeker") {
+//       user = await JOBSEEKER.findOneAndUpdate(
+//         { email },
+//         { lastLogin: new Date() }
+//       );
+//       if (!user) newUser = true;
+//       if (user) token = jwtToken(user, role, true);
+//     }
+
+//     // -------------------------------
+//     // 3️⃣ Handle deleted/restricted users
+//     // -------------------------------
+//     if (!newUser && user?.status === "deleted") {
+//       if (user.isDeletedByAdmin) {
+//         return res.status(400).json({
+//           message: "You are restricted from accessing platform",
+//         });
+//       }
+//       return res.status(404).json({ message: "No User found" });
+//     }
+
+//     if (!newUser && !token) {
+//       console.log("❌ Error creating jwt token");
+//       return res.status(500).json({ message: "Server Error" });
+//     }
+
+//     if (newUser) emailsWithThirdPartySignUp.push(email);
+
+//     // -------------------------------
+//     // 4️⃣ Respond to client
+//     // -------------------------------
+//     return res.status(201).json({
+//       message: "Signup successful",
+//       token: newUser ? "" : token,
+//       passwordSetupRequired: newUser,
+//       email,
+//       fullName: name,
+//       profilePictureUrl: picture,
+//       role,
+//       _id: newUser ? null : user._id
+//     });
+
+//   } catch (err) {
+//     console.error("❌ Apple Mobile Signin error:", err);
+//     return res.status(500).json({
+//       message: "Unable to Signin with Apple on Mobile",
+//       err: err.message,
+//     });
+//   }
+// };
+
+
+const appleMobileSchema = z
+  .object({
+    email: z.string().email("Invalid email format",).describe("email"),
+    fullName: z.string().min(1, "Full name is required").describe("fullName"),
+    role: z.enum(["employer", "freelancer", "job-seeker"], {
+      errorMap: () => ({
+        message: "Invalid role",
+      }),
+    }),
+  })
+
 const MobileAppleSignIn = async (req, res) => {
+  const { email, fullName, role } = appleMobileSchema.parse(req.body)
   try {
-    const { idToken, role } = req.body;
-
-    if (!idToken) {
-      return res.status(400).json({ message: "ID token required" });
-    }
-
-    if (!role || !["employer", "freelancer", "job-seeker"].includes(role)) {
-      return res.status(400).json({ message: "Invalid role" });
-    }
-
     // -------------------------------
-    // 1️⃣ Verify Apple ID Token via JWKS
+    // Find or Create User
     // -------------------------------
-    const JWKS = createRemoteJWKSet(new URL("https://appleid.apple.com/auth/keys"));
-
-    const { payload } = await jwtVerify(idToken, JWKS, {
-      audience: process.env.APPLE_CLIENT_ID, // Your Apple Service ID / App ID
-      issuer: "https://appleid.apple.com",
-    });
-
-    const email = payload.email;
-    const name = payload.name || payload.sub; // name may only exist on first login
-    const picture = ""; // Apple does not provide a profile picture
-
-    // -------------------------------
-    // 2️⃣ Find or Create User
-    // -------------------------------
-    let token = null;
-    let newUser = false;
     let user;
 
     if (role === "employer") {
@@ -1130,28 +1215,25 @@ const MobileAppleSignIn = async (req, res) => {
         { email },
         { lastLogin: new Date() }
       );
-      if (!user) newUser = true;
-      if (user) token = jwtToken(user, role, true);
+      if (!user) user = await EMPLOYER.create({ fullName, email, lastLogin: new Date() });
     } else if (role === "freelancer") {
       user = await FREELANCER.findOneAndUpdate(
         { email },
         { lastLogin: new Date() }
       );
-      if (!user) newUser = true;
-      if (user) token = jwtToken(user, role, true);
+      if (!user) user = await FREELANCER.create({ fullName, email, lastLogin: new Date() });
     } else if (role === "job-seeker") {
       user = await JOBSEEKER.findOneAndUpdate(
         { email },
         { lastLogin: new Date() }
       );
-      if (!user) newUser = true;
-      if (user) token = jwtToken(user, role, true);
+      if (!user) user = await JOBSEEKER.create({ fullName, email, lastLogin: new Date() });
     }
 
     // -------------------------------
     // 3️⃣ Handle deleted/restricted users
     // -------------------------------
-    if (!newUser && user?.status === "deleted") {
+    if (user && user?.status === "deleted") {
       if (user.isDeletedByAdmin) {
         return res.status(400).json({
           message: "You are restricted from accessing platform",
@@ -1160,25 +1242,25 @@ const MobileAppleSignIn = async (req, res) => {
       return res.status(404).json({ message: "No User found" });
     }
 
-    if (!newUser && !token) {
+    const token = jwtToken(user, role, true);
+    if (!token) {
       console.log("❌ Error creating jwt token");
       return res.status(500).json({ message: "Server Error" });
     }
 
-    if (newUser) emailsWithThirdPartySignUp.push(email);
-
     // -------------------------------
     // 4️⃣ Respond to client
     // -------------------------------
-    return res.status(201).json({
-      message: "Signup successful",
-      token: newUser ? "" : token,
-      passwordSetupRequired: newUser,
-      email,
-      fullName: name,
-      profilePictureUrl: picture,
-      role,
-      _id: newUser ? null : user._id
+    return res.status(200).json({
+      message: "Login successful",
+      token,
+      user: {
+        _id: user?._id,
+        fullName: user?.fullName,
+        email: user?.email,
+        role: role,
+        profilePictureUrl: user?.profilePictureUrl || "",
+      },
     });
 
   } catch (err) {
@@ -1220,7 +1302,7 @@ const removeAccount = async (req, res) => {
     }
 
     if (!user) {
-      return res.status(401).json({ message: "No User found!" });
+      return res.status(404).json({ message: "No User found!" });
     }
 
     if (user.status == "deleted") {
