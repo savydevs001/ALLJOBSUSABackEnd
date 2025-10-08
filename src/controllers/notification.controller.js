@@ -25,9 +25,6 @@ const notifyUser = async (
     }
 
     sendNewNotification(userId.toString(), notification._id.toString());
-
-    console.log("FCM: ", fcm_token)
-    console.log("notification: ", notification)
     if(fcm_token){
       await sendMobileNotification(fcm_token, title, message, {fromUser: from, ctaUrl})
     }

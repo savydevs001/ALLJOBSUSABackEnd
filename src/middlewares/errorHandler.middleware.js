@@ -2,7 +2,6 @@ import { ZodError } from "zod";
 
 const errorHandlerMiddleware = (err, req, res, next) => {
   const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
-  console.log("❌ Error: ", err)
   if (err instanceof ZodError) {
     return res.status(400).json({
       success: false,
@@ -10,6 +9,7 @@ const errorHandlerMiddleware = (err, req, res, next) => {
       errors: err.issues
     });
   }
+  console.log("❌ Error: ", err)
   res.status(statusCode).json({
     success: false,
     message: err.message || "Something went wrong",

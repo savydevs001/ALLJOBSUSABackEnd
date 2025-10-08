@@ -7,8 +7,6 @@ import {
   createStripePrice,
   generateStripeCheckoutSubscription,
   genrateStripeCheckoutSession,
-  getStripeSubscription,
-  updateNewPriceToStripeSubscription,
 } from "../services/stripe.service.js";
 import TRANSACTION from "../database/models/transactions.model.js";
 import getDateNDaysFromNow from "../utils/date-and-days.js";
@@ -349,8 +347,8 @@ const getALlProfileSubsriptions = async (req, res) => {
     const filteredSubs =
       subFor == "employer"
         ? subscriptions.filter((e) =>
-            ["subscription", "oneTime", "free"].includes(e.mode)
-          )
+          ["subscription", "oneTime", "free"].includes(e.mode)
+        )
         : subscriptions.filter((e) => ["resume", "cover"].includes(e.mode));
 
     const sortedSubs = filteredSubs.sort((a, b) => {
@@ -448,6 +446,65 @@ const updateProfileSubscriptions = async (req, res) => {
     return res.status(500).json({ message: "Server Error" });
   }
 };
+
+
+
+const enableSubscriptioZodShema = z.object({
+  subscription_id: z.string()
+})
+const enableMobilebasedSubscription = async (req, res) => {
+  const { subscription_id } = enableSubscriptioZodShema.parse(req.body)
+  try {
+    const userId = req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    if (!subscription_id || !mongoose.Types.ObjectId.isValid(subscription_id)) {
+      return res.status(400).json({ message: "Invalid subscription id" });
+    }
+
+    const subscriptions = await getMemorySubscriptionns();
+    const requestedSubscription = subscriptions.find(
+      (e) => e._id.toString() === subscription_id
+    );
+
+    if (!requestedSubscription) {
+      console.error("❌ Local Subscription not found");
+      return res.status(404).json({ message: "Subscription with given id not found!" });
+    }
+
+    if (requestedSubscription.mode !== "subscription") {
+      return res.status(400).json({ message: "Subscription is not time based" });
+    }
+
+    const user = await EMPLOYER.findById(userId);
+    if (!user) {
+      console.error("❌ User not found!");
+      return res.status(401).json({ message: "User not found!" });
+    }
+
+    const now = new Date();
+    const tempSub = {
+      subId: subscription_id,
+      start: now,
+      end: new Date(
+        now.getTime() +
+        requestedSubscription.totalDays * 24 * 60 * 60 * 1000
+      ),
+    };
+
+    user.currentSubscription = tempSub;
+    user.pastSubscriptions = [...user.pastSubscriptions, tempSub];
+    await user.save()
+    return res.status(200).json({ message: "subscription enabled", enabled: true })
+  }
+  catch (err) {
+    console.log("❌ Error creating  profile subscription on mobile: ", err);
+    return res.status(500).json({ message: err.message, err: err });
+  }
+}
+
 export {
   getMemorySubscriptionns,
   updateMemorySubscriptions,
@@ -456,4 +513,5 @@ export {
   getALlProfileSubsriptions,
   enableProfileFreeTrial,
   updateProfileSubscriptions,
+  enableMobilebasedSubscription
 };

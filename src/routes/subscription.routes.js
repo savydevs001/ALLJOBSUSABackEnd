@@ -7,6 +7,7 @@ import {
   getALlProfileSubsriptions,
   enableProfileFreeTrial,
   updateProfileSubscriptions,
+  enableMobilebasedSubscription,
 } from "../controllers/subscriptions.controller.js";
 
 const SubscriptionRouter = Router();
@@ -30,6 +31,14 @@ SubscriptionRouter.get(
   verifyTokenMiddleware(),
   roleBasedAuthMiddleware(["employer"]),
   enableProfileSubscription
+);
+
+
+SubscriptionRouter.post(
+  "/enable-susbcription",
+  verifyTokenMiddleware(),
+  roleBasedAuthMiddleware(["employer"]),
+  enableMobilebasedSubscription
 );
 
 SubscriptionRouter.post(

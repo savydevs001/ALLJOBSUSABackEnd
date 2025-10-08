@@ -343,8 +343,6 @@ const stripeWebhook = async (req, res) => {
               autoRenew: user.susbscriptionRenew === true ? true : false,
             });
             user.stripeProfileSubscriptionId = newStripeSubscription.id;
-            console.log("hook: autornew: ", user.susbscriptionRenew);
-
             const now = new Date();
             const tempSub = {
               subId: stripeSubscriptionId,
