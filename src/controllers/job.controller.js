@@ -35,8 +35,14 @@ const simpleJobZODSchema = z.object({
     errorMap: () => ({ message: "Invalid job Model" }),
   }),
   category: z.string().min(2, "Category is required"),
-  minSalary: z.number().min(0, "Minimum salary must be at least 0"),
-  maxSalary: z.number().min(5, "Maximum salary must be at least 0"),
+  minSalary: z.coerce
+    .number()
+    .min(0, "Minimum salary must be at least 0")
+    .max(1_000_000, "Unrealistic minimum salary"),
+  maxSalary: z.coerce
+    .number()
+    .min(5, "Maximum salary must be at least 5")
+    .max(5_000_000, "Unrealistic maximum salary"),
   salaryInterval: z.enum(["hourly", "weekly", "monthly", "yearly"]),
   locationCity: z.string().min(2, "City is required"),
   locationState: z.string().min(2, "State is required"),
@@ -58,9 +64,9 @@ const freelanceZODSchema = z.object({
     .min(1, "At least one skill is required"),
   budget: z.object({
     budgetType: z.enum(["Fixed", "Start"]),
-    price: z.number().optional(),
-    minimum: z.number().optional(),
-    maximum: z.number().optional(),
+    price: z.coerce.number().optional(),
+    minimum: z.coerce.number().optional(),
+    maximum: z.coerce.number().optional(),
   }),
   durationDays: z
     .number()
