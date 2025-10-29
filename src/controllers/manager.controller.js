@@ -104,7 +104,7 @@ const generate2FASecret = async (req, res) => {
     }
 
     const secret = speakeasy.generateSecret({
-      name: "ALLJOBSUSA",
+      name: "WORKSPID",
       length: 20,
     });
 

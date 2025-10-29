@@ -15,6 +15,8 @@ if (!EMAIL_CLIENT || !FRONTEND_URL || !EMAIL_PASS) {
   process.exit(0);
 }
 
+const APP_NAME = "WORKSPID"
+
 // mongodb connection
 connectToDatabase();
 
@@ -77,7 +79,7 @@ const worker = new Worker(
             for (const user of users) {
               try {
                 const mailOptions = {
-                  from: `"ALLJOBSUSA" <${EMAIL_CLIENT}>`,
+                  from: `"${APP_NAME}" <${EMAIL_CLIENT}>`,
                   to: user.email,
                   subject: "Policy Updated",
                   html: policyUpdateEmailTemplate,
@@ -128,7 +130,7 @@ const worker = new Worker(
             for (const user of users) {
               try {
                 const mailOptions = {
-                  from: `"ALLJOBSUSA" <${EMAIL_CLIENT}>`,
+                  from: `"${APP_NAME}" <${EMAIL_CLIENT}>`,
                   to: user.email,
                   subject: "Terms Updated",
                   html: policyUpdateEmailTemplate,
@@ -179,7 +181,7 @@ const worker = new Worker(
             for (const user of users) {
               try {
                 const mailOptions = {
-                  from: `"ALLJOBSUSA" <${EMAIL_CLIENT}>`,
+                  from: `"${APP_NAME}" <${EMAIL_CLIENT}>`,
                   to: user.email,
                   subject: "Rules Updated",
                   html: policyUpdateEmailTemplate,
@@ -230,7 +232,7 @@ const worker = new Worker(
             for (const user of users) {
               try {
                 const mailOptions = {
-                  from: `"ALLJOBSUSA" <${EMAIL_CLIENT}>`,
+                  from: `"${APP_NAME}" <${EMAIL_CLIENT}>`,
                   to: user.email,
                   subject: "Cookies Updated",
                   html: cookiesUpdateEmailTemplate,
@@ -253,7 +255,7 @@ const worker = new Worker(
       if (job.name == "simple-mail") {
         const data = job.data;
         const mailOptions = {
-          from: `"ALLJOBSUSA" <${EMAIL_CLIENT}>`,
+          from: `"${APP_NAME}" <${EMAIL_CLIENT}>`,
           to: data.to,
           subject: data.subject,
           html: data.html,

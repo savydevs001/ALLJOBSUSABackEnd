@@ -203,10 +203,10 @@ const signUp = async (req, res) => {
 
       await enqueueEmail(
         existing.email,
-        "Email verification for ALLJOBSUSA",
+        "Email verification for WORKSPID",
         getVerificationTemplate({
-          title: "Email verification for ALLJOBSUSA",
-          message: "Here is your code to verify email on ALLJOBSUSA",
+          title: "Email verification for WORKSPID",
+          message: "Here is your code to verify email on WORKSPID",
           verificationCode: verificationCode,
         })
       );
@@ -237,10 +237,10 @@ const signUp = async (req, res) => {
 
       await enqueueEmail(
         user.email,
-        "Email verification for ALLJOBSUSA",
+        "Email verification for WORKSPID",
         getVerificationTemplate({
-          title: "Email verification for ALLJOBSUSA",
-          message: "Here is your code to verify email on ALLJOBSUSA",
+          title: "Email verification for WORKSPID",
+          message: "Here is your code to verify email on WORKSPID",
           verificationCode: verificationCode,
         })
       );
@@ -351,10 +351,10 @@ const signIn = async (req, res) => {
 
       await enqueueEmail(
         user.email,
-        "Email verification for ALLJOBSUSA",
+        "Email verification for WORKSPID",
         getVerificationTemplate({
-          title: "Email verification for ALLJOBSUSA",
-          message: "Here is your code to verify email on ALLJOBSUSA",
+          title: "Email verification for WORKSPID",
+          message: "Here is your code to verify email on WORKSPID",
           verificationCode: verificationCode,
         })
       );

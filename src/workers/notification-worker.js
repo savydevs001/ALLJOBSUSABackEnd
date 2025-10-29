@@ -33,7 +33,7 @@ async function findReceiverFCMToken(receiverId) {
 }
 
 
-const worker = new Worker("alljobsusa-notification-queue", async (job) => {
+const worker = new Worker("workspid-notification-queue", async (job) => {
     console.log(`Processing Notification job: ${job.id} - ${job.name}`);
 
     try {

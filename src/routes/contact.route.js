@@ -7,7 +7,8 @@ import { z } from "zod";
 const ContactRouter = Router();
 
 const SUPPORT_EMAIL = process.env.SUPPORT_RECIEVE_EMAIL;
-const ADVERTIZE_EMAIL = "brightway@alljobsusa.com"
+const FRONTEND_URL = process.env.FRONTEND_URL + "/"
+const ADVERTIZE_EMAIL = "brightway@workspidusa.com"
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 ContactRouter.post("/", async (req, res) => {
@@ -103,8 +104,8 @@ ContactRouter.post("/advertise", async (req, res) => {
         <!-- Logo -->
         <td style="padding-right:8px; vertical-align:middle;">
           <img
-            src="https://alljobsusa.com/uploads/1756002458619-260308214.png"
-            alt="AllJobsUSA Logo"
+            src="${FRONTEND_URL}logo.png"
+            alt="WORKSPID Logo"
             width="40"
             height="40"
             style="display:block; border-radius:50%;"
@@ -122,24 +123,21 @@ ContactRouter.post("/advertise", async (req, res) => {
           <p><span class="label">First Name:</span> ${parsed.fName}</p>
           <p><span class="label">Last Name:</span> ${parsed.lName}</p>
           <p><span class="label">Company:</span> ${parsed.company}</p>
-          <p><span class="label">Website:</span> <a href="${
-            parsed.website
-          }" target="_blank">${parsed.website}</a></p>
-          <p><span class="label">Email:</span> <a href="mailto:${
-            parsed.email
-          }">${parsed.email}</a></p>
+          <p><span class="label">Website:</span> <a href="${parsed.website
+      }" target="_blank">${parsed.website}</a></p>
+          <p><span class="label">Email:</span> <a href="mailto:${parsed.email
+      }">${parsed.email}</a></p>
           <p><span class="label">Phone:</span> ${parsed.phone}</p>
           <p><span class="label">Ad Type:</span> ${parsed.type}</p>
           <p><span class="label">About Company:</span><br/> ${parsed.about.replace(
-            /\n/g,
-            "<br>"
-          )}</p>
-          <p><span class="label">Can Contact:</span> ${
-            parsed.canContact ? "✅ Yes" : "❌ No"
-          }</p>
+        /\n/g,
+        "<br>"
+      )}</p>
+          <p><span class="label">Can Contact:</span> ${parsed.canContact ? "✅ Yes" : "❌ No"
+      }</p>
           
           <div class="footer">
-            This request was submitted via the Advertise With Us form ALLJOBSUSA.
+            This request was submitted via the Advertise With Us form WORKSPID.
           </div>
         </div>
       </body>

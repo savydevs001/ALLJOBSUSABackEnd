@@ -67,8 +67,8 @@ const getNotificationTemplate = ({ title, message, ctaUrl }) => {
         <!-- Logo -->
         <td style="padding-right:8px; vertical-align:middle;">
           <img
-            src="https://alljobsusa.com/uploads/1756002458619-260308214.png"
-            alt="AllJobsUSA Logo"
+            src="${FRONTEND_URL}logo.png"
+            alt="WORKSPID Logo"
             width="40"
             height="40"
             style="display:block; border-radius:50%;"
@@ -134,10 +134,10 @@ const getNotificationTemplate = ({ title, message, ctaUrl }) => {
                 <tr>
                   <td style="vertical-align:top;">
                     <div style="font-weight:600;color:#111827">Need help?</div>
-                    <div style="margin-top:6px;">Reply to this email or visit our <a href="${"mailto:info@alljobsusa.com"}" style="color:#003366;">help center</a>.</div>
+                    <div style="margin-top:6px;">Reply to this email or visit our <a href="${"mailto:admin@workspidusa.com"}" style="color:#003366;">help center</a>.</div>
                   </td>
                   <td style="vertical-align:top;text-align:right;">
-                    <div class="small">© ${new Date().getFullYear()} ALLJOBSUSA</div>
+                    <div class="small">© ${new Date().getFullYear()} WORKSPID</div>
                   </td>
                 </tr>
               </table>
@@ -203,8 +203,8 @@ const getVerificationTemplate = ({ title, message, verificationCode }) => {
         <!-- Logo -->
         <td style="padding-right:8px; vertical-align:middle;">
           <img
-            src="https://alljobsusa.com/uploads/1756002458619-260308214.png"
-            alt="AllJobsUSA Logo"
+            src="${FRONTEND_URL}logo.png"
+            alt="WORKSPID Logo"
             width="40"
             height="40"
             style="display:block; border-radius:50%;"
@@ -240,10 +240,10 @@ const getVerificationTemplate = ({ title, message, verificationCode }) => {
                 <tr>
                   <td style="vertical-align:top;">
                     <div style="font-weight:600;color:#111827">Need help?</div>
-                    <div style="margin-top:6px;">Reply to this email or contact us at <a href="mailto:info@alljobsusa.com" style="color:#003366;">info@alljobsusa.com</a>.</div>
+                    <div style="margin-top:6px;">Reply to this email or contact us at <a href="mailto:admin@workspidusa.com" style="color:#003366;">admin@workspidusa.com</a>.</div>
                   </td>
                   <td style="vertical-align:top;text-align:right;">
-                    <div class="small">© ${new Date().getFullYear()} ALLJOBSUSA</div>
+                    <div class="small">© ${new Date().getFullYear()} WORKSPID</div>
                   </td>
                 </tr>
               </table>
@@ -309,8 +309,8 @@ const getTermsUpdateTemplate = ({ title, message, buttonText, buttonUrl }) => {
         <!-- Logo -->
         <td style="padding-right:8px; vertical-align:middle;">
           <img
-            src="https://alljobsusa.com/uploads/1756002458619-260308214.png"
-            alt="AllJobsUSA Logo"
+            src="${FRONTEND_URL}logo.png"
+            alt="WORKSPID Logo"
             width="40"
             height="40"
             style="display:block; border-radius:50%;"
@@ -346,10 +346,10 @@ const getTermsUpdateTemplate = ({ title, message, buttonText, buttonUrl }) => {
                 <tr>
                   <td style="vertical-align:top;">
                     <div style="font-weight:600;color:#111827">Need help?</div>
-                    <div style="margin-top:6px;">Reply to this email or contact us at <a href="mailto:info@alljobsusa.com" style="color:#003366;">info@alljobsusa.com</a>.</div>
+                    <div style="margin-top:6px;">Reply to this email or contact us at <a href="mailto:admin@workspidusa.com" style="color:#003366;">admin@workspidusa.com</a>.</div>
                   </td>
                   <td style="vertical-align:top;text-align:right;">
-                    <div class="small">© ${new Date().getFullYear()} ALLJOBSUSA</div>
+                    <div class="small">© ${new Date().getFullYear()} WORKSPID</div>
                   </td>
                 </tr>
               </table>
@@ -415,8 +415,8 @@ const getResetPasswordTemplate = ({ resetUrl }) => {
         <!-- Logo -->
         <td style="padding-right:8px; vertical-align:middle;">
           <img
-            src="https://alljobsusa.com/uploads/1756002458619-260308214.png"
-            alt="AllJobsUSA Logo"
+            src="${FRONTEND_URL}logo.png"
+            alt="WORKSPID Logo"
             width="40"
             height="40"
             style="display:block; border-radius:50%;"
@@ -452,10 +452,10 @@ const getResetPasswordTemplate = ({ resetUrl }) => {
                 <tr>
                   <td style="vertical-align:top;">
                     <div style="font-weight:600;color:#111827">Need help?</div>
-                    <div style="margin-top:6px;">Reply to this email or contact us at <a href="mailto:info@alljobsusa.com" style="color:#003366;">info@alljobsusa.com</a>.</div>
+                    <div style="margin-top:6px;">Reply to this email or contact us at <a href="mailto:admin@workspidusa.com" style="color:#003366;">admin@workspidusa.com</a>.</div>
                   </td>
                   <td style="vertical-align:top;text-align:right;">
-                    <div class="small">© ${new Date().getFullYear()} ALLJOBSUSA</div>
+                    <div class="small">© ${new Date().getFullYear()} W</div>
                   </td>
                 </tr>
               </table>

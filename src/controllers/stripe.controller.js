@@ -931,7 +931,7 @@ const createFreelancerPayout = async (req, res) => {
       ctaUrl: "freelancer/earnings",
       title: "Payment Transfer",
       message: `You payment of $${amount} will reach you account in 1-2 working days`,
-      from: "ALLJOBSUSA",
+      from: "WORKSPID",
       fcm_token: user.fcm_token
     });
 

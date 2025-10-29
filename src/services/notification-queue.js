@@ -7,7 +7,7 @@ const redisConnection = new IORedis({
 });
 
 // 2. Email Queue
-const NotificationQueue = new Queue("alljobsusa-notification-queue", { connection: redisConnection });
+const NotificationQueue = new Queue("workspid-notification-queue", { connection: redisConnection });
 
 export async function Send_FCM_Notifcation_OnChat(message) {
     await NotificationQueue.add("chat-fcm-notification", message)

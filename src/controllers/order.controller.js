@@ -496,7 +496,7 @@ const markOrderAsComplete = async (req, res) => {
     mongooseSession.endSession();
 
     await notifyUser({
-      from: "ALLJOBSUSA",
+      from: "WORKSPID",
       message: `Order ${order.title} has been Completed by you`,
       title: "Order " + order._id + ", completed",
       userId: order.employerId?._id?.toString(),
