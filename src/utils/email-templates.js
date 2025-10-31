@@ -77,7 +77,7 @@ const getNotificationTemplate = ({ title, message, ctaUrl }) => {
 
         <!-- Brand text -->
         <td style="vertical-align:middle; font-family:Arial,Helvetica,sans-serif; font-weight:bold; font-size:20px; letter-spacing:0.05em; color:#1a4b78;">
-          ALL<span style="color:#d30808;">JOBS</span>USA
+          WORKSPID
         </td>
       </tr>
     </table>
@@ -213,7 +213,7 @@ const getVerificationTemplate = ({ title, message, verificationCode }) => {
 
         <!-- Brand text -->
         <td style="vertical-align:middle; font-family:Arial,Helvetica,sans-serif; font-weight:bold; font-size:20px; letter-spacing:0.05em; color:#1a4b78;">
-          ALL<span style="color:#d30808;">JOBS</span>USA
+          WORKSPID
         </td>
       </tr>
     </table>
@@ -319,7 +319,7 @@ const getTermsUpdateTemplate = ({ title, message, buttonText, buttonUrl }) => {
 
         <!-- Brand text -->
         <td style="vertical-align:middle; font-family:Arial,Helvetica,sans-serif; font-weight:bold; font-size:20px; letter-spacing:0.05em; color:#1a4b78;">
-          ALL<span style="color:#d30808;">JOBS</span>USA
+          WORKSPID
         </td>
       </tr>
     </table>
@@ -425,7 +425,7 @@ const getResetPasswordTemplate = ({ resetUrl }) => {
 
         <!-- Brand text -->
         <td style="vertical-align:middle; font-family:Arial,Helvetica,sans-serif; font-weight:bold; font-size:20px; letter-spacing:0.05em; color:#1a4b78;">
-          ALL<span style="color:#d30808;">JOBS</span>USA
+          WORKSPID
         </td>
       </tr>
     </table>
