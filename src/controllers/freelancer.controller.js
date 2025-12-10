@@ -603,7 +603,7 @@ const getFreelancerList = async (req, res) => {
     }
 
     // Text search on name, title or bio
-    if (text) {
+    if (text && text != "") {
       const terms = text
         .split(" ")
         .filter(Boolean)
@@ -616,7 +616,7 @@ const getFreelancerList = async (req, res) => {
       ]);
     }
 
-    if (skill) {
+    if (skill && skill != "") {
       filter["profile.skills"] = skill;
     }
 
