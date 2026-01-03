@@ -37,12 +37,20 @@ const simpleJobZODSchema = z.object({
   category: z.string().min(2, "Category is required"),
   minSalary: z.coerce
     .number()
-    .min(0, "Minimum salary must be at least 0")
-    .max(1_000_000, "Unrealistic minimum salary"),
+    .max(1_000_000, "Unrealistic minimum salary")
+    .refine(
+      (val) => val === 0 || val >= 5,
+      "Minimum salary must be 0 or at least 5"
+    )
+    .optional(),
   maxSalary: z.coerce
     .number()
-    .min(5, "Maximum salary must be at least 5")
-    .max(5_000_000, "Unrealistic maximum salary"),
+    .max(5_000_000, "Unrealistic maximum salary")
+    .refine(
+      (val) => val === 0 || val >= 5,
+      "Maximum salary must be 0 or at least 5"
+    )
+    .optional(),
   salaryInterval: z.enum(["hourly", "weekly", "monthly", "yearly"]),
   locationCity: z.string().min(2, "City is required"),
   locationState: z.string().min(2, "State is required"),
@@ -88,16 +96,19 @@ const createJob = async (req, res) => {
     if (data.job === "simple") {
       const temp = simpleJobZODSchema.parse(req.body);
       data = { ...data, ...temp };
-      if (temp.minSalary < 5 || temp.maxSalary < temp.minSalary) {
-        return res
-          .status(4000)
-          .json({ message: "Invalid Minimum or maximum salary" });
+      if (temp.minSalary !== 0 && temp.maxSalary !== 0) {
+        if (temp.minSalary < 5 || temp.maxSalary < temp.minSalary) {
+          return res
+            .status(4000)
+            .json({ message: "Invalid Minimum or maximum salary" });
+        }
+        else if (temp.minSalary < 5) {
+          return res
+            .status(400)
+            .json({ message: "Minimum Salary should be greater than $5" });
+        }
       }
-      else if (temp.minSalary < 5) {
-        return res
-          .status(400)
-          .json({ message: "Minimum Salary should be greater than $5" });
-      }
+
     } else if (data.job === "freelance") {
       const temp = freelanceZODSchema.parse(req.body);
       if (temp.budget.budgetType === "Fixed") {
@@ -411,16 +422,16 @@ const getAllJobs = async (req, res) => {
         if (parsedMin && parsedMax) {
           andConditions.push({
             $and: [
-              { "simpleJobDetails.minSalary": { $gte: parsedMin } },
-              { "simpleJobDetails.maxSalary": { $lte: parsedMax } },
+              { "simpleJobDetails.minSalary": { $exists: true, $gte: parsedMin } },
+              { "simpleJobDetails.maxSalary": { $exists: true, $lte: parsedMax } },
             ],
           });
         }
         else if (parsedMin) {
-          andConditions.push({ "simpleJobDetails.minSalary": { $gte: parsedMin } })
+          andConditions.push({ "simpleJobDetails.minSalary": { $exists: true, $gte: parsedMin } })
         }
-        else if (parsedMax) {
-          andConditions.push({ "simpleJobDetails.maxSalary": { $lte: parsedMax } },)
+        else if (parsedMax && parsedMax !== Number.MAX_SAFE_INTEGER) {
+          andConditions.push({ "simpleJobDetails.maxSalary": { $exists: true, $lte: parsedMax } },)
         }
       }
       else if (job === "freelance") {
@@ -554,12 +565,19 @@ const getAllJobs = async (req, res) => {
 
     // ----------------- Text Search -----------------
     if (text) {
-      const textTerms = text.split(" ").map((t) => t.trim()).filter(Boolean);
-      const textFilters = textTerms.flatMap((term) => [
-        { title: { $regex: term, $options: "i" } },
-        { description: { $regex: term, $options: "i" } },
-      ]);
-      andConditions.push(...textFilters);
+      // const textTerms = text.split(" ").map((t) => t.trim()).filter(Boolean);
+      // const textFilters = textTerms.flatMap((term) => [
+      //   { title: { $regex: term, $options: "i" } },
+      //   { description: { $regex: term, $options: "i" } },
+      // ]);
+      // andConditions.push(...textFilters);
+      const textFilters = {
+        $or: [
+          { title: { $regex: text, $options: "i" } },
+          { description: { $regex: text, $options: "i" } },
+        ],
+      };
+      andConditions.push(textFilters)
     }
 
     // ----------------- Merge OR conditions into AND -----------------
@@ -570,6 +588,9 @@ const getAllJobs = async (req, res) => {
     if (andConditions.length > 0) {
       filters.$and = andConditions;
     }
+
+    // console.log("Query: ", req.query)
+    // console.log("filters: ", JSON.stringify(filters))
 
     const jobs = await Job.find(filters)
       .sort({ createdAt: -1 })
