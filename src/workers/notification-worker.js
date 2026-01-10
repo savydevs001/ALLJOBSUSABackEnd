@@ -1,13 +1,18 @@
 import dotenv from "dotenv";
 dotenv.config();
 import { Worker } from "bullmq";
+import nodemailer from "nodemailer";
 import IORedis from "ioredis";
 import EMPLOYER from "../database/models/employers.model.js";
 import JOBSEEKER from "../database/models/job-seeker.model.js";
 import FREELANCER from "../database/models/freelancer.model.js";
 import { sendMobileNotification } from "../config/firebase.js";
 import connectToDatabase from "../database/index.js";
+import { getMessageEmailTemplate } from "../utils/email-templates.js";
 
+const APP_NAME = "WORKSPID"
+
+const { EMAIL_CLIENT, EMAIL_PASS } = process.env;
 
 // mongodb connection
 connectToDatabase();
@@ -15,57 +20,112 @@ connectToDatabase();
 // redis connection
 const redisConnection = new IORedis({ maxRetriesPerRequest: null });
 
-async function findReceiverFCMToken(receiverId) {
+const transporter = nodemailer.createTransport({
+    host: "smtp.hostinger.com", // Hostinger SMTP
+    port: 465, // SSL
+    secure: true, // true = 465, false = 587
+    auth: {
+        user: EMAIL_CLIENT,
+        pass: EMAIL_PASS,
+    },
+    // logger: true
+});
+
+async function findReceiverById(receiverId) {
     try {
         let user =
-            (await EMPLOYER.findById(receiverId).select({ fcm_token: 1 })) ||
-            (await JOBSEEKER.findById(receiverId).select({ fcm_token: 1 })) ||
-            (await FREELANCER.findById(receiverId).select({ fcm_token: 1 }));
+            (await EMPLOYER.findById(receiverId).select({ fcm_token: 1, email: 1 })) ||
+            (await JOBSEEKER.findById(receiverId).select({ fcm_token: 1, email: 1 })) ||
+            (await FREELANCER.findById(receiverId).select({ fcm_token: 1, email: 1 }));
 
-        if (user && user.fcm_token) {
-            return user.fcm_token
-        }
-
-        return null;
+        return user;
     } catch (err) {
         return null;
     }
 }
 
+const worker = new Worker(
+    "workspid-notification-queue",
+    async (job) => {
+        console.log(`Processing Notification job: ${job.id} - ${job.name}`);
 
-const worker = new Worker("workspid-notification-queue", async (job) => {
-    console.log(`Processing Notification job: ${job.id} - ${job.name}`);
+        try {
+            switch (job.name) {
+                case "chat-fcm-notification": {
+                    const data = job.data;
 
-    try {
-        switch (job.name) {
-            case "chat-fcm-notification":
-                const message = job.data
-                const fcmToken = await findReceiverFCMToken(message.receiverId)
-                if (fcmToken) {
-                    const bodyMessage = message.offerId ? "New Offer received" : message.meetingId ? "New Meeting Proposed" : message.message
-                    await sendMobileNotification(fcmToken, "Message", bodyMessage, { message: JSON.stringify(message) })
+                    const receiver = await findReceiverById(data.receiverId);
+                    if (!receiver) return;
+
+                    const bodyMessage = data.offerId
+                        ? "New Offer Received"
+                        : data.meetingId
+                            ? "New Meeting Proposed"
+                            : data.message;
+
+                    /* ------------------ FCM ------------------ */
+                    if (receiver.fcm_token) {
+                        await sendMobileNotification(
+                            receiver.fcm_token,
+                            "New Message",
+                            bodyMessage,
+                            { message: JSON.stringify(data) }
+                        );
+                    }
+
+                    /* ------------------ EMAIL ------------------ */
+                    if (receiver.email) {
+                        console.log("Mail: ", receiver.email)
+                        const messageHtml = getMessageEmailTemplate({
+                            // senderName: "New *",
+                            message: data.message,
+                            meetingId: data.meetingId,
+                            offerId: data.offerId,
+                            conversationId: data.senderId,
+                        })
+                        const mailOptions = {
+                            from: `"${APP_NAME}" <${EMAIL_CLIENT}>`,
+                            to: receiver.email,
+                            subject: bodyMessage,
+                            html: messageHtml,
+                        };
+
+                        await transporter.sendMail(mailOptions);
+                    }
+
+                    break;
                 }
-                break
 
-            case "support-chat-fcm-notification":
-                const supportMessage = job.data
-                const fcmTokenForSupport = await findReceiverFCMToken(supportMessage.receiverId)
-                if (fcmTokenForSupport) {
-                    await sendMobileNotification(fcmTokenForSupport, "Suuport Message", supportMessage.message, { supportMessage: JSON.stringify(supportMessage) })
+                case "support-chat-fcm-notification": {
+                    const data = job.data;
+                    const receiver = await findReceiverById(data.receiverId);
+                    if (!receiver) return;
+
+                    if (receiver.fcm_token) {
+                        await sendMobileNotification(
+                            receiver.fcm_token,
+                            "Support Message",
+                            data.message,
+                            { supportMessage: JSON.stringify(data) }
+                        );
+                    }
+
+                    break;
                 }
-                break
 
-            default:
-                break
+                default:
+                    console.log("Unknown job type:", job.name);
+            }
+        } catch (err) {
+            console.error("Error executing notification job:", err);
         }
+    },
+    {
+        connection: redisConnection,
+        concurrency: 10,
     }
-    catch (err) {
-        console.log("Error executing notification job: ", err)
-    }
-}, {
-    connection: redisConnection,
-    concurrency: 10
-})
+);
+
 
 
 console.log("Notification Worker is listening for jobs...");

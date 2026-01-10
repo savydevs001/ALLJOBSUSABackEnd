@@ -49,14 +49,14 @@ const initSocket = (httpServer) => {
         socket.user?.role == "employer"
           ? "employer"
           : socket.user?.role == "freelancer"
-          ? "freelancer"
-          : socket.user?.role == "job-seeker"
-          ? "job-seeker"
-          : socket.user?.role == "admin"
-          ? "admin"
-          : socket?.user.role == "manager"
-          ? "manager"
-          : "";
+            ? "freelancer"
+            : socket.user?.role == "job-seeker"
+              ? "job-seeker"
+              : socket.user?.role == "admin"
+                ? "admin"
+                : socket?.user.role == "manager"
+                  ? "manager"
+                  : "";
 
       if (
         !role ||
@@ -176,7 +176,7 @@ const initSocket = (httpServer) => {
               }
             }
 
-            if(mode == "from_support_to_user"){
+            if (mode == "from_support_to_user") {
               Send_FCM_Notifcation_OnSupportChat(supportMessage)
             }
           } catch (err) {
@@ -315,8 +315,9 @@ const handleMessage = async ({
     if (receiver && receiver.socketId) {
       io.to(receiver.socketId).emit("message", message);
     }
-
-    await Send_FCM_Notifcation_OnChat(message)
+    else {
+      await Send_FCM_Notifcation_OnChat(message)
+    }
 
   } catch (err) {
     console.log("Error Sending Message: ", err);

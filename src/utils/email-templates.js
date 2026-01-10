@@ -470,9 +470,168 @@ const getResetPasswordTemplate = ({ resetUrl }) => {
 </html>`;
 };
 
+// utils/emailTemplates/getMessageEmailTemplate.js
+
+const getMessageEmailTemplate = ({
+  message,
+  meetingId,
+  offerId,
+  conversationId,
+}) => {
+  let ctaUrl = "";
+  let ctaText = "View Message";
+  let title = "New Message Received";
+
+  if (meetingId) {
+    title = "New Meeting Update";
+    ctaText = "View Meeting";
+    ctaUrl = `meeting/${meetingId}`;
+  } else if (offerId) {
+    title = "New Offer Update";
+    ctaText = "View Offer";
+    ctaUrl = `offers/${offerId}`;
+  } else {
+    ctaUrl = `chat/${conversationId}`;
+  }
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>${title}</title>
+
+  <style>
+    body,table,td,a { -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
+    table,td { mso-table-lspace:0pt; mso-table-rspace:0pt; }
+    img { display:block; border:0; height:auto; }
+    a { text-decoration:none; }
+
+    .email-wrapper { width:100%; background:#f4f6fb; padding:24px 0; }
+    .email-content { max-width:680px; margin:0 auto; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 6px 18px rgba(20,30,60,0.08); }
+
+    .header { padding:20px 28px; }
+    .body { padding:28px; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+    h1 { font-size:20px; color:#002f6c; margin-bottom:12px; }
+    p { font-size:15px; color:#334155; margin-bottom:14px; }
+
+    .message-box {
+      background:#f8fafc;
+      border-left:4px solid #003366;
+      padding:14px 16px;
+      border-radius:8px;
+      font-size:15px;
+      color:#111827;
+      margin:16px 0;
+    }
+
+    .cta {
+      display:inline-block;
+      padding:12px 18px;
+      background:#003366;
+      color:#FFFFFF;
+      border-radius:8px;
+      font-weight:600;
+    }
+
+    .footer {
+      padding:20px 28px;
+      font-size:13px;
+      color:#6b7280;
+      background:#fbfcff;
+    }
+
+    @media (max-width:480px) {
+      .body { padding:20px; }
+      .cta { display:block; width:100%; text-align:center; }
+    }
+  </style>
+</head>
+
+<body>
+  <span style="display:none;">New*</span>
+
+  <table class="email-wrapper" width="100%">
+    <tr>
+      <td align="center">
+        <table class="email-content" width="100%">
+
+          <!-- Header -->
+          <tr>
+            <td class="header">
+              <table>
+                <tr>
+                  <td>
+                    <img src="${FRONTEND_URL}logo.png" width="40" height="40" style="border-radius:50%;" />
+                  </td>
+                  <td style="padding-left:10px;font-weight:bold;font-size:20px;color:#1a4b78;">
+                    WORKSPID
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td class="body">
+              <h1>${title}</h1>
+
+              <div class="message-box">
+                ${message || "You have received a new update."}
+              </div>
+
+              <a
+                href="${FRONTEND_URL + ctaUrl}"
+                class="cta"
+                target="_blank"
+                rel="noopener noreferrer"
+                style="color:#ffffff;"
+              >
+                ${ctaText}
+              </a>
+
+              <p style="margin-top:14px;font-size:13px;color:#6b7280;">
+                If the button doesn’t work, copy and paste this link:
+                <br />
+                <a href="${FRONTEND_URL + ctaUrl}" style="color:#003366;">
+                  ${FRONTEND_URL + ctaUrl}
+                </a>
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td class="footer">
+              <table width="100%">
+                <tr>
+                  <td>
+                    Need help? Email us at
+                    <a href="mailto:admin@workspidusa.com" style="color:#003366;">
+                      admin@workspidusa.com
+                    </a>
+                  </td>
+                  <td align="right">
+                    © ${new Date().getFullYear()} WORKSPID
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+};
+
 export {
   getNotificationTemplate,
   getVerificationTemplate,
   getTermsUpdateTemplate,
-  getResetPasswordTemplate
+  getResetPasswordTemplate,
+  getMessageEmailTemplate
 };
