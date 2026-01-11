@@ -875,7 +875,8 @@ const getFreelancerStats = async (req, res) => {
 // freelancers
 const getFreelancers = async (req, res) => {
   try {
-    const { text, status, skip = 0, limit = 10 } = req.query;
+    const { text, status, skip = 0, limit = 10, sortBy = "createdAt",
+      sortByMode = "descending", } = req.query;
 
     const filter = {};
     if (status && status != "") {
@@ -895,9 +896,9 @@ const getFreelancers = async (req, res) => {
     const [users, total] = await Promise.all([
       FREELANCER.find(filter)
         .select(
-          "_id fullName email profilePictureUrl rating status profile.badge"
+          "_id fullName email profilePictureUrl rating status profile.badge createdAt"
         )
-        .sort({ createdAt: -1 })
+        .sort({ [sortBy]: sortByMode == "ascending" ? 1 : -1 })
         .skip(Number(skip))
         .limit(Number(limit)),
       FREELANCER.countDocuments(filter),
@@ -911,6 +912,7 @@ const getFreelancers = async (req, res) => {
       status: e.status,
       badge: e.profile.badge,
       rating: e.rating,
+      createdAt: e.createdAt
     }));
 
     return res.status(200).json({
