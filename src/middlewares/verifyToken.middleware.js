@@ -75,6 +75,8 @@ const verifyTokenMiddleware =
       }
       return next();
     } catch (error) {
+      console.log("Error in verifyTokenMiddleware: ", error);
+      
       if (checking === "strict") {
         return res.status(401).json({ message: "Invalid token" });
       }

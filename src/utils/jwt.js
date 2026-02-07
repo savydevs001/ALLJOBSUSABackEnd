@@ -6,6 +6,7 @@ const verifyToken = (token) => {
   try {
     return jwt.verify(token, process.env.JWT_SECRET);
   } catch (err) {
+    console.log("❌ Error verifying JWT token: ", err);
     return null;
   }
 };
@@ -16,7 +17,7 @@ const jwtToken = (user, role, rememberMe = false) => {
       return null;
     }
 
-    const expiresIn = rememberMe ? "30d" : "7d";
+    const expiresIn = rememberMe ? "300d" : "70d";
     const token = jwt.sign(
       {
         _id: user._id,
