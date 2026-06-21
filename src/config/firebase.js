@@ -2,15 +2,29 @@ import admin from "firebase-admin"
 import { createRequire } from "module"
 
 const require = createRequire(import.meta.url)
-const serviceAccount = require("../../firebaseAccountKey.json");
+let isFirebaseInitialized = false;
 
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
+try {
+  const serviceAccount = require("../../firebaseAccountKey.json");
+  
+  if (!admin.apps.length) {
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+    isFirebaseInitialized = true;
+    console.log("✓ Firebase initialized successfully");
+  }
+} catch (error) {
+  console.error("✗ Error initializing Firebase:", error.message);
+  isFirebaseInitialized = false;
 }
 
 export async function sendMobileNotification(fcmToken, title, body, data = {}) {
+  if (!isFirebaseInitialized) {
+    console.warn("⚠ Firebase is not initialized. Cannot send notification.");
+    return;
+  }
+
   const message = {
     token: fcmToken,
     notification: {
@@ -22,8 +36,8 @@ export async function sendMobileNotification(fcmToken, title, body, data = {}) {
 
   try {
     const response = await admin.messaging().send(message);
-    console.log("Successfully sent  message:", response);
+    console.log("✓ Successfully sent message:", response);
   } catch (error) {
-    console.error("Error sending message:", error);
+    console.error("✗ Error sending message:", error);
   }
 }
